@@ -68,14 +68,14 @@
         <!-- Stretch header content so row grids can right-align action buttons. -->
         <Style x:Key="TreeExpandToggle" TargetType="ToggleButton">
             <Setter Property="Focusable" Value="False" />
-            <Setter Property="Width" Value="16" />
-            <Setter Property="Height" Value="16" />
+            <Setter Property="Width" Value="12" />
+            <Setter Property="Height" Value="12" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ToggleButton">
-                        <Border Background="Transparent" Width="16" Height="16">
+                        <Border Background="Transparent" Width="12" Height="12">
                             <Path x:Name="ExpandPath"
-                                  Data="M 0,0 L 0,6 L 6,0 Z"
+                                  Data="M 0,0 L 0,5 L 5,0 Z"
                                   Fill="#FF6B7280"
                                   HorizontalAlignment="Center"
                                   VerticalAlignment="Center"
@@ -297,6 +297,14 @@
                             ToolTip="Cancel in-flight request">
                         <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE711;" />
                     </Button>
+
+                    <Separator />
+
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding ToggleQuickExportCommand}"
+                            ToolTip="Show/Hide Quick Export">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8F2;" />
+                    </Button>
                 </ToolBar>
             </ToolBarTray>
         </Border>
@@ -319,9 +327,9 @@
 
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" MinWidth="180" />
+                <ColumnDefinition Width="1*" MinWidth="220" MaxWidth="520" />
                 <ColumnDefinition Width="6" />
-                <ColumnDefinition Width="*" MinWidth="320" />
+                <ColumnDefinition Width="2*" MinWidth="360" />
             </Grid.ColumnDefinitions>
 
             <DockPanel Grid.Column="0" Background="{StaticResource App.SurfaceBrush}">
@@ -383,7 +391,7 @@
                             <Style TargetType="TreeViewItem">
                                 <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                 <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
-                                <Setter Property="Padding" Value="4,1,4,1" />
+                                <Setter Property="Padding" Value="2,1,2,1" />
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                 <Setter Property="VerticalContentAlignment" Value="Center" />
                                 <Setter Property="Background" Value="Transparent" />
@@ -395,7 +403,7 @@
                                         <ControlTemplate TargetType="TreeViewItem">
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" MinWidth="16" />
+                                                    <ColumnDefinition Width="Auto" MinWidth="10" />
                                                     <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
                                                 <Grid.RowDefinitions>
@@ -407,7 +415,7 @@
                                                               Style="{StaticResource TreeExpandToggle}"
                                                               IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
                                                               ClickMode="Press"
-                                                              Margin="0,0,2,0" />
+                                                              Margin="0,0,1,0" />
 
                                                 <Border x:Name="Bd"
                                                         Grid.Column="1"
@@ -425,7 +433,7 @@
                                                 <ItemsPresenter x:Name="ItemsHost"
                                                                 Grid.Row="1"
                                                                 Grid.Column="1"
-                                                                Margin="16,0,0,0" />
+                                                                Margin="8,0,0,0" />
                                             </Grid>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="HasItems" Value="False">
@@ -625,69 +633,94 @@
                           ResizeBehavior="PreviousAndNext" />
 
             <Grid Grid.Column="2" Background="{StaticResource App.PanelBrush}">
-                <Border>
-                    <Border.Style>
-                        <Style TargetType="Border">
-                            <Setter Property="Visibility" Value="Visible" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsNodeSelected}" Value="True">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Border.Style>
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
-                        <TextBlock Text="Select an item"
-                                   FontSize="16"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource App.MutedBrush}"
-                                   HorizontalAlignment="Center" />
-                        <TextBlock Margin="0,8,0,0"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap"
-                                   Foreground="#FF9CA3AF"
-                                   HorizontalAlignment="Center"
-                                   Text="Choose a collection, folder, or request in the tree. Double-click to edit its name." />
-                    </StackPanel>
-                </Border>
+                <DockPanel>
+                    <Border x:Name="QuickExportHost"
+                            DockPanel.Dock="Right"
+                            Width="320"
+                            MinWidth="220"
+                            Background="{StaticResource App.SurfaceBrush}"
+                            BorderBrush="{StaticResource App.BorderBrush}"
+                            BorderThickness="1,0,0,0"
+                            Visibility="{Binding IsQuickExportVisible, Converter={StaticResource BoolToVis}}">
+                        <views:QuickExportView />
+                    </Border>
 
-                <Border Margin="12"
-                        Visibility="{Binding IsCollectionSelected, Converter={StaticResource BoolToVis}}">
-                    <views:CollectionEditorView x:Name="CollectionEditor"
-                                                DataContext="{Binding SelectedCollection}" />
-                </Border>
-
-                <Border Margin="12"
-                        Visibility="{Binding IsFolderSelected, Converter={StaticResource BoolToVis}}">
-                    <views:FolderEditorView x:Name="FolderEditor"
-                                            DataContext="{Binding SelectedFolder}" />
-                </Border>
-
-                <Grid Visibility="{Binding IsRequestSelected, Converter={StaticResource BoolToVis}}">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="3*" MinHeight="220" />
-                        <RowDefinition Height="6" />
-                        <RowDefinition Height="2*" MinHeight="160" />
-                    </Grid.RowDefinitions>
-
-                    <views:RequestEditorView x:Name="RequestEditor"
-                                             Grid.Row="0"
-                                             Margin="12,12,12,4"
-                                             DataContext="{Binding SelectedRequest}" />
-
-                    <GridSplitter Grid.Row="1"
-                                  Height="6"
+                    <GridSplitter x:Name="QuickExportSplitter"
+                                  DockPanel.Dock="Right"
+                                  Width="6"
                                   HorizontalAlignment="Stretch"
                                   VerticalAlignment="Stretch"
                                   Background="{StaticResource App.BorderBrush}"
                                   ShowsPreview="True"
-                                  ResizeDirection="Rows"
-                                  ResizeBehavior="PreviousAndNext" />
+                                  ResizeBehavior="PreviousAndNext"
+                                  Visibility="{Binding IsQuickExportVisible, Converter={StaticResource BoolToVis}}" />
 
-                    <views:ResponsePanelView Grid.Row="2"
-                                             Margin="12,4,12,12"
-                                             DataContext="{Binding Response}" />
-                </Grid>
+                    <Grid>
+                        <Border>
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsNodeSelected}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
+                                <TextBlock Text="Select an item"
+                                           FontSize="16"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource App.MutedBrush}"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock Margin="0,8,0,0"
+                                           TextAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           Foreground="#FF9CA3AF"
+                                           HorizontalAlignment="Center"
+                                           Text="Choose a collection, folder, or request in the tree. Double-click to edit its name." />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Margin="12"
+                                Visibility="{Binding IsCollectionSelected, Converter={StaticResource BoolToVis}}">
+                            <views:CollectionEditorView x:Name="CollectionEditor"
+                                                        DataContext="{Binding SelectedCollection}" />
+                        </Border>
+
+                        <Border Margin="12"
+                                Visibility="{Binding IsFolderSelected, Converter={StaticResource BoolToVis}}">
+                            <views:FolderEditorView x:Name="FolderEditor"
+                                                    DataContext="{Binding SelectedFolder}" />
+                        </Border>
+
+                        <Grid Visibility="{Binding IsRequestSelected, Converter={StaticResource BoolToVis}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="3*" MinHeight="220" />
+                                <RowDefinition Height="6" />
+                                <RowDefinition Height="2*" MinHeight="160" />
+                            </Grid.RowDefinitions>
+
+                            <views:RequestEditorView x:Name="RequestEditor"
+                                                     Grid.Row="0"
+                                                     Margin="12,12,12,4"
+                                                     DataContext="{Binding SelectedRequest}" />
+
+                            <GridSplitter Grid.Row="1"
+                                          Height="6"
+                                          HorizontalAlignment="Stretch"
+                                          VerticalAlignment="Stretch"
+                                          Background="{StaticResource App.BorderBrush}"
+                                          ShowsPreview="True"
+                                          ResizeDirection="Rows"
+                                          ResizeBehavior="PreviousAndNext" />
+
+                            <views:ResponsePanelView Grid.Row="2"
+                                                     Margin="12,4,12,12"
+                                                     DataContext="{Binding Response}" />
+                        </Grid>
+                    </Grid>
+                </DockPanel>
             </Grid>
         </Grid>
     </DockPanel>

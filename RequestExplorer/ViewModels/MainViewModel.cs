@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using RequestExplorer.Models;
 using RequestExplorer.Services;
+using RequestExplorer.Services.Export;
 using RequestExplorer.Services.Postman;
 using RequestExplorer.Services.Undo;
 
@@ -110,6 +111,17 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [ObservableProperty]
     private bool _isRootDropIndicatorVisible;
 
+    [ObservableProperty]
+    private bool _isQuickExportVisible;
+
+    [ObservableProperty]
+    private RequestExportFormatOption _selectedExportFormat = RequestExportService.Formats[0];
+
+    [ObservableProperty]
+    private string _quickExportText = "Select a request to preview an export.";
+
+    public IReadOnlyList<RequestExportFormatOption> ExportFormats => RequestExportService.Formats;
+
     public RequestNodeViewModel? SelectedRequest => SelectedNode as RequestNodeViewModel;
 
     public CollectionNodeViewModel? SelectedCollection => SelectedNode as CollectionNodeViewModel;
@@ -159,6 +171,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     partial void OnSelectedNodeChanged(TreeNodeViewModel? oldValue, TreeNodeViewModel? newValue)
     {
+        if (oldValue is RequestNodeViewModel oldRequest)
+        {
+            DetachRequestExportWatchers(oldRequest);
+        }
+
         if (oldValue is not null)
         {
             oldValue.IsSelected = false;
@@ -171,8 +188,14 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             newValue.PropertyChanged += OnSelectedNodePropertyChanged;
         }
 
+        if (newValue is RequestNodeViewModel newRequest)
+        {
+            AttachRequestExportWatchers(newRequest);
+        }
+
         CopyNodeCommand.NotifyCanExecuteChanged();
         PasteIntoNodeCommand.NotifyCanExecuteChanged();
+        RefreshQuickExport();
     }
 
     private void OnSelectedNodePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -186,6 +209,114 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         {
             OnPropertyChanged(nameof(HasAnyDirty));
         }
+
+        if (sender is RequestNodeViewModel)
+        {
+            RefreshQuickExport();
+        }
+    }
+
+    partial void OnSelectedExportFormatChanged(RequestExportFormatOption value) => RefreshQuickExport();
+
+    partial void OnIsQuickExportVisibleChanged(bool value)
+    {
+        if (value)
+        {
+            RefreshQuickExport();
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleQuickExport()
+    {
+        IsQuickExportVisible = !IsQuickExportVisible;
+        StatusMessage = IsQuickExportVisible ? "Quick Export shown" : "Quick Export hidden";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCopyQuickExport))]
+    private void CopyQuickExport()
+    {
+        if (string.IsNullOrWhiteSpace(QuickExportText))
+        {
+            return;
+        }
+
+        Clipboard.SetText(QuickExportText);
+        StatusMessage = "Export copied to clipboard";
+    }
+
+    private bool CanCopyQuickExport() =>
+        IsQuickExportVisible && !string.IsNullOrWhiteSpace(QuickExportText);
+
+    private void AttachRequestExportWatchers(RequestNodeViewModel request)
+    {
+        request.Params.CollectionChanged += OnRequestExportCollectionsChanged;
+        request.Headers.CollectionChanged += OnRequestExportCollectionsChanged;
+        foreach (var item in request.Params.Concat(request.Headers))
+        {
+            item.PropertyChanged += OnRequestExportItemChanged;
+        }
+    }
+
+    private void DetachRequestExportWatchers(RequestNodeViewModel request)
+    {
+        request.Params.CollectionChanged -= OnRequestExportCollectionsChanged;
+        request.Headers.CollectionChanged -= OnRequestExportCollectionsChanged;
+        foreach (var item in request.Params.Concat(request.Headers))
+        {
+            item.PropertyChanged -= OnRequestExportItemChanged;
+        }
+    }
+
+    private void OnRequestExportCollectionsChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (KeyValueItemViewModel item in e.OldItems)
+            {
+                item.PropertyChanged -= OnRequestExportItemChanged;
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (KeyValueItemViewModel item in e.NewItems)
+            {
+                item.PropertyChanged += OnRequestExportItemChanged;
+            }
+        }
+
+        RefreshQuickExport();
+    }
+
+    private void OnRequestExportItemChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) =>
+        RefreshQuickExport();
+
+    private void RefreshQuickExport()
+    {
+        CopyQuickExportCommand.NotifyCanExecuteChanged();
+
+        if (!IsQuickExportVisible)
+        {
+            return;
+        }
+
+        if (SelectedRequest is null)
+        {
+            QuickExportText = "Select a request to preview an export.";
+            return;
+        }
+
+        try
+        {
+            QuickExportText = RequestExportService.Export(SelectedRequest.Model, SelectedExportFormat.Format);
+        }
+        catch (Exception ex)
+        {
+            QuickExportText = $"// Export failed: {ex.Message}";
+        }
+
+        CopyQuickExportCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanUndo))]

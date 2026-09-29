@@ -12,11 +12,13 @@ namespace RequestExplorer;
 
 public partial class MainWindow : Window
 {
+    private readonly TreeDragDropController _treeDragDrop;
+
     public MainWindow()
     {
         InitializeComponent();
         PreviewKeyDown += MainWindow_OnPreviewKeyDown;
-        _ = new TreeDragDropController(CollectionTree, () => DataContext as MainViewModel);
+        _treeDragDrop = new TreeDragDropController(CollectionTree, () => DataContext as MainViewModel);
     }
 
     private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -28,6 +30,23 @@ public partial class MainWindow : Window
                 RequestEditor.NameTitleBox,
                 CollectionEditor.NameTitleBox,
                 FolderEditor.NameTitleBox);
+            return;
+        }
+
+        if (e.Key != Key.Escape)
+        {
+            return;
+        }
+
+        if (EscapeCancel.CloseAnyOpenContextMenu(this))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (_treeDragDrop.CancelPendingOrIndicators())
+        {
+            e.Handled = true;
         }
     }
 

@@ -1485,13 +1485,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             ? $"Delete '{name}' and its {childCount} child item(s)?"
             : $"Delete '{name}'?";
 
-        var result = MessageBox.Show(
-            message,
+        var confirmed = Views.ConfirmDialog.Confirm(
+            Application.Current?.MainWindow,
             "Confirm Delete",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
+            message);
 
-        if (result != MessageBoxResult.Yes)
+        if (!confirmed)
         {
             return;
         }
@@ -1978,19 +1977,15 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return true;
         }
 
-        var result = MessageBox.Show(
-            "You have unsaved changes. Save all before closing?",
-            "Unsaved Changes",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Warning);
+        var choice = Views.ConfirmSaveDialog.Prompt(Application.Current?.MainWindow);
 
-        switch (result)
+        switch (choice)
         {
-            case MessageBoxResult.Cancel:
+            case Views.ConfirmSaveChoice.Cancel:
                 return false;
-            case MessageBoxResult.No:
+            case Views.ConfirmSaveChoice.Discard:
                 return true;
-            case MessageBoxResult.Yes:
+            case Views.ConfirmSaveChoice.Save:
                 try
                 {
                     SaveAllCollections();

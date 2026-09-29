@@ -39,6 +39,41 @@ internal sealed class TreeDragDropController
         _tree.DragLeave += Tree_OnDragLeave;
         _tree.Drop += Tree_OnDrop;
         _tree.GiveFeedback += Tree_OnGiveFeedback;
+        _tree.QueryContinueDrag += Tree_OnQueryContinueDrag;
+    }
+
+    /// <summary>True while a drag is active or a drag gesture has been primed.</summary>
+    public bool IsDragActive => _dragging || _dragSource is not null;
+
+    /// <summary>
+    /// Cancels a pending (pre-DoDragDrop) drag gesture and clears indicators.
+    /// Active DoDragDrop is cancelled via Escape in <see cref="Tree_OnQueryContinueDrag"/>.
+    /// </summary>
+    public bool CancelPendingOrIndicators()
+    {
+        var hadWork = _dragSource is not null || _currentIndicatorNode is not null || _rootIndicator;
+        _dragSource = null;
+        if (!_dragging)
+        {
+            _dragging = false;
+            ClearIndicators();
+            StopHoverToggle();
+        }
+
+        return hadWork;
+    }
+
+    private void Tree_OnQueryContinueDrag(object sender, QueryContinueDragEventArgs e)
+    {
+        if (!e.EscapePressed)
+        {
+            return;
+        }
+
+        e.Action = DragAction.Cancel;
+        ClearIndicators();
+        StopHoverToggle();
+        _dragSource = null;
     }
 
     private void Tree_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

@@ -1,8 +1,11 @@
-# RequestExplorer — Multiphase Plan
+# RequestExplorer — Multiphase Plan (Completed)
 
-**Status:** Phase 6 implemented — all phases complete; awaiting your verification & commit  
+**Status:** Phases 0–6 complete. Historical record of the original feature plan.  
+
 **Created:** 2026-09-29  
 **Repo policy:** Do **not** auto-commit. User commits only after explicitly approving each phase as complete.
+
+**Related (planned, not started):** [`PLANNED_ARCHITECTURAL_REFACTOR.md`](PLANNED_ARCHITECTURAL_REFACTOR.md) (Phases A–H; regression checklist after each phase).
 
 ---
 
@@ -250,7 +253,7 @@ Each phase below has: **objectives**, **deliverables**, **out of scope**, **acce
 **Objectives**
 - Create the WPF solution/project structure in this workspace.
 - Wire a single `MainWindow` with a placeholder split layout (left/right).
-- Keep this plan as the living roadmap (`PLAN.md`); update status as phases complete.
+- Keep this plan as the living roadmap; update status as phases complete.
 
 **Deliverables**
 - `.sln` + WPF project (C#)

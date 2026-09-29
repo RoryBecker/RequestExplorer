@@ -2,7 +2,7 @@
 
 A local Windows HTTP client (C# / WPF) for composing and sending requests, organized in Collections → Folders → Requests.
 
-See [PLAN.md](PLAN.md) for the full multiphase roadmap and locked product decisions.
+See [PLAN_COMPLETED.md](PLAN_COMPLETED.md) for the completed multiphase feature plan and locked product decisions. Planned structural work: [PLANNED_ARCHITECTURAL_REFACTOR.md](PLANNED_ARCHITECTURAL_REFACTOR.md).
 
 ## Requirements
 

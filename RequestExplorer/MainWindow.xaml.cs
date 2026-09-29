@@ -406,22 +406,6 @@ public partial class MainWindow : Window
         menu.IsOpen = true;
     }
 
-    private void TreeDeleteButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        if (sender is not Button button
-            || button.DataContext is not TreeNodeViewModel node
-            || DataContext is not MainViewModel vm)
-        {
-            return;
-        }
-
-        if (vm.DeleteNodeCommand.CanExecute(node))
-        {
-            vm.DeleteNodeCommand.Execute(node);
-        }
-    }
-
     private void TreeMoreButton_OnClick(object sender, RoutedEventArgs e)
     {
         e.Handled = true;
@@ -459,6 +443,16 @@ public partial class MainWindow : Window
         {
             Header = "Paste at Top Level",
             Command = vm.PasteAtRootCommand
+        });
+
+        menu.Items.Add(new Separator());
+
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Delete",
+            Command = vm.DeleteNodeCommand,
+            CommandParameter = node,
+            InputGestureText = "Del"
         });
 
         menu.Items.Add(new Separator());

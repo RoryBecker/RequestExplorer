@@ -984,19 +984,19 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         var node = new RequestNodeViewModel(copy);
         node.AttachUndoRecorder(this);
         var parent = SelectedRequest.Parent;
-        switch (parent)
+        if (parent is not (CollectionNodeViewModel or FolderNodeViewModel))
         {
-            case CollectionNodeViewModel collection:
-                collection.Model.Requests.Add(copy);
-                collection.AddChild(node);
-                break;
-            case FolderNodeViewModel folder:
-                folder.Model.Requests.Add(copy);
-                folder.AddChild(node);
-                break;
-            default:
-                return;
+            return;
         }
+
+        var insertAt = parent.Children.IndexOf(SelectedRequest) + 1;
+        if (insertAt < 1)
+        {
+            insertAt = parent.Children.Count;
+        }
+
+        AttachToModel(parent, node, insertAt);
+        parent.InsertChild(node, insertAt);
 
         SelectedNode = node;
         RecordUndo(CreateRemoveAction(node, $"Duplicate '{source.Name}'"));

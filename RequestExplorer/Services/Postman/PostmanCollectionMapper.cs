@@ -287,7 +287,7 @@ public static class PostmanCollectionMapper
         if (enabledParams.Count > 0)
         {
             var query = string.Join("&", enabledParams.Select(p =>
-                $"{Uri.EscapeDataString(p.Key)}={Uri.EscapeDataString(p.Value ?? string.Empty)}"));
+                $"{VariableResolver.EscapeDataStringPreservingTokens(p.Key)}={VariableResolver.EscapeDataStringPreservingTokens(p.Value ?? string.Empty)}"));
             var qIndex = raw.IndexOf('?', StringComparison.Ordinal);
             raw = qIndex >= 0 ? $"{raw[..qIndex]}?{query}" : $"{raw}?{query}";
         }
@@ -367,7 +367,7 @@ public static class PostmanCollectionMapper
         var query = url.Query is { Count: > 0 }
             ? "?" + string.Join("&", url.Query
                 .Where(q => !string.IsNullOrWhiteSpace(q.Key) && q.Disabled != true)
-                .Select(q => $"{Uri.EscapeDataString(q.Key!)}={Uri.EscapeDataString(q.Value ?? string.Empty)}"))
+                .Select(q => $"{VariableResolver.EscapeDataStringPreservingTokens(q.Key!)}={VariableResolver.EscapeDataStringPreservingTokens(q.Value ?? string.Empty)}"))
             : string.Empty;
         return string.IsNullOrEmpty(host) ? string.Empty : $"{protocol}://{host}{path}{query}";
     }

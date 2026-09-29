@@ -4,6 +4,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
+using RequestExplorer.Services;
 using RequestExplorer.Services.Undo;
 
 namespace RequestExplorer.ViewModels;
@@ -613,9 +614,9 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
                 sb.Append('&');
             }
 
-            sb.Append(Uri.EscapeDataString(item.Key));
+            sb.Append(VariableResolver.EscapeDataStringPreservingTokens(item.Key));
             sb.Append('=');
-            sb.Append(Uri.EscapeDataString(item.Value ?? string.Empty));
+            sb.Append(VariableResolver.EscapeDataStringPreservingTokens(item.Value ?? string.Empty));
         }
 
         return sb.ToString();

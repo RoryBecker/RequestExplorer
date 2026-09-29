@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using RequestExplorer.Models;
@@ -60,6 +61,92 @@ public static partial class VariableResolver
             var name = match.Groups[1].Value.Trim();
             return variables.TryGetValue(name, out var value) ? value : match.Value;
         });
+    }
+
+    public static IReadOnlyList<string> CollectReferencedNames(RequestDefinition request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        CollectFromText(request.Address, names);
+        CollectFromText(request.Body.Content, names);
+        CollectFromText(request.Body.ContentType, names);
+
+        foreach (var item in request.Params)
+        {
+            CollectFromText(item.Key, names);
+            CollectFromText(item.Value, names);
+        }
+
+        foreach (var item in request.Headers)
+        {
+            CollectFromText(item.Key, names);
+            CollectFromText(item.Value, names);
+        }
+
+        var auth = request.Authentication;
+        CollectFromText(auth.BearerToken, names);
+        CollectFromText(auth.BasicUsername, names);
+        CollectFromText(auth.BasicPassword, names);
+        CollectFromText(auth.ApiKeyName, names);
+        CollectFromText(auth.ApiKeyValue, names);
+
+        return names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static void CollectFromText(string? text, ISet<string> names)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        foreach (Match match in TokenRegex().Matches(text))
+        {
+            var name = match.Groups[1].Value.Trim();
+            if (name.Length > 0)
+            {
+                names.Add(name);
+            }
+        }
+    }
+
+    /// <summary>
+    /// URL-encodes a query key/value while leaving <c>{{token}}</c> segments literal
+    /// so placeholders stay readable in the address bar and exports.
+    /// </summary>
+    public static string EscapeDataStringPreservingTokens(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        var matches = TokenRegex().Matches(value);
+        if (matches.Count == 0)
+        {
+            return Uri.EscapeDataString(value);
+        }
+
+        var sb = new StringBuilder(value.Length * 2);
+        var last = 0;
+        foreach (Match match in matches)
+        {
+            if (match.Index > last)
+            {
+                sb.Append(Uri.EscapeDataString(value[last..match.Index]));
+            }
+
+            sb.Append(match.Value);
+            last = match.Index + match.Length;
+        }
+
+        if (last < value.Length)
+        {
+            sb.Append(Uri.EscapeDataString(value[last..]));
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>Returns a deep copy of <paramref name="source"/> with variables substituted.</summary>

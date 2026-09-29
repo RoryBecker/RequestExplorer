@@ -95,6 +95,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(CopyNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(PasteIntoNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(PasteAtRootCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DiagnoseVariablesCommand))]
     private TreeNodeViewModel? _selectedNode;
 
     private TreeClipboardPayload? _treeClipboard;
@@ -119,6 +120,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     [ObservableProperty]
     private string _quickExportText = "Select a request to preview an export.";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasQuickExportDiagnosis))]
+    private string _quickExportDiagnosis = string.Empty;
+
+    public bool HasQuickExportDiagnosis => !string.IsNullOrWhiteSpace(QuickExportDiagnosis);
 
     public IReadOnlyList<RequestExportFormatOption> ExportFormats => RequestExportService.Formats;
 
@@ -304,17 +311,25 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         if (SelectedRequest is null)
         {
             QuickExportText = "Select a request to preview an export.";
+            QuickExportDiagnosis = string.Empty;
             return;
         }
 
         try
         {
+            var diagnosis = VariableDiagnostics.DiagnoseRequest(SelectedRequest);
+            QuickExportDiagnosis = diagnosis.HasIssues
+                ? VariableDiagnostics.FormatRequestReport(diagnosis)
+                  + "\n\nDefine missing variables on a parent folder or collection (and ensure they are enabled)."
+                : string.Empty;
+
             var resolved = VariableResolver.Resolve(SelectedRequest.Model, SelectedRequest);
             QuickExportText = RequestExportService.Export(resolved, SelectedExportFormat.Format);
         }
         catch (Exception ex)
         {
             QuickExportText = $"// Export failed: {ex.Message}";
+            QuickExportDiagnosis = string.Empty;
         }
 
         CopyQuickExportCommand.NotifyCanExecuteChanged();
@@ -749,6 +764,20 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return;
         }
 
+        var diagnosis = VariableDiagnostics.DiagnoseRequest(SelectedRequest);
+        if (diagnosis.HasIssues)
+        {
+            var message = VariableDiagnostics.FormatRequestReport(diagnosis)
+                          + "\n\nDefine missing variables on a parent folder or collection (and ensure they are enabled), then send again.";
+            Response.Apply(new HttpExecutionResult
+            {
+                Succeeded = false,
+                ErrorMessage = message
+            });
+            StatusMessage = VariableDiagnostics.FormatRequestReport(diagnosis);
+            return;
+        }
+
         _sendCts?.Cancel();
         _sendCts?.Dispose();
         _sendCts = new CancellationTokenSource();
@@ -786,6 +815,30 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     private bool CanSendRequest() => IsRequestSelected && !IsSending;
+
+    [RelayCommand(CanExecute = nameof(CanDiagnoseVariables))]
+    private void DiagnoseVariables()
+    {
+        if (SelectedNode is null)
+        {
+            return;
+        }
+
+        var results = VariableDiagnostics.DiagnoseSubtree(SelectedNode);
+        var report = VariableDiagnostics.FormatSubtreeReport(SelectedNode, results);
+        var failing = results.Count(r => r.HasIssues);
+        StatusMessage = failing == 0
+            ? $"Diagnosis OK — {results.Count} request(s)"
+            : $"Diagnosis: {failing} of {results.Count} request(s) have missing variables";
+
+        var dialog = new Views.DiagnosisReportDialog("Variable Diagnosis", report)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        dialog.ShowDialog();
+    }
+
+    private bool CanDiagnoseVariables() => SelectedNode is not null;
 
     [RelayCommand(CanExecute = nameof(CanCancelSend))]
     private void CancelSend()

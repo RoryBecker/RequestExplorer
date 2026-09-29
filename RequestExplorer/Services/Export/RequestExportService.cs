@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text;
 using System.Text.Json;
 using RequestExplorer.Models;
@@ -280,22 +279,11 @@ public static class RequestExportService
     {
         var address = request.Address.Trim();
         var baseAddress = StripQuery(address);
-        if (!Uri.TryCreate(baseAddress, UriKind.Absolute, out var uri))
-        {
-            // Keep relative/invalid addresses usable in exports.
-            uri = new Uri(address, UriKind.RelativeOrAbsolute);
-            if (!uri.IsAbsoluteUri)
-            {
-                var query = BuildQuery(request);
-                return string.IsNullOrEmpty(query) ? address : $"{StripQuery(address)}?{query}";
-            }
-        }
-
-        var builder = new UriBuilder(uri) { Query = string.Empty };
         var pairs = new List<string>();
         foreach (var param in request.Params.Where(p => p.IsEnabled && !string.IsNullOrWhiteSpace(p.Key)))
         {
-            pairs.Add($"{WebUtility.UrlEncode(param.Key)}={WebUtility.UrlEncode(param.Value ?? string.Empty)}");
+            pairs.Add(
+                $"{VariableResolver.EscapeDataStringPreservingTokens(param.Key)}={VariableResolver.EscapeDataStringPreservingTokens(param.Value)}");
         }
 
         var auth = request.Authentication;
@@ -303,22 +291,21 @@ public static class RequestExportService
             && auth.ApiKeyLocation == ApiKeyLocation.Query
             && !string.IsNullOrWhiteSpace(auth.ApiKeyName))
         {
-            pairs.Add($"{WebUtility.UrlEncode(auth.ApiKeyName)}={WebUtility.UrlEncode(auth.ApiKeyValue ?? string.Empty)}");
+            pairs.Add(
+                $"{VariableResolver.EscapeDataStringPreservingTokens(auth.ApiKeyName)}={VariableResolver.EscapeDataStringPreservingTokens(auth.ApiKeyValue)}");
         }
 
-        if (pairs.Count > 0)
-        {
-            builder.Query = string.Join("&", pairs);
-        }
-
-        return builder.Uri.AbsoluteUri;
+        return pairs.Count == 0
+            ? baseAddress
+            : $"{baseAddress}?{string.Join("&", pairs)}";
     }
 
     private static string BuildQuery(RequestDefinition request)
     {
         var pairs = request.Params
             .Where(p => p.IsEnabled && !string.IsNullOrWhiteSpace(p.Key))
-            .Select(p => $"{WebUtility.UrlEncode(p.Key)}={WebUtility.UrlEncode(p.Value ?? string.Empty)}");
+            .Select(p =>
+                $"{VariableResolver.EscapeDataStringPreservingTokens(p.Key)}={VariableResolver.EscapeDataStringPreservingTokens(p.Value)}");
         return string.Join("&", pairs);
     }
 

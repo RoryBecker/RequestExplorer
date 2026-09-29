@@ -476,6 +476,8 @@
                                 <MenuItem Header="Paste" Command="{Binding PasteIntoNodeCommand}" />
                                 <MenuItem Header="Paste at Top Level" Command="{Binding PasteAtRootCommand}" />
                                 <Separator />
+                                <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" />
+                                <Separator />
                                 <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
                                 <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
                             </ContextMenu>

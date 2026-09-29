@@ -50,7 +50,15 @@ public static class TreeNodeCloneService
         var folder = new FolderDefinition
         {
             Id = Guid.NewGuid(),
-            Name = collection.Name
+            Name = collection.Name,
+            Variables = collection.Variables
+                .Select(v => new KeyValueItem
+                {
+                    IsEnabled = v.IsEnabled,
+                    Key = v.Key,
+                    Value = v.Value
+                })
+                .ToList()
         };
 
         foreach (var childFolder in collection.Folders)
@@ -73,6 +81,7 @@ public static class TreeNodeCloneService
         {
             Id = Guid.NewGuid(),
             Name = clone.Name,
+            Variables = clone.Variables,
             Folders = clone.Folders,
             Requests = clone.Requests
         };

@@ -137,7 +137,7 @@
                 <MenuItem Header="_Duplicate Request" Command="{Binding DuplicateRequestCommand}" InputGestureText="Ctrl+D" />
                 <Separator />
                 <MenuItem Header="_Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
-                <MenuItem Header="_Paste" Command="{Binding PasteIntoNodeCommand}" InputGestureText="Ctrl+V" />
+                <MenuItem Header="_Paste" Command="{Binding SmartPasteCommand}" InputGestureText="Ctrl+V" />
                 <MenuItem Header="Paste at _Top Level" Command="{Binding PasteAtRootCommand}" />
                 <Separator />
                 <MenuItem Header="_Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
@@ -473,7 +473,7 @@
                                 <MenuItem Header="Duplicate Request" Command="{Binding DuplicateRequestCommand}" InputGestureText="Ctrl+D" />
                                 <Separator />
                                 <MenuItem Header="Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
-                                <MenuItem Header="Paste" Command="{Binding PasteIntoNodeCommand}" />
+                                <MenuItem Header="Paste" Command="{Binding SmartPasteCommand}" InputGestureText="Ctrl+V" />
                                 <MenuItem Header="Paste at Top Level" Command="{Binding PasteAtRootCommand}" />
                                 <Separator />
                                 <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" />

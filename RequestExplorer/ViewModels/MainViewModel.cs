@@ -263,6 +263,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         CopyNodeCommand.NotifyCanExecuteChanged();
         PasteIntoNodeCommand.NotifyCanExecuteChanged();
+        PasteAtRootCommand.NotifyCanExecuteChanged();
+        SmartPasteCommand.NotifyCanExecuteChanged();
         RefreshQuickExport();
     }
 
@@ -1031,6 +1033,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         _treeClipboard.WriteToClipboard();
         OnPropertyChanged(nameof(HasTreeClipboard));
+        SmartPasteCommand.NotifyCanExecuteChanged();
         PasteIntoNodeCommand.NotifyCanExecuteChanged();
         PasteAtRootCommand.NotifyCanExecuteChanged();
         StatusMessage = $"Copied '{node.Name}'";
@@ -1095,17 +1098,75 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [RelayCommand(CanExecute = nameof(CanSmartPaste))]
     private void SmartPaste()
     {
-        if (CanPasteIntoNode(SelectedNode))
+        if (!TryGetClipboard(out var payload))
         {
-            PasteIntoNode(SelectedNode);
+            return;
         }
-        else if (CanPasteAtRoot())
+
+        switch (SelectedNode)
         {
-            PasteAtRoot();
+            case CollectionNodeViewModel collection:
+            {
+                var pasted = PastePayloadIntoParent(payload, collection);
+                if (pasted is null)
+                {
+                    return;
+                }
+
+                collection.IsExpanded = true;
+                SelectedNode = pasted;
+                RecordUndo(CreateRemoveAction(pasted, $"Paste '{payload.SourceName}'"));
+                StatusMessage = $"Pasted '{payload.SourceName}' into '{collection.Name}' (Ctrl+S to persist)";
+                break;
+            }
+            case FolderNodeViewModel folder:
+            {
+                var pasted = PastePayloadIntoParent(payload, folder);
+                if (pasted is null)
+                {
+                    return;
+                }
+
+                folder.IsExpanded = true;
+                SelectedNode = pasted;
+                RecordUndo(CreateRemoveAction(pasted, $"Paste '{payload.SourceName}'"));
+                StatusMessage = $"Pasted '{payload.SourceName}' into '{folder.Name}' (Ctrl+S to persist)";
+                break;
+            }
+            case RequestNodeViewModel request when request.Parent is not null:
+            {
+                var pasted = PastePayloadAsSibling(payload, request);
+                if (pasted is null)
+                {
+                    return;
+                }
+
+                SelectedNode = pasted;
+                RecordUndo(CreateRemoveAction(pasted, $"Paste '{payload.SourceName}'"));
+                StatusMessage = $"Pasted '{payload.SourceName}' next to '{request.Name}' (Ctrl+S to persist)";
+                break;
+            }
+            default:
+                if (CanPasteAtRoot())
+                {
+                    PasteAtRoot();
+                }
+
+                break;
         }
     }
 
-    private bool CanSmartPaste() => CanPasteIntoNode(SelectedNode) || CanPasteAtRoot();
+    private bool CanSmartPaste()
+    {
+        if (!HasTreeClipboard && !TreeClipboardPayload.TryReadFromClipboard(out _))
+        {
+            return false;
+        }
+
+        return SelectedNode is CollectionNodeViewModel or FolderNodeViewModel
+               || SelectedNode is RequestNodeViewModel { Parent: not null }
+               || CanPasteAtRoot();
+    }
 
     private bool TryGetClipboard(out TreeClipboardPayload payload)
     {
@@ -1141,6 +1202,42 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         };
     }
 
+    /// <summary>Paste beside <paramref name="sibling"/> under the same parent, preserving clipboard hierarchy.</summary>
+    private TreeNodeViewModel? PastePayloadAsSibling(TreeClipboardPayload payload, TreeNodeViewModel sibling)
+    {
+        var parent = sibling.Parent;
+        if (parent is not (CollectionNodeViewModel or FolderNodeViewModel))
+        {
+            return null;
+        }
+
+        TreeNodeViewModel? node = payload.Kind switch
+        {
+            TreeNodeKind.Request when payload.Request is not null =>
+                CreatePastedRequestNode(TreeNodeCloneService.CloneRequest(payload.Request)),
+            TreeNodeKind.Folder when payload.Folder is not null =>
+                CreatePastedFolderNode(TreeNodeCloneService.CloneFolder(payload.Folder)),
+            TreeNodeKind.Collection when payload.Collection is not null =>
+                CreatePastedFolderNode(TreeNodeCloneService.CollectionAsFolder(payload.Collection)),
+            _ => null
+        };
+
+        if (node is null)
+        {
+            return null;
+        }
+
+        var insertAt = parent.Children.IndexOf(sibling) + 1;
+        if (insertAt < 1)
+        {
+            insertAt = parent.Children.Count;
+        }
+
+        AttachToModel(parent, node, insertAt);
+        parent.InsertChild(node, insertAt);
+        return node;
+    }
+
     private TreeNodeViewModel? PastePayloadAtRoot(TreeClipboardPayload payload)
     {
         CollectionNodeViewModel node;
@@ -1165,10 +1262,23 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         return node;
     }
 
-    private RequestNodeViewModel AttachPastedRequest(TreeNodeViewModel parent, RequestDefinition model)
+    private RequestNodeViewModel CreatePastedRequestNode(RequestDefinition model)
     {
         var node = new RequestNodeViewModel(model);
         WireUndoRecorders(node);
+        return node;
+    }
+
+    private FolderNodeViewModel CreatePastedFolderNode(FolderDefinition model)
+    {
+        var node = CollectionTreeMapper.ToFolderViewModel(model);
+        WireUndoRecorders(node);
+        return node;
+    }
+
+    private RequestNodeViewModel AttachPastedRequest(TreeNodeViewModel parent, RequestDefinition model)
+    {
+        var node = CreatePastedRequestNode(model);
         switch (parent)
         {
             case CollectionNodeViewModel collection:
@@ -1186,8 +1296,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private FolderNodeViewModel AttachPastedFolder(TreeNodeViewModel parent, FolderDefinition model)
     {
-        var node = CollectionTreeMapper.ToFolderViewModel(model);
-        WireUndoRecorders(node);
+        var node = CreatePastedFolderNode(model);
         switch (parent)
         {
             case CollectionNodeViewModel collection:

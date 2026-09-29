@@ -448,15 +448,12 @@ public partial class MainWindow : Window
             InputGestureText = "Ctrl+C"
         });
 
-        if (node is CollectionNodeViewModel or FolderNodeViewModel)
+        menu.Items.Add(new MenuItem
         {
-            menu.Items.Add(new MenuItem
-            {
-                Header = "Paste",
-                Command = vm.PasteIntoNodeCommand,
-                CommandParameter = node
-            });
-        }
+            Header = "Paste",
+            Command = vm.SmartPasteCommand,
+            InputGestureText = "Ctrl+V"
+        });
 
         menu.Items.Add(new MenuItem
         {

@@ -29,6 +29,8 @@
     </Window.Resources>
 
     <Window.InputBindings>
+        <KeyBinding Key="Z" Modifiers="Ctrl" Command="{Binding UndoCommand}" />
+        <KeyBinding Key="Y" Modifiers="Ctrl" Command="{Binding RedoCommand}" />
         <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveCommand}" />
         <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{Binding SaveAllCommand}" />
         <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding AddCollectionCommand}" />
@@ -49,6 +51,9 @@
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
             </MenuItem>
             <MenuItem Header="_Edit">
+                <MenuItem Header="{Binding UndoMenuHeader}" Command="{Binding UndoCommand}" InputGestureText="Ctrl+Z" />
+                <MenuItem Header="{Binding RedoMenuHeader}" Command="{Binding RedoCommand}" InputGestureText="Ctrl+Y" />
+                <Separator />
                 <MenuItem Header="New _Collection" Command="{Binding AddCollectionCommand}" InputGestureText="Ctrl+Shift+N" />
                 <MenuItem Header="New _Folder" Command="{Binding AddFolderCommand}" />
                 <MenuItem Header="New _Request" Command="{Binding AddRequestCommand}" />

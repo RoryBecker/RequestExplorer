@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
+using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Views;
 
@@ -11,6 +12,7 @@ internal static class TitleEditHelper
     public static void Attach(TextBox titleBox)
     {
         titleBox.KeyDown += OnKeyDown;
+        titleBox.LostFocus += OnLostFocus;
     }
 
     public static void FocusAndSelect(TextBox? titleBox)
@@ -37,8 +39,15 @@ internal static class TitleEditHelper
 
     public static void Commit(TextBox titleBox)
     {
-        var binding = BindingOperations.GetBindingExpression(titleBox, TextBox.TextProperty);
-        binding?.UpdateSource();
+        if (titleBox.DataContext is TreeNodeViewModel node)
+        {
+            var vm = FindMainViewModel(titleBox);
+            vm?.CommitTitleRename(node, titleBox.Text ?? string.Empty);
+            BindingOperations.GetBindingExpression(titleBox, TextBox.TextProperty)?.UpdateTarget();
+            return;
+        }
+
+        BindingOperations.GetBindingExpression(titleBox, TextBox.TextProperty)?.UpdateSource();
     }
 
     public static void CommitIfFocusedTitle(params TextBox?[] titleBoxes)
@@ -55,6 +64,14 @@ internal static class TitleEditHelper
                 Commit(focused);
                 return;
             }
+        }
+    }
+
+    private static void OnLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox titleBox)
+        {
+            Commit(titleBox);
         }
     }
 
@@ -77,5 +94,15 @@ internal static class TitleEditHelper
         {
             Keyboard.ClearFocus();
         }
+    }
+
+    private static MainViewModel? FindMainViewModel(DependencyObject from)
+    {
+        if (Window.GetWindow(from)?.DataContext is MainViewModel vm)
+        {
+            return vm;
+        }
+
+        return null;
     }
 }

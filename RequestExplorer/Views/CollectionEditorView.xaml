@@ -23,7 +23,7 @@
                      BorderThickness="0,0,0,1"
                      Background="Transparent"
                      VerticalContentAlignment="Center"
-                     Text="{Binding Name, UpdateSourceTrigger=LostFocus}" />
+                     Text="{Binding Name, UpdateSourceTrigger=Explicit}" />
             <TextBlock DockPanel.Dock="Right"
                        VerticalAlignment="Center"
                        FontSize="12"

@@ -3,20 +3,25 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using RequestExplorer.Models;
 using RequestExplorer.Services;
 using RequestExplorer.Services.Postman;
+using RequestExplorer.Services.Undo;
 
 namespace RequestExplorer.ViewModels;
 
-public partial class MainViewModel : ObservableObject
+public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecorder
 {
     private readonly CollectionPersistenceService _persistence;
     private readonly HttpRequestExecutor _httpExecutor;
+    private readonly UndoStack _history = new();
     private CancellationTokenSource? _sendCts;
+    private bool _isApplyingHistory;
 
     public MainViewModel()
         : this(new CollectionPersistenceService(), new HttpRequestExecutor())
@@ -28,6 +33,20 @@ public partial class MainViewModel : ObservableObject
         _persistence = persistence;
         _httpExecutor = httpExecutor;
         Collections.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasCollections));
+        _history.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(UndoStack.CanUndo) or nameof(UndoStack.UndoDescription))
+            {
+                UndoCommand.NotifyCanExecuteChanged();
+                OnPropertyChanged(nameof(UndoMenuHeader));
+            }
+
+            if (e.PropertyName is nameof(UndoStack.CanRedo) or nameof(UndoStack.RedoDescription))
+            {
+                RedoCommand.NotifyCanExecuteChanged();
+                OnPropertyChanged(nameof(RedoMenuHeader));
+            }
+        };
         LoadWorkspace();
     }
 
@@ -67,6 +86,10 @@ public partial class MainViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(CancelSendCommand))]
     private bool _isSending;
 
+    /// <summary>0=Params, 1=Body, 2=Headers, 3=Auth</summary>
+    [ObservableProperty]
+    private int _selectedRequestTabIndex;
+
     public RequestNodeViewModel? SelectedRequest => SelectedNode as RequestNodeViewModel;
 
     public CollectionNodeViewModel? SelectedCollection => SelectedNode as CollectionNodeViewModel;
@@ -102,6 +125,12 @@ public partial class MainViewModel : ObservableObject
 
     public bool HasAnyDirty => Collections.Any(CollectionTreeMapper.HasDirty);
 
+    public string UndoMenuHeader =>
+        _history.CanUndo ? $"_Undo {_history.UndoDescription}" : "_Undo";
+
+    public string RedoMenuHeader =>
+        _history.CanRedo ? $"_Redo {_history.RedoDescription}" : "_Redo";
+
     partial void OnSelectedNodeChanged(TreeNodeViewModel? oldValue, TreeNodeViewModel? newValue)
     {
         if (oldValue is not null)
@@ -130,6 +159,173 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    [RelayCommand(CanExecute = nameof(CanUndo))]
+    private void Undo()
+    {
+        if (!CanUndo() || !_history.TryPeekUndo(out var action))
+        {
+            return;
+        }
+
+        if (action.RevealTarget is { } target && !IsRevealSatisfied(target))
+        {
+            Reveal(target);
+            StatusMessage = $"Showing {DescribeSurface(target.Surface)} — press Ctrl+Z again to undo";
+            return;
+        }
+
+        _isApplyingHistory = true;
+        try
+        {
+            var description = _history.UndoDescription;
+            _history.Undo(this);
+            if (action.RevealTarget is { } after)
+            {
+                Reveal(after);
+            }
+
+            StatusMessage = $"Undid {description}";
+        }
+        finally
+        {
+            _isApplyingHistory = false;
+        }
+    }
+
+    private bool CanUndo() =>
+        _history.CanUndo && Keyboard.FocusedElement is not TextBox;
+
+    [RelayCommand(CanExecute = nameof(CanRedo))]
+    private void Redo()
+    {
+        if (!CanRedo() || !_history.TryPeekRedo(out var action))
+        {
+            return;
+        }
+
+        if (action.RevealTarget is { } target && !IsRevealSatisfied(target))
+        {
+            Reveal(target);
+            StatusMessage = $"Showing {DescribeSurface(target.Surface)} — press Ctrl+Y again to redo";
+            return;
+        }
+
+        _isApplyingHistory = true;
+        try
+        {
+            var description = _history.RedoDescription;
+            _history.Redo(this);
+            if (action.RevealTarget is { } after)
+            {
+                Reveal(after);
+            }
+
+            StatusMessage = $"Redid {description}";
+        }
+        finally
+        {
+            _isApplyingHistory = false;
+        }
+    }
+
+    private bool CanRedo() =>
+        _history.CanRedo && Keyboard.FocusedElement is not TextBox;
+
+    bool IUndoRecorder.IsApplyingHistory => _isApplyingHistory;
+
+    void IUndoRecorder.Record(IUndoAction action) => RecordUndo(action);
+
+    private void RecordUndo(IUndoAction undoInstruction)
+    {
+        if (_isApplyingHistory)
+        {
+            return;
+        }
+
+        _history.Push(undoInstruction);
+    }
+
+    private bool IsRevealSatisfied(UndoRevealTarget target) =>
+        ReferenceEquals(SelectedRequest, target.Request)
+        && SelectedRequestTabIndex == ToTabIndex(target.Surface);
+
+    private void Reveal(UndoRevealTarget target)
+    {
+        SelectedNode = target.Request;
+        SelectedRequestTabIndex = ToTabIndex(target.Surface);
+    }
+
+    private static int ToTabIndex(EditorSurface surface) =>
+        surface switch
+        {
+            EditorSurface.Params => 0,
+            EditorSurface.Body => 1,
+            EditorSurface.Headers => 2,
+            EditorSurface.Auth => 3,
+            _ => 0
+        };
+
+    private static string DescribeSurface(EditorSurface surface) =>
+        surface switch
+        {
+            EditorSurface.Params => "Params",
+            EditorSurface.Body => "Body",
+            EditorSurface.Headers => "Headers",
+            EditorSurface.Auth => "Auth",
+            _ => "editor"
+        };
+
+    /// <summary>Commits a title rename as a single undoable action (not per-character).</summary>
+    public void CommitTitleRename(TreeNodeViewModel node, string newName)
+    {
+        newName = newName.Trim();
+        if (string.IsNullOrWhiteSpace(newName) || string.Equals(node.Name, newName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var previous = node.Name;
+        SetName(node, newName);
+        RecordUndo(new SetNameAction(node, previous, $"Rename '{newName}'"));
+        OnPropertyChanged(nameof(SelectionSummary));
+        StatusMessage = $"Renamed to '{newName}' (Ctrl+S to persist)";
+    }
+
+    void IUndoContext.SetName(TreeNodeViewModel node, string name) => SetName(node, name);
+
+    void IUndoContext.RemoveNode(TreeNodeViewModel node) => RemoveNodeCore(node);
+
+    void IUndoContext.InsertNode(TreeNodeViewModel? parent, TreeNodeViewModel node, int index) =>
+        InsertNodeCore(parent, node, index);
+
+    void IUndoContext.Select(TreeNodeViewModel? node) => SelectedNode = node;
+
+    private static void SetName(TreeNodeViewModel node, string name)
+    {
+        node.Name = name;
+    }
+
+    private void WireUndoRecorders()
+    {
+        foreach (var collection in Collections)
+        {
+            WireUndoRecorders(collection);
+        }
+    }
+
+    private void WireUndoRecorders(TreeNodeViewModel node)
+    {
+        if (node is RequestNodeViewModel request)
+        {
+            request.AttachUndoRecorder(this);
+        }
+
+        foreach (var child in node.Children)
+        {
+            WireUndoRecorders(child);
+        }
+    }
+
     private void LoadWorkspace()
     {
         Collections.Clear();
@@ -140,6 +336,7 @@ public partial class MainViewModel : ObservableObject
             if (loaded.Count == 0)
             {
                 SeedAndPersistDemo();
+                WireUndoRecorders();
                 StatusMessage = $"Seeded demo collections → {_persistence.StorageDirectory}";
                 return;
             }
@@ -149,6 +346,7 @@ public partial class MainViewModel : ObservableObject
                 Collections.Add(CollectionTreeMapper.ToViewModel(definition));
             }
 
+            WireUndoRecorders();
             StatusMessage = $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}";
         }
         catch (Exception ex)
@@ -164,6 +362,7 @@ public partial class MainViewModel : ObservableObject
                 Collections.Add(node);
             }
 
+            WireUndoRecorders();
             StatusMessage = "Load failed — using in-memory demo (not saved)";
         }
     }
@@ -351,6 +550,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         var node = new RequestNodeViewModel(copy);
+        node.AttachUndoRecorder(this);
         var parent = SelectedRequest.Parent;
         switch (parent)
         {
@@ -367,6 +567,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedNode = node;
+        RecordUndo(CreateRemoveAction(node, $"Duplicate '{source.Name}'"));
         StatusMessage = $"Duplicated '{source.Name}' (Ctrl+S to persist)";
     }
 
@@ -507,22 +708,26 @@ public partial class MainViewModel : ObservableObject
             var requests = new List<RequestDefinition>();
             PostmanCollectionMapper.ApplyItems(document.Item, folders, requests);
 
-            var importedCount = 0;
+            var importedNodes = new List<TreeNodeViewModel>();
             switch (node)
             {
                 case CollectionNodeViewModel collection:
                     foreach (var folder in folders)
                     {
                         collection.Model.Folders.Add(folder);
-                        collection.AddChild(CollectionTreeMapper.ToFolderViewModel(folder));
-                        importedCount++;
+                        var child = CollectionTreeMapper.ToFolderViewModel(folder);
+                        WireUndoRecorders(child);
+                        collection.AddChild(child);
+                        importedNodes.Add(child);
                     }
 
                     foreach (var request in requests)
                     {
                         collection.Model.Requests.Add(request);
-                        collection.AddChild(new RequestNodeViewModel(request));
-                        importedCount++;
+                        var child = new RequestNodeViewModel(request);
+                        child.AttachUndoRecorder(this);
+                        collection.AddChild(child);
+                        importedNodes.Add(child);
                     }
 
                     collection.IsExpanded = true;
@@ -532,23 +737,38 @@ public partial class MainViewModel : ObservableObject
                     foreach (var folder in folders)
                     {
                         folderNode.Model.Folders.Add(folder);
-                        folderNode.AddChild(CollectionTreeMapper.ToFolderViewModel(folder));
-                        importedCount++;
+                        var child = CollectionTreeMapper.ToFolderViewModel(folder);
+                        WireUndoRecorders(child);
+                        folderNode.AddChild(child);
+                        importedNodes.Add(child);
                     }
 
                     foreach (var request in requests)
                     {
                         folderNode.Model.Requests.Add(request);
-                        folderNode.AddChild(new RequestNodeViewModel(request));
-                        importedCount++;
+                        var child = new RequestNodeViewModel(request);
+                        child.AttachUndoRecorder(this);
+                        folderNode.AddChild(child);
+                        importedNodes.Add(child);
                     }
 
                     folderNode.IsExpanded = true;
                     break;
             }
 
+            if (importedNodes.Count > 0)
+            {
+                // Undo removes imported nodes last→first so sibling indices stay valid.
+                var undoSteps = importedNodes
+                    .AsEnumerable()
+                    .Reverse()
+                    .Select(n => CreateRemoveAction(n, $"Import into '{node.Name}'"))
+                    .ToList();
+                RecordUndo(new CompositeUndoAction($"Import into '{node.Name}'", undoSteps));
+            }
+
             SelectedNode = node;
-            StatusMessage = $"Imported {importedCount} item(s) into '{node.Name}' (Ctrl+S to persist)";
+            StatusMessage = $"Imported {importedNodes.Count} item(s) into '{node.Name}' (Ctrl+S to persist)";
         }
         catch (Exception ex)
         {
@@ -588,6 +808,7 @@ public partial class MainViewModel : ObservableObject
         var node = new CollectionNodeViewModel(model);
         Collections.Add(node);
         SelectedNode = node;
+        RecordUndo(CreateRemoveAction(node, $"Add collection '{name}'"));
         StatusMessage = $"Created collection '{name}' (Ctrl+S to persist)";
     }
 
@@ -622,6 +843,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedNode = node;
+        RecordUndo(CreateRemoveAction(node, $"Add folder '{name}'"));
         StatusMessage = $"Created folder '{name}' (Ctrl+S to persist)";
     }
 
@@ -648,6 +870,7 @@ public partial class MainViewModel : ObservableObject
             Address = "https://httpbin.org/get"
         };
         var node = new RequestNodeViewModel(model);
+        node.AttachUndoRecorder(this);
 
         switch (SelectedNode)
         {
@@ -664,6 +887,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedNode = node;
+        RecordUndo(CreateRemoveAction(node, $"Add request '{name}'"));
         StatusMessage = $"Created request '{name}' (Ctrl+S to persist)";
     }
 
@@ -683,9 +907,7 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        SelectedNode.Name = name;
-        OnPropertyChanged(nameof(SelectionSummary));
-        StatusMessage = $"Renamed to '{name}' (Ctrl+S to persist)";
+        CommitTitleRename(SelectedNode, name);
     }
 
     private bool CanRenameNode() => SelectedNode is not null;
@@ -716,13 +938,19 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        var toSelect = node.Parent;
+        var parent = node.Parent;
+        var index = parent is not null
+            ? parent.Children.IndexOf(node)
+            : Collections.IndexOf((CollectionNodeViewModel)node);
+
+        var toSelect = parent;
         if (ReferenceEquals(SelectedNode, node) || IsUnder(SelectedNode, node))
         {
             SelectedNode = toSelect;
         }
 
-        RemoveNode(node);
+        RemoveNodeCore(node);
+        RecordUndo(new InsertNodeAction(parent, node, index, $"Delete '{name}'"));
         StatusMessage = childCount > 0
             ? $"Deleted '{name}' and {childCount} child item(s)"
             : $"Deleted '{name}'";
@@ -745,7 +973,19 @@ public partial class MainViewModel : ObservableObject
         return false;
     }
 
-    private void RemoveNode(TreeNodeViewModel node)
+    private RemoveNodeAction CreateRemoveAction(TreeNodeViewModel node, string description)
+    {
+        if (node is CollectionNodeViewModel collection)
+        {
+            return new RemoveNodeAction(node, null, Collections.IndexOf(collection), description);
+        }
+
+        var parent = node.Parent
+                     ?? throw new InvalidOperationException("Non-collection node must have a parent.");
+        return new RemoveNodeAction(node, parent, parent.Children.IndexOf(node), description);
+    }
+
+    private void RemoveNodeCore(TreeNodeViewModel node)
     {
         if (node is CollectionNodeViewModel collection)
         {
@@ -756,11 +996,14 @@ public partial class MainViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
-                    $"Collection removed from workspace, but the file could not be deleted.\n\n{ex.Message}",
-                    "Delete Warning",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
+                if (!_isApplyingHistory)
+                {
+                    MessageBox.Show(
+                        $"Collection removed from workspace, but the file could not be deleted.\n\n{ex.Message}",
+                        "Delete Warning",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
             }
 
             return;
@@ -772,6 +1015,45 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        DetachFromModel(parent, node);
+        parent.RemoveChild(node);
+    }
+
+    private void InsertNodeCore(TreeNodeViewModel? parent, TreeNodeViewModel node, int index)
+    {
+        if (node is CollectionNodeViewModel collection)
+        {
+            if (index < 0 || index > Collections.Count)
+            {
+                index = Collections.Count;
+            }
+
+            Collections.Insert(index, collection);
+            try
+            {
+                // Restore on-disk file if this collection was previously persisted/deleted.
+                CollectionTreeMapper.SyncModelFromView(collection);
+                _persistence.Save(collection.Model);
+            }
+            catch
+            {
+                // Keep workspace restore even if disk write fails; user can Ctrl+S.
+            }
+
+            return;
+        }
+
+        if (parent is null)
+        {
+            return;
+        }
+
+        AttachToModel(parent, node, index);
+        parent.InsertChild(node, index);
+    }
+
+    private static void DetachFromModel(TreeNodeViewModel parent, TreeNodeViewModel node)
+    {
         switch (parent)
         {
             case CollectionNodeViewModel parentCollection when node is FolderNodeViewModel folder:
@@ -787,8 +1069,57 @@ public partial class MainViewModel : ObservableObject
                 parentFolder.Model.Requests.Remove(request.Model);
                 break;
         }
+    }
 
-        parent.RemoveChild(node);
+    private static void AttachToModel(TreeNodeViewModel parent, TreeNodeViewModel node, int childIndex)
+    {
+        switch (parent)
+        {
+            case CollectionNodeViewModel parentCollection when node is FolderNodeViewModel folder:
+                InsertModelItem(parentCollection.Model.Folders, folder.Model, CountKindBefore(parent, childIndex, TreeNodeKind.Folder));
+                break;
+            case CollectionNodeViewModel parentCollection when node is RequestNodeViewModel request:
+                InsertModelItem(parentCollection.Model.Requests, request.Model, CountKindBefore(parent, childIndex, TreeNodeKind.Request));
+                break;
+            case FolderNodeViewModel parentFolder when node is FolderNodeViewModel folder:
+                InsertModelItem(parentFolder.Model.Folders, folder.Model, CountKindBefore(parent, childIndex, TreeNodeKind.Folder));
+                break;
+            case FolderNodeViewModel parentFolder when node is RequestNodeViewModel request:
+                InsertModelItem(parentFolder.Model.Requests, request.Model, CountKindBefore(parent, childIndex, TreeNodeKind.Request));
+                break;
+        }
+    }
+
+    private static int CountKindBefore(TreeNodeViewModel parent, int childIndex, TreeNodeKind kind)
+    {
+        var count = 0;
+        var limit = Math.Clamp(childIndex, 0, parent.Children.Count);
+        for (var i = 0; i < limit; i++)
+        {
+            if (parent.Children[i].Kind == kind)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static void InsertModelItem<T>(List<T> list, T item, int index)
+    {
+        if (list.Contains(item))
+        {
+            return;
+        }
+
+        if (index < 0 || index > list.Count)
+        {
+            list.Add(item);
+        }
+        else
+        {
+            list.Insert(index, item);
+        }
     }
 
     public bool ConfirmClose()

@@ -4,6 +4,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
+using RequestExplorer.Services.Undo;
 
 namespace RequestExplorer.ViewModels;
 
@@ -12,6 +13,8 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
     private bool _trackDirty = true;
     private bool _ensuringSpare;
     private bool _syncingUrlAndParams;
+    private bool _suppressFieldUndo;
+    private IUndoRecorder? _undoRecorder;
 
     public RequestNodeViewModel(RequestDefinition model)
         : base(model.Name)
@@ -58,6 +61,8 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
         Params.CollectionChanged += OnParamsCollectionChanged;
         Headers.CollectionChanged += OnHeadersCollectionChanged;
     }
+
+    public void AttachUndoRecorder(IUndoRecorder recorder) => _undoRecorder = recorder;
 
     public override TreeNodeKind Kind => TreeNodeKind.Request;
 
@@ -219,11 +224,13 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
             return;
         }
 
+        var index = Params.IndexOf(item);
         Model.Params.Remove(item.Model);
         Params.Remove(item);
         MarkDirty();
         EnsureParamSpareRow();
         SyncAddressFromParams();
+        RecordRowRemoveUndo(KeyValueListKind.Params, item, index, $"Remove param '{item.Key}'");
     }
 
     [RelayCommand]
@@ -240,19 +247,131 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
             return;
         }
 
+        var index = Headers.IndexOf(item);
         Model.Headers.Remove(item.Model);
         Headers.Remove(item);
         MarkDirty();
         EnsureHeaderSpareRow();
+        RecordRowRemoveUndo(KeyValueListKind.Headers, item, index, $"Remove header '{item.Key}'");
     }
 
+    public void ApplyKeyValueField(
+        KeyValueListKind listKind,
+        KeyValueItemViewModel item,
+        KeyValueField field,
+        object? value)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            item.SetFieldSilent(field, value);
+            MarkDirty();
+            if (listKind == KeyValueListKind.Params)
+            {
+                EnsureParamSpareRow();
+                SyncAddressFromParams();
+            }
+            else
+            {
+                EnsureHeaderSpareRow();
+            }
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    public void RemoveKeyValueRow(KeyValueListKind listKind, KeyValueItemViewModel item)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            if (listKind == KeyValueListKind.Params)
+            {
+                Model.Params.Remove(item.Model);
+                Params.Remove(item);
+                MarkDirty();
+                EnsureParamSpareRow();
+                SyncAddressFromParams();
+            }
+            else
+            {
+                Model.Headers.Remove(item.Model);
+                Headers.Remove(item);
+                MarkDirty();
+                EnsureHeaderSpareRow();
+            }
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    public void InsertKeyValueRow(KeyValueListKind listKind, KeyValueItemViewModel item, int index)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            if (listKind == KeyValueListKind.Params)
+            {
+                if (Params.Contains(item))
+                {
+                    return;
+                }
+
+                index = Math.Clamp(index, 0, Params.Count);
+                if (!Model.Params.Contains(item.Model))
+                {
+                    var modelIndex = Math.Clamp(index, 0, Model.Params.Count);
+                    Model.Params.Insert(modelIndex, item.Model);
+                }
+
+                Params.Insert(index, item);
+                MarkDirty();
+                EnsureParamSpareRow();
+                SyncAddressFromParams();
+            }
+            else
+            {
+                if (Headers.Contains(item))
+                {
+                    return;
+                }
+
+                index = Math.Clamp(index, 0, Headers.Count);
+                if (!Model.Headers.Contains(item.Model))
+                {
+                    var modelIndex = Math.Clamp(index, 0, Model.Headers.Count);
+                    Model.Headers.Insert(modelIndex, item.Model);
+                }
+
+                Headers.Insert(index, item);
+                MarkDirty();
+                EnsureHeaderSpareRow();
+            }
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    public int IndexOfKeyValue(KeyValueListKind listKind, KeyValueItemViewModel item) =>
+        listKind == KeyValueListKind.Params ? Params.IndexOf(item) : Headers.IndexOf(item);
+
     private KeyValueItemViewModel CreateParamVm(KeyValueItem item) =>
-        new(item, OnParamChanged);
+        new(item, OnParamFieldChanged);
 
     private KeyValueItemViewModel CreateHeaderVm(KeyValueItem item) =>
-        new(item, OnHeaderChanged);
+        new(item, OnHeaderFieldChanged);
 
-    private void OnParamChanged()
+    private void OnParamFieldChanged(
+        KeyValueItemViewModel item,
+        KeyValueField field,
+        object? oldValue,
+        object? newValue)
     {
         if (!_syncingUrlAndParams)
         {
@@ -261,12 +380,64 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
         }
 
         EnsureParamSpareRow();
+        RecordFieldUndo(KeyValueListKind.Params, item, field, oldValue, newValue);
     }
 
-    private void OnHeaderChanged()
+    private void OnHeaderFieldChanged(
+        KeyValueItemViewModel item,
+        KeyValueField field,
+        object? oldValue,
+        object? newValue)
     {
         MarkDirty();
         EnsureHeaderSpareRow();
+        RecordFieldUndo(KeyValueListKind.Headers, item, field, oldValue, newValue);
+    }
+
+    private void RecordFieldUndo(
+        KeyValueListKind listKind,
+        KeyValueItemViewModel item,
+        KeyValueField field,
+        object? oldValue,
+        object? newValue)
+    {
+        if (_suppressFieldUndo || _syncingUrlAndParams || _ensuringSpare
+            || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        var label = listKind == KeyValueListKind.Params ? "param" : "header";
+        var description = field switch
+        {
+            KeyValueField.IsEnabled => $"Toggle {label} '{item.Key}'",
+            KeyValueField.Key => $"Edit {label} key",
+            KeyValueField.Value => $"Edit {label} value",
+            _ => $"Edit {label}"
+        };
+
+        _undoRecorder.Record(
+            new SetKeyValueFieldAction(this, listKind, item, field, oldValue, description));
+    }
+
+    private void RecordRowRemoveUndo(
+        KeyValueListKind listKind,
+        KeyValueItemViewModel item,
+        int index,
+        string description)
+    {
+        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        if (index < 0)
+        {
+            return;
+        }
+
+        _undoRecorder.Record(
+            new InsertKeyValueRowAction(this, listKind, item, index, description));
     }
 
     private void SyncParamsFromAddress(string address)

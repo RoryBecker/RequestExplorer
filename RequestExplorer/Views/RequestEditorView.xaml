@@ -82,7 +82,7 @@
                      BorderThickness="0,0,0,1"
                      Background="Transparent"
                      VerticalContentAlignment="Center"
-                     Text="{Binding Name, UpdateSourceTrigger=LostFocus}" />
+                     Text="{Binding Name, UpdateSourceTrigger=Explicit}" />
             <TextBlock DockPanel.Dock="Right"
                        VerticalAlignment="Center"
                        FontSize="12"
@@ -129,7 +129,8 @@
                     Command="{Binding DataContext.CancelSendCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
         </Grid>
 
-        <TabControl Grid.Row="3">
+        <TabControl Grid.Row="3"
+                    SelectedIndex="{Binding DataContext.SelectedRequestTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}">
             <TabItem Header="Params">
                 <DataGrid Style="{StaticResource KeyValueGrid}"
                           Margin="8"
@@ -145,12 +146,12 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Key"
-                                            Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                            Binding="{Binding Key, UpdateSourceTrigger=LostFocus}"
                                             Width="*"
                                             ElementStyle="{StaticResource KeyValueCellText}"
                                             EditingElementStyle="{StaticResource KeyValueCellEdit}" />
                         <DataGridTextColumn Header="Value"
-                                            Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                            Binding="{Binding Value, UpdateSourceTrigger=LostFocus}"
                                             Width="2*"
                                             ElementStyle="{StaticResource KeyValueCellText}"
                                             EditingElementStyle="{StaticResource KeyValueCellEdit}" />
@@ -208,12 +209,12 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Key"
-                                            Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                            Binding="{Binding Key, UpdateSourceTrigger=LostFocus}"
                                             Width="*"
                                             ElementStyle="{StaticResource KeyValueCellText}"
                                             EditingElementStyle="{StaticResource KeyValueCellEdit}" />
                         <DataGridTextColumn Header="Value"
-                                            Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                            Binding="{Binding Value, UpdateSourceTrigger=LostFocus}"
                                             Width="2*"
                                             ElementStyle="{StaticResource KeyValueCellText}"
                                             EditingElementStyle="{StaticResource KeyValueCellEdit}" />

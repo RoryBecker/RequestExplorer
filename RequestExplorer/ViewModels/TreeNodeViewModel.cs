@@ -70,6 +70,18 @@ public abstract partial class TreeNodeViewModel : ObservableObject
         NotifyDirtyPresentationChanged();
     }
 
+    public void InsertChild(TreeNodeViewModel child, int index)
+    {
+        child.Parent = this;
+        if (index < 0 || index > Children.Count)
+        {
+            index = Children.Count;
+        }
+
+        Children.Insert(index, child);
+        NotifyDirtyPresentationChanged();
+    }
+
     public bool RemoveChild(TreeNodeViewModel child)
     {
         if (!Children.Remove(child))

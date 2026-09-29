@@ -179,7 +179,8 @@
                                   ResizeBehavior="PreviousAndNext" />
 
                     <views:ResponsePanelView Grid.Row="2"
-                                             Margin="12,4,12,12" />
+                                             Margin="12,4,12,12"
+                                             DataContext="{Binding Response}" />
                 </Grid>
             </Grid>
         </Grid>

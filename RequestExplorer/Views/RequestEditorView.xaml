@@ -40,6 +40,7 @@
                 <ColumnDefinition Width="110" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <ComboBox Grid.Column="0"
@@ -58,8 +59,16 @@
                     Width="88"
                     Height="32"
                     Content="Send"
-                    IsEnabled="False"
-                    ToolTip="Send will be available in Phase 5" />
+                    ToolTip="Send request (uses current in-memory values)"
+                    Command="{Binding DataContext.SendRequestCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+
+            <Button Grid.Column="3"
+                    Margin="8,0,0,0"
+                    Width="88"
+                    Height="32"
+                    Content="Cancel"
+                    ToolTip="Cancel in-flight request"
+                    Command="{Binding DataContext.CancelSendCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
         </Grid>
 
         <TabControl Grid.Row="3">

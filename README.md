@@ -51,4 +51,5 @@ dotnet run --project RequestExplorer
 - Phase 2: RHS request/response shell (selection switching)
 - Phase 3: editable request fields + dirty `*` tracking
 - Phase 4: Ctrl+S persistence (one JSON file per collection)
-- Later: send/response
+- Phase 5: Send / Cancel + response panel (status, body, headers, cookies, timing)
+- Later: polish (Phase 6)

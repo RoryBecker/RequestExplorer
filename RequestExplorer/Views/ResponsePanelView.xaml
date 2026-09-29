@@ -4,10 +4,11 @@
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+        <DockPanel Grid.Row="0" Margin="0,0,0,4">
             <TextBlock DockPanel.Dock="Left"
                        FontWeight="SemiBold"
                        FontSize="14"
@@ -16,38 +17,129 @@
             <StackPanel DockPanel.Dock="Right"
                         Orientation="Horizontal"
                         VerticalAlignment="Center">
-                <TextBlock Margin="0,0,16,0" Foreground="#FF888888">
-                    <Run Text="Status: " />
-                    <Run Text="—" FontWeight="SemiBold" />
+                <TextBlock Margin="0,0,16,0">
+                    <Run Text="Status: " Foreground="#FF888888" />
+                    <Run Text="{Binding StatusDisplay, Mode=OneWay}" FontWeight="SemiBold" />
                 </TextBlock>
-                <TextBlock Foreground="#FF888888">
-                    <Run Text="Time: " />
-                    <Run Text="—" FontWeight="SemiBold" />
+                <TextBlock>
+                    <Run Text="Time: " Foreground="#FF888888" />
+                    <Run Text="{Binding ElapsedDisplay, Mode=OneWay}" FontWeight="SemiBold" />
                 </TextBlock>
             </StackPanel>
         </DockPanel>
 
-        <TabControl Grid.Row="1">
-            <TabItem Header="Body">
-                <TextBlock Margin="12"
-                           Foreground="#FF999999"
-                           Text="No response yet. Send will populate this panel in Phase 5." />
-            </TabItem>
-            <TabItem Header="Headers">
-                <TextBlock Margin="12"
-                           Foreground="#FF999999"
-                           Text="Response headers will appear here after Send (Phase 5)." />
-            </TabItem>
-            <TabItem Header="Cookies">
-                <TextBlock Margin="12"
-                           Foreground="#FF999999"
-                           Text="Cookies will appear here after Send (Phase 5)." />
-            </TabItem>
-            <TabItem Header="Timing">
-                <TextBlock Margin="12"
-                           Foreground="#FF999999"
-                           Text="Timing breakdown will appear here after Send (Phase 5)." />
-            </TabItem>
-        </TabControl>
+        <TextBlock Grid.Row="1"
+                   Margin="0,0,0,4"
+                   Foreground="#FFB45309"
+                   Text="{Binding SizeWarning}">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SizeWarning}" Value="">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
+
+        <Grid Grid.Row="2">
+            <TextBlock VerticalAlignment="Center"
+                       HorizontalAlignment="Center"
+                       Foreground="#FF999999"
+                       Text="No response yet. Press Send to run this request.">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasResult}" Value="False" />
+                                    <Condition Binding="{Binding IsSending}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+
+            <TabControl>
+                <TabControl.Style>
+                    <Style TargetType="TabControl">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding HasResult}" Value="False" />
+                                    <Condition Binding="{Binding IsSending}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TabControl.Style>
+
+                <TabItem Header="Body">
+                    <TextBox Margin="4"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             FontFamily="Consolas"
+                             FontSize="12"
+                             Text="{Binding BodyText, Mode=OneWay}" />
+                </TabItem>
+
+                <TabItem Header="Headers">
+                    <ListView Margin="4"
+                              ItemsSource="{Binding Headers}"
+                              BorderThickness="0">
+                        <ListView.View>
+                            <GridView>
+                                <GridViewColumn Header="Name" Width="200" DisplayMemberBinding="{Binding Name}" />
+                                <GridViewColumn Header="Value" Width="480" DisplayMemberBinding="{Binding Value}" />
+                            </GridView>
+                        </ListView.View>
+                    </ListView>
+                </TabItem>
+
+                <TabItem Header="Cookies">
+                    <ListView Margin="4"
+                              ItemsSource="{Binding Cookies}"
+                              BorderThickness="0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           FontFamily="Consolas"
+                                           TextWrapping="Wrap"
+                                           Margin="0,2" />
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </TabItem>
+
+                <TabItem Header="Timing">
+                    <StackPanel Margin="12" Orientation="Vertical">
+                        <TextBlock Margin="0,0,0,8">
+                            <Run FontWeight="SemiBold" Text="Total: " />
+                            <Run Text="{Binding TotalTimingDisplay, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Margin="0,0,0,8">
+                            <Run FontWeight="SemiBold" Text="Time to headers: " />
+                            <Run Text="{Binding TimeToHeadersDisplay, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Margin="0,0,0,8">
+                            <Run FontWeight="SemiBold" Text="Body download: " />
+                            <Run Text="{Binding BodyReadDisplay, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Foreground="#FF888888"
+                                   Text="DNS / connect / TLS timings are not available via HttpClient in this build." />
+                    </StackPanel>
+                </TabItem>
+            </TabControl>
+        </Grid>
     </Grid>
 </UserControl>

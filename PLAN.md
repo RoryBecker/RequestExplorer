@@ -1,6 +1,6 @@
 # RequestExplorer — Multiphase Plan
 
-**Status:** Phase 4 implemented — awaiting your verification & commit  
+**Status:** Phase 5 implemented — awaiting your verification & commit  
 **Created:** 2026-09-29  
 **Repo policy:** Do **not** auto-commit. User commits only after explicitly approving each phase as complete.
 
@@ -407,12 +407,16 @@ Each phase below has: **objectives**, **deliverables**, **out of scope**, **acce
 - Collections runner, tests/assertions, mock servers
 
 **Acceptance criteria**
-- [ ] GET to a public URL returns status + body + duration
-- [ ] POST with JSON body works for a test endpoint
-- [ ] Auth None / Bearer / Basic applied as configured
-- [ ] Query params and headers applied correctly
+- [x] GET to a public URL returns status + body + duration
+- [x] POST with JSON body works for a test endpoint
+- [x] Auth None / Bearer / Basic applied as configured
+- [x] Query params and headers applied correctly
 
-**Depends on answers:** Q9–Q12, Q13–Q15
+**Phase 5 deliverables (done)**
+- `HttpRequestExecutor` via `HttpClient` (100s timeout); Send uses current in-memory request values
+- **Send** / **Cancel** beside URL; busy state while in flight (**L2**)
+- Response panel: status, elapsed, Body (JSON pretty-print), Headers, Cookies, Timing (total / time-to-headers / body download) (**M4**)
+- Auth: None, Bearer, Basic, API Key header/query (**I2**); soft size warning over 5 MB (**N1**)
 
 ---
 
@@ -448,13 +452,11 @@ No phase starts without your go-ahead. No agent git commits unless you later cha
 
 ## Immediate next step
 
-Phase 4 is implemented. Please edit → Ctrl+S → restart and confirm restore, **commit when satisfied**, then **approve Phase 5**.
+Phase 5 is implemented. Please Send a few demo requests (GET/POST/auth), confirm response tabs, **commit when satisfied**, then **approve Phase 6** (polish) if desired.
 
 ```powershell
 dotnet run --project RequestExplorer
 ```
-
-Storage: `%LocalAppData%\RequestExplorer\collections\`
 
 ---
 
@@ -472,7 +474,9 @@ Storage: `%LocalAppData%\RequestExplorer\collections\`
 | 2026-09-29 | Phase 2 approved by user | Proceed to Phase 3 |
 | 2026-09-29 | Phase 3 implemented | Editable request fields + dirty/`*` tracking. |
 | 2026-09-29 | Phase 3 approved by user | Proceed to Phase 4 |
-| 2026-09-29 | Phase 4 implemented | JSON per collection + Ctrl+S; no agent commit. |
+| 2026-09-29 | Phase 4 implemented | JSON per collection + Ctrl+S. |
+| 2026-09-29 | Phase 4 approved by user | Proceed to Phase 5 |
+| 2026-09-29 | Phase 5 implemented | Send/Cancel + response panel; no agent commit. |
 | | | |
 
 ---
@@ -485,6 +489,6 @@ Storage: `%LocalAppData%\RequestExplorer\collections\`
 | 1 Domain + tree | **Done (approved)** |
 | 2 RHS shell | **Done (approved)** |
 | 3 Editor + dirty | **Done (approved)** |
-| 4 Save Ctrl+S | **Done (pending your commit)** |
-| 5 Send + response | Not started |
+| 4 Save Ctrl+S | **Done (approved)** |
+| 5 Send + response | **Done (pending your commit)** |
 | 6 CRUD + polish | Not started |

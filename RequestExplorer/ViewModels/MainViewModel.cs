@@ -10,19 +10,24 @@ namespace RequestExplorer.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly CollectionPersistenceService _persistence;
+    private readonly HttpRequestExecutor _httpExecutor;
+    private CancellationTokenSource? _sendCts;
 
     public MainViewModel()
-        : this(new CollectionPersistenceService())
+        : this(new CollectionPersistenceService(), new HttpRequestExecutor())
     {
     }
 
-    public MainViewModel(CollectionPersistenceService persistence)
+    public MainViewModel(CollectionPersistenceService persistence, HttpRequestExecutor httpExecutor)
     {
         _persistence = persistence;
+        _httpExecutor = httpExecutor;
         LoadWorkspace();
     }
 
     public ObservableCollection<CollectionNodeViewModel> Collections { get; } = [];
+
+    public ResponseViewModel Response { get; } = new();
 
     public string StorageDirectory => _persistence.StorageDirectory;
 
@@ -38,7 +43,13 @@ public partial class MainViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(RenameNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SendRequestCommand))]
     private TreeNodeViewModel? _selectedNode;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SendRequestCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelSendCommand))]
+    private bool _isSending;
 
     public RequestNodeViewModel? SelectedRequest => SelectedNode as RequestNodeViewModel;
 
@@ -192,6 +203,60 @@ public partial class MainViewModel : ObservableObject
         CollectionTreeMapper.ClearDirty(collection);
         OnPropertyChanged(nameof(HasAnyDirty));
     }
+
+    [RelayCommand(CanExecute = nameof(CanSendRequest))]
+    private async Task SendRequestAsync()
+    {
+        if (SelectedRequest is null || IsSending)
+        {
+            return;
+        }
+
+        _sendCts?.Cancel();
+        _sendCts?.Dispose();
+        _sendCts = new CancellationTokenSource();
+
+        IsSending = true;
+        Response.BeginSend();
+        StatusMessage = $"Sending {SelectedRequest.Verb} {SelectedRequest.Address}…";
+
+        try
+        {
+            var result = await _httpExecutor.SendAsync(SelectedRequest.Model, _sendCts.Token);
+            Response.Apply(result);
+
+            StatusMessage = result.Succeeded
+                ? $"Response {result.StatusCode} in {Response.ElapsedDisplay}"
+                : $"Send failed: {result.ErrorMessage}";
+        }
+        catch (Exception ex)
+        {
+            Response.Apply(new HttpExecutionResult
+            {
+                Succeeded = false,
+                ErrorMessage = ex.Message
+            });
+            StatusMessage = $"Send failed: {ex.Message}";
+        }
+        finally
+        {
+            IsSending = false;
+            Response.IsSending = false;
+            SendRequestCommand.NotifyCanExecuteChanged();
+            CancelSendCommand.NotifyCanExecuteChanged();
+        }
+    }
+
+    private bool CanSendRequest() => IsRequestSelected && !IsSending;
+
+    [RelayCommand(CanExecute = nameof(CanCancelSend))]
+    private void CancelSend()
+    {
+        _sendCts?.Cancel();
+        StatusMessage = "Cancelling…";
+    }
+
+    private bool CanCancelSend() => IsSending;
 
     [RelayCommand]
     private void AddCollection()

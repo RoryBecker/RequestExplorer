@@ -21,6 +21,11 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:VerbToBrushConverter x:Key="VerbBrush" />
+        <conv:TreeRowWidthConverter x:Key="TreeRowWidth" />
+
+        <!-- ~50% lighter than accent blue for selection -->
+        <SolidColorBrush x:Key="Tree.SelectionBrush" Color="#802563EB" />
+        <SolidColorBrush x:Key="Tree.InactiveSelectionBrush" Color="#402563EB" />
     </Window.Resources>
 
     <Window.InputBindings>
@@ -151,7 +156,20 @@
                             <Style TargetType="TreeViewItem">
                                 <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                 <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
-                                <Setter Property="Padding" Value="2" />
+                                <Setter Property="Padding" Value="10,1,2,1" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <EventSetter Event="PreviewMouseDoubleClick" Handler="TreeViewItem_OnPreviewMouseDoubleClick" />
+                                <Style.Resources>
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"
+                                                     Color="#802563EB" />
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}"
+                                                     Color="#FF1F2937" />
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}"
+                                                     Color="#402563EB" />
+                                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}"
+                                                     Color="#FF1F2937" />
+                                </Style.Resources>
                             </Style>
                         </TreeView.ItemContainerStyle>
 
@@ -173,36 +191,139 @@
                         <TreeView.Resources>
                             <HierarchicalDataTemplate DataType="{x:Type vm:CollectionNodeViewModel}"
                                                       ItemsSource="{Binding Children}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe MDL2 Assets"
-                                               Text="&#xE8F1;"
-                                               Margin="0,0,6,0"
-                                               Foreground="{StaticResource App.AccentBrush}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-                                </StackPanel>
+                                <Grid x:Name="CollectionRow" MinHeight="22" Margin="0,1">
+                                    <Grid.Width>
+                                        <MultiBinding Converter="{StaticResource TreeRowWidth}">
+                                            <Binding Path="ActualWidth" ElementName="CollectionTree" />
+                                            <Binding RelativeSource="{RelativeSource Self}" />
+                                        </MultiBinding>
+                                    </Grid.Width>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                   Text="&#xE8F1;"
+                                                   Margin="0,0,6,0"
+                                                   Foreground="{StaticResource App.AccentBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center"
+                                                Margin="8,0,0,0">
+                                        <Button Content="+"
+                                                Style="{StaticResource TreeActionButton}"
+                                                ToolTip="Add child"
+                                                Click="TreeAddButton_OnClick" />
+                                        <Button Content="-"
+                                                Style="{StaticResource TreeActionButton}"
+                                                Margin="4,0,0,0"
+                                                ToolTip="Delete"
+                                                Click="TreeDeleteButton_OnClick" />
+                                        <Button Content="…"
+                                                Style="{StaticResource TreeActionButton}"
+                                                Margin="4,0,0,0"
+                                                ToolTip="More actions"
+                                                Click="TreeMoreButton_OnClick" />
+                                    </StackPanel>
+                                </Grid>
                             </HierarchicalDataTemplate>
 
                             <HierarchicalDataTemplate DataType="{x:Type vm:FolderNodeViewModel}"
                                                       ItemsSource="{Binding Children}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock FontFamily="Segoe MDL2 Assets"
-                                               Text="&#xE8B7;"
-                                               Margin="0,0,6,0"
-                                               Foreground="{StaticResource App.MutedBrush}"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding DisplayName}" />
-                                </StackPanel>
+                                <Grid MinHeight="22" Margin="0,1">
+                                    <Grid.Width>
+                                        <MultiBinding Converter="{StaticResource TreeRowWidth}">
+                                            <Binding Path="ActualWidth" ElementName="CollectionTree" />
+                                            <Binding RelativeSource="{RelativeSource Self}" />
+                                        </MultiBinding>
+                                    </Grid.Width>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                   Text="&#xE8B7;"
+                                                   Margin="0,0,6,0"
+                                                   Foreground="{StaticResource App.MutedBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center"
+                                                Margin="8,0,0,0">
+                                        <Button Content="+"
+                                                Style="{StaticResource TreeActionButton}"
+                                                ToolTip="Add child"
+                                                Click="TreeAddButton_OnClick" />
+                                        <Button Content="-"
+                                                Style="{StaticResource TreeActionButton}"
+                                                Margin="4,0,0,0"
+                                                ToolTip="Delete"
+                                                Click="TreeDeleteButton_OnClick" />
+                                        <Button Content="…"
+                                                Style="{StaticResource TreeActionButton}"
+                                                Margin="4,0,0,0"
+                                                ToolTip="More actions"
+                                                Click="TreeMoreButton_OnClick" />
+                                    </StackPanel>
+                                </Grid>
                             </HierarchicalDataTemplate>
 
                             <DataTemplate DataType="{x:Type vm:RequestNodeViewModel}">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Verb}"
-                                               Width="56"
-                                               FontWeight="SemiBold"
-                                               Foreground="{Binding Verb, Converter={StaticResource VerbBrush}}" />
-                                    <TextBlock Text="{Binding DisplayName}" />
-                                </StackPanel>
+                                <Grid MinHeight="22" Margin="0,1">
+                                    <Grid.Width>
+                                        <MultiBinding Converter="{StaticResource TreeRowWidth}">
+                                            <Binding Path="ActualWidth" ElementName="CollectionTree" />
+                                            <Binding RelativeSource="{RelativeSource Self}" />
+                                        </MultiBinding>
+                                    </Grid.Width>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Verb}"
+                                                   Width="56"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{Binding Verb, Converter={StaticResource VerbBrush}}" />
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center"
+                                                Margin="8,0,0,0">
+                                        <FrameworkElement Width="22" Margin="0,0,4,0" />
+                                        <Button Content="-"
+                                                Style="{StaticResource TreeActionButton}"
+                                                ToolTip="Delete"
+                                                Click="TreeDeleteButton_OnClick" />
+                                        <Button Content="…"
+                                                Style="{StaticResource TreeActionButton}"
+                                                Margin="4,0,0,0"
+                                                ToolTip="More actions"
+                                                Click="TreeMoreButton_OnClick" />
+                                    </StackPanel>
+                                </Grid>
                             </DataTemplate>
                         </TreeView.Resources>
                     </TreeView>
@@ -223,14 +344,14 @@
                         <Style TargetType="Border">
                             <Setter Property="Visibility" Value="Visible" />
                             <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsRequestSelected}" Value="True">
+                                <DataTrigger Binding="{Binding IsNodeSelected}" Value="True">
                                     <Setter Property="Visibility" Value="Collapsed" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
-                        <TextBlock Text="Select a request"
+                        <TextBlock Text="Select an item"
                                    FontSize="16"
                                    FontWeight="SemiBold"
                                    Foreground="{StaticResource App.MutedBrush}"
@@ -240,23 +361,31 @@
                                    TextWrapping="Wrap"
                                    Foreground="#FF9CA3AF"
                                    HorizontalAlignment="Center"
-                                   Text="Choose a request in the tree, or create one with Edit → New Request." />
-                        <TextBlock Margin="0,12,0,0"
-                                   Text="{Binding SelectionSummary}"
-                                   FontSize="12"
-                                   Foreground="#FFBBBBBB"
-                                   HorizontalAlignment="Center" />
+                                   Text="Choose a collection, folder, or request in the tree. Double-click to edit its name." />
                     </StackPanel>
+                </Border>
+
+                <Border Margin="12"
+                        Visibility="{Binding IsCollectionSelected, Converter={StaticResource BoolToVis}}">
+                    <views:CollectionEditorView x:Name="CollectionEditor"
+                                                DataContext="{Binding SelectedCollection}" />
+                </Border>
+
+                <Border Margin="12"
+                        Visibility="{Binding IsFolderSelected, Converter={StaticResource BoolToVis}}">
+                    <views:FolderEditorView x:Name="FolderEditor"
+                                            DataContext="{Binding SelectedFolder}" />
                 </Border>
 
                 <Grid Visibility="{Binding IsRequestSelected, Converter={StaticResource BoolToVis}}">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="2*" MinHeight="160" />
+                        <RowDefinition Height="3*" MinHeight="220" />
                         <RowDefinition Height="6" />
-                        <RowDefinition Height="*" MinHeight="120" />
+                        <RowDefinition Height="2*" MinHeight="160" />
                     </Grid.RowDefinitions>
 
-                    <views:RequestEditorView Grid.Row="0"
+                    <views:RequestEditorView x:Name="RequestEditor"
+                                             Grid.Row="0"
                                              Margin="12,12,12,4"
                                              DataContext="{Binding SelectedRequest}" />
 

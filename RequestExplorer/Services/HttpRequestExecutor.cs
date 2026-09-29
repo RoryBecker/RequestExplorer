@@ -199,7 +199,15 @@ public sealed class HttpRequestExecutor : IDisposable
 
     private static Uri BuildUri(RequestDefinition request)
     {
-        if (!Uri.TryCreate(request.Address.Trim(), UriKind.Absolute, out var baseUri))
+        var address = request.Address.Trim();
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            throw new InvalidOperationException("Address is empty.");
+        }
+
+        // Strip any query already present on the address; enabled Params are the source of truth.
+        var baseAddress = StripQueryForSend(address);
+        if (!Uri.TryCreate(baseAddress, UriKind.Absolute, out var baseUri))
         {
             throw new InvalidOperationException($"Invalid address: '{request.Address}'");
         }
@@ -211,6 +219,32 @@ public sealed class HttpRequestExecutor : IDisposable
         }
 
         return uri;
+    }
+
+    private static string StripQueryForSend(string address)
+    {
+        if (Uri.TryCreate(address, UriKind.Absolute, out var absolute))
+        {
+            var builder = new UriBuilder(absolute) { Query = string.Empty };
+            var built = builder.Uri.GetLeftPart(UriPartial.Path);
+            if (!string.IsNullOrEmpty(absolute.Fragment))
+            {
+                built += absolute.Fragment;
+            }
+
+            return built;
+        }
+
+        var queryIndex = address.IndexOf('?');
+        if (queryIndex < 0)
+        {
+            return address;
+        }
+
+        var fragmentIndex = address.IndexOf('#', queryIndex);
+        return fragmentIndex >= 0
+            ? address[..queryIndex] + address[fragmentIndex..]
+            : address[..queryIndex];
     }
 
     private static Uri AppendQuery(Uri uri, string key, string? value)

@@ -4,6 +4,64 @@
              xmlns:vm="clr-namespace:RequestExplorer.ViewModels">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="KeyValueGrid" TargetType="DataGrid">
+            <Style.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#802563EB" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FF1F2937" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#402563EB" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FF1F2937" />
+            </Style.Resources>
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="#FFEEEEEE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#FFE5E7EB" />
+            <Setter Property="RowHeight" Value="30" />
+            <Setter Property="ColumnHeaderHeight" Value="28" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="RowStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridRow">
+                        <Style.Resources>
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#802563EB" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FF1F2937" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#402563EB" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FF1F2937" />
+                        </Style.Resources>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="CellStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#802563EB" />
+                                <Setter Property="Foreground" Value="#FF1F2937" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="KeyValueCellText" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Padding" Value="4,0" />
+        </Style>
+
+        <Style x:Key="KeyValueCellEdit" TargetType="TextBox">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -14,9 +72,9 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Title + dirty banner -->
         <DockPanel Grid.Row="0" Margin="0,0,0,8">
-            <TextBox DockPanel.Dock="Left"
+            <TextBox x:Name="TitleBox"
+                     DockPanel.Dock="Left"
                      MinWidth="200"
                      MaxWidth="480"
                      FontSize="16"
@@ -24,7 +82,7 @@
                      BorderThickness="0,0,0,1"
                      Background="Transparent"
                      VerticalContentAlignment="Center"
-                     Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                     Text="{Binding Name, UpdateSourceTrigger=LostFocus}" />
             <TextBlock DockPanel.Dock="Right"
                        VerticalAlignment="Center"
                        FontSize="12"
@@ -34,7 +92,6 @@
                        Text="Unsaved changes *  (Ctrl+S to save)" />
         </DockPanel>
 
-        <!-- Verb + URL + Send -->
         <Grid Grid.Row="1" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="110" />
@@ -74,87 +131,106 @@
 
         <TabControl Grid.Row="3">
             <TabItem Header="Params">
+                <DataGrid Style="{StaticResource KeyValueGrid}"
+                          Margin="8"
+                          ItemsSource="{Binding Params}">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="On" Width="44">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Key"
+                                            Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                            Width="*"
+                                            ElementStyle="{StaticResource KeyValueCellText}"
+                                            EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                        <DataGridTextColumn Header="Value"
+                                            Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                            Width="2*"
+                                            ElementStyle="{StaticResource KeyValueCellText}"
+                                            EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                        <DataGridTemplateColumn Header="" Width="36">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="-"
+                                            Style="{StaticResource TreeActionButton}"
+                                            ToolTip="Remove row"
+                                            Visibility="{Binding HasContent, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding DataContext.RemoveParamCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+
+            <TabItem Header="Body">
                 <DockPanel Margin="8">
-                    <StackPanel DockPanel.Dock="Top"
-                                Orientation="Horizontal"
-                                Margin="0,0,0,8">
-                        <Button Content="Add"
-                                Padding="12,4"
-                                Command="{Binding AddParamCommand}" />
-                    </StackPanel>
-                    <DataGrid ItemsSource="{Binding Params}"
-                              AutoGenerateColumns="False"
-                              CanUserAddRows="False"
-                              CanUserDeleteRows="False"
-                              HeadersVisibility="Column"
-                              GridLinesVisibility="Horizontal"
-                              BorderThickness="1"
-                              BorderBrush="#FFDDDDDD">
-                        <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Header="On"
-                                                    Binding="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
-                                                    Width="40" />
-                            <DataGridTextColumn Header="Key"
-                                                Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
-                                                Width="*" />
-                            <DataGridTextColumn Header="Value"
-                                                Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                                Width="2*" />
-                            <DataGridTemplateColumn Header="" Width="70">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Content="Remove"
-                                                Padding="6,2"
-                                                Command="{Binding DataContext.RemoveParamCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                CommandParameter="{Binding}" />
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock DockPanel.Dock="Left"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"
+                                   Text="Content-Type" />
+                        <TextBox Width="220"
+                                 HorizontalAlignment="Left"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding BodyContentType, UpdateSourceTrigger=PropertyChanged}" />
+                    </DockPanel>
+                    <TextBox AcceptsReturn="True"
+                             AcceptsTab="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             FontFamily="Consolas"
+                             FontSize="12"
+                             Text="{Binding BodyContent, UpdateSourceTrigger=PropertyChanged}" />
                 </DockPanel>
             </TabItem>
 
             <TabItem Header="Headers">
-                <DockPanel Margin="8">
-                    <StackPanel DockPanel.Dock="Top"
-                                Orientation="Horizontal"
-                                Margin="0,0,0,8">
-                        <Button Content="Add"
-                                Padding="12,4"
-                                Command="{Binding AddHeaderCommand}" />
-                    </StackPanel>
-                    <DataGrid ItemsSource="{Binding Headers}"
-                              AutoGenerateColumns="False"
-                              CanUserAddRows="False"
-                              CanUserDeleteRows="False"
-                              HeadersVisibility="Column"
-                              GridLinesVisibility="Horizontal"
-                              BorderThickness="1"
-                              BorderBrush="#FFDDDDDD">
-                        <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Header="On"
-                                                    Binding="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
-                                                    Width="40" />
-                            <DataGridTextColumn Header="Key"
-                                                Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
-                                                Width="*" />
-                            <DataGridTextColumn Header="Value"
-                                                Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                                Width="2*" />
-                            <DataGridTemplateColumn Header="" Width="70">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Content="Remove"
-                                                Padding="6,2"
-                                                Command="{Binding DataContext.RemoveHeaderCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                CommandParameter="{Binding}" />
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </DockPanel>
+                <DataGrid Style="{StaticResource KeyValueGrid}"
+                          Margin="8"
+                          ItemsSource="{Binding Headers}">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="On" Width="44">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Key"
+                                            Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                            Width="*"
+                                            ElementStyle="{StaticResource KeyValueCellText}"
+                                            EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                        <DataGridTextColumn Header="Value"
+                                            Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                            Width="2*"
+                                            ElementStyle="{StaticResource KeyValueCellText}"
+                                            EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                        <DataGridTemplateColumn Header="" Width="36">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Content="-"
+                                            Style="{StaticResource TreeActionButton}"
+                                            ToolTip="Remove row"
+                                            Visibility="{Binding HasContent, Converter={StaticResource BoolToVis}}"
+                                            Command="{Binding DataContext.RemoveHeaderCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
             </TabItem>
 
             <TabItem Header="Auth">
@@ -202,29 +278,6 @@
                                    Text="No authentication will be applied when sending." />
                     </StackPanel>
                 </ScrollViewer>
-            </TabItem>
-
-            <TabItem Header="Body">
-                <DockPanel Margin="8">
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <TextBlock DockPanel.Dock="Left"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0"
-                                   Text="Content-Type" />
-                        <TextBox Width="220"
-                                 HorizontalAlignment="Left"
-                                 VerticalContentAlignment="Center"
-                                 Text="{Binding BodyContentType, UpdateSourceTrigger=PropertyChanged}" />
-                    </DockPanel>
-                    <TextBox AcceptsReturn="True"
-                             AcceptsTab="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto"
-                             HorizontalScrollBarVisibility="Auto"
-                             FontFamily="Consolas"
-                             FontSize="12"
-                             Text="{Binding BodyContent, UpdateSourceTrigger=PropertyChanged}" />
-                </DockPanel>
             </TabItem>
         </TabControl>
     </Grid>

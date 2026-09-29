@@ -51,6 +51,10 @@ public static class CollectionTreeMapper
         {
             request.ClearDirty();
         }
+        else
+        {
+            node.IsDirty = false;
+        }
 
         foreach (var child in node.Children)
         {
@@ -59,8 +63,7 @@ public static class CollectionTreeMapper
     }
 
     public static bool HasDirty(TreeNodeViewModel node) =>
-        node is RequestNodeViewModel { IsDirty: true }
-        || node.Children.Any(HasDirty);
+        node.IsDirty || node.Children.Any(HasDirty);
 
     public static CollectionNodeViewModel? FindRootCollection(TreeNodeViewModel? node)
     {
@@ -77,7 +80,7 @@ public static class CollectionTreeMapper
         return null;
     }
 
-    private static FolderNodeViewModel ToFolderViewModel(FolderDefinition folder)
+    public static FolderNodeViewModel ToFolderViewModel(FolderDefinition folder)
     {
         var node = new FolderNodeViewModel(folder);
 
@@ -95,7 +98,7 @@ public static class CollectionTreeMapper
         return node;
     }
 
-    private static void SyncFolder(FolderNodeViewModel folderNode)
+    public static void SyncFolder(FolderNodeViewModel folderNode)
     {
         var model = folderNode.Model;
         model.Name = folderNode.Name;

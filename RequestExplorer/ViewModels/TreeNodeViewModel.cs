@@ -81,4 +81,15 @@ public abstract partial class TreeNodeViewModel : ObservableObject
         NotifyDirtyPresentationChanged();
         return true;
     }
+
+    public int CountDescendants()
+    {
+        var count = 0;
+        foreach (var child in Children)
+        {
+            count += 1 + child.CountDescendants();
+        }
+
+        return count;
+    }
 }

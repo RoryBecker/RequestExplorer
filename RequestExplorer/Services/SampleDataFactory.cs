@@ -14,6 +14,12 @@ public static class SampleDataFactory
             Verb = HttpVerb.GET,
             Address = "https://httpbin.org/get"
         });
+        sandbox.Requests.Add(new RequestDefinition
+        {
+            Name = "GET with query",
+            Verb = HttpVerb.GET,
+            Address = "https://httpbin.org/get?example=1&ready=true"
+        });
 
         return [BuildHttpbinCollection(), sandbox];
     }
@@ -82,11 +88,35 @@ public static class SampleDataFactory
         collection.Folders.Add(status);
 
         var query = new FolderDefinition { Name = "Query & Headers" };
-        var withParams = Req("Query params", HttpVerb.GET, "https://httpbin.org/get");
-        withParams.Params.Add(new KeyValueItem { Key = "page", Value = "1" });
-        withParams.Params.Add(new KeyValueItem { Key = "q", Value = "request-explorer" });
-        withParams.Headers.Add(new KeyValueItem { Key = "Accept", Value = "application/json" });
-        query.Requests.Add(withParams);
+
+        // Address already contains a query string → Params table is filled on load (URL → Params).
+        query.Requests.Add(new RequestDefinition
+        {
+            Name = "Query in URL",
+            Verb = HttpVerb.GET,
+            Address = "https://httpbin.org/get?search=widgets&limit=10&sort=name"
+        });
+
+        // Params table is the source → URL query is built on load (Params → URL).
+        var viaParams = Req("Query via Params", HttpVerb.GET, "https://httpbin.org/get");
+        viaParams.Params.Add(new KeyValueItem { Key = "page", Value = "1" });
+        viaParams.Params.Add(new KeyValueItem { Key = "q", Value = "request-explorer" });
+        viaParams.Params.Add(new KeyValueItem { Key = "include", Value = "meta" });
+        query.Requests.Add(viaParams);
+
+        // Encoded / multi-value style query for paste-into-URL demos.
+        query.Requests.Add(new RequestDefinition
+        {
+            Name = "Encoded query",
+            Verb = HttpVerb.GET,
+            Address = "https://httpbin.org/get?q=hello%20world&tag=api&tag=demo"
+        });
+
+        var withHeaders = Req("Custom headers", HttpVerb.GET, "https://httpbin.org/headers");
+        withHeaders.Headers.Add(new KeyValueItem { Key = "Accept", Value = "application/json" });
+        withHeaders.Headers.Add(new KeyValueItem { Key = "X-Client", Value = "RequestExplorer" });
+        query.Requests.Add(withHeaders);
+
         collection.Folders.Add(query);
 
         return collection;

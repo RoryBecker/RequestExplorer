@@ -1,10 +1,14 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
+using System.Text.Json;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
 using RequestExplorer.Models;
 using RequestExplorer.Services;
+using RequestExplorer.Services.Postman;
 
 namespace RequestExplorer.ViewModels;
 
@@ -43,7 +47,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectionSummary))]
     [NotifyPropertyChangedFor(nameof(SelectedRequest))]
+    [NotifyPropertyChangedFor(nameof(SelectedCollection))]
+    [NotifyPropertyChangedFor(nameof(SelectedFolder))]
     [NotifyPropertyChangedFor(nameof(IsRequestSelected))]
+    [NotifyPropertyChangedFor(nameof(IsCollectionSelected))]
+    [NotifyPropertyChangedFor(nameof(IsFolderSelected))]
+    [NotifyPropertyChangedFor(nameof(IsNodeSelected))]
     [NotifyCanExecuteChangedFor(nameof(AddFolderCommand))]
     [NotifyCanExecuteChangedFor(nameof(AddRequestCommand))]
     [NotifyCanExecuteChangedFor(nameof(RenameNodeCommand))]
@@ -60,7 +69,17 @@ public partial class MainViewModel : ObservableObject
 
     public RequestNodeViewModel? SelectedRequest => SelectedNode as RequestNodeViewModel;
 
+    public CollectionNodeViewModel? SelectedCollection => SelectedNode as CollectionNodeViewModel;
+
+    public FolderNodeViewModel? SelectedFolder => SelectedNode as FolderNodeViewModel;
+
     public bool IsRequestSelected => SelectedRequest is not null;
+
+    public bool IsCollectionSelected => SelectedCollection is not null;
+
+    public bool IsFolderSelected => SelectedFolder is not null;
+
+    public bool IsNodeSelected => SelectedNode is not null;
 
     public string SelectionSummary
     {
@@ -88,11 +107,26 @@ public partial class MainViewModel : ObservableObject
         if (oldValue is not null)
         {
             oldValue.IsSelected = false;
+            oldValue.PropertyChanged -= OnSelectedNodePropertyChanged;
         }
 
         if (newValue is not null)
         {
             newValue.IsSelected = true;
+            newValue.PropertyChanged += OnSelectedNodePropertyChanged;
+        }
+    }
+
+    private void OnSelectedNodePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(TreeNodeViewModel.Name) or nameof(RequestNodeViewModel.Verb))
+        {
+            OnPropertyChanged(nameof(SelectionSummary));
+        }
+
+        if (e.PropertyName is nameof(TreeNodeViewModel.IsDirty) or nameof(TreeNodeViewModel.DisplayName))
+        {
+            OnPropertyChanged(nameof(HasAnyDirty));
         }
     }
 
@@ -379,6 +413,170 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ExportNode(TreeNodeViewModel? node)
+    {
+        node ??= SelectedNode;
+        if (node is null)
+        {
+            return;
+        }
+
+        try
+        {
+            PrepareNodeForExport(node);
+            var document = node switch
+            {
+                CollectionNodeViewModel collection => PostmanCollectionMapper.ToCollectionDocument(collection.Model),
+                FolderNodeViewModel folder => PostmanCollectionMapper.ToCollectionDocument(folder.Model),
+                RequestNodeViewModel request => PostmanCollectionMapper.ToCollectionDocument(request.Model),
+                _ => throw new InvalidOperationException("Unsupported node type.")
+            };
+
+            var safeName = string.Join("_", node.Name.Split(Path.GetInvalidFileNameChars()));
+            var dialog = new SaveFileDialog
+            {
+                Title = "Export for Postman",
+                Filter = "Postman Collection (*.json)|*.json|All files (*.*)|*.*",
+                FileName = $"{safeName}.postman_collection.json",
+                DefaultExt = ".json",
+                AddExtension = true
+            };
+
+            if (dialog.ShowDialog(Application.Current?.MainWindow) != true)
+            {
+                return;
+            }
+
+            var json = JsonSerializer.Serialize(document, PostmanCollectionMapper.JsonOptions);
+            File.WriteAllText(dialog.FileName, json);
+            StatusMessage = $"Exported '{node.Name}' for Postman";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Export Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void ImportIntoNode(TreeNodeViewModel? node)
+    {
+        node ??= SelectedNode;
+        if (node is not (CollectionNodeViewModel or FolderNodeViewModel))
+        {
+            MessageBox.Show(
+                "Import is only available for collections and folders.",
+                "Import",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            var dialog = new OpenFileDialog
+            {
+                Title = "Import Postman Collection",
+                Filter = "Postman Collection (*.json)|*.json|All files (*.*)|*.*",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog(Application.Current?.MainWindow) != true)
+            {
+                return;
+            }
+
+            var json = File.ReadAllText(dialog.FileName);
+            var document = JsonSerializer.Deserialize<PostmanCollectionDocument>(json, PostmanCollectionMapper.JsonOptions)
+                           ?? throw new InvalidOperationException("File is not a valid Postman collection.");
+
+            if (document.Item.Count == 0)
+            {
+                MessageBox.Show(
+                    "The Postman collection has no items to import.",
+                    "Import",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var folders = new List<FolderDefinition>();
+            var requests = new List<RequestDefinition>();
+            PostmanCollectionMapper.ApplyItems(document.Item, folders, requests);
+
+            var importedCount = 0;
+            switch (node)
+            {
+                case CollectionNodeViewModel collection:
+                    foreach (var folder in folders)
+                    {
+                        collection.Model.Folders.Add(folder);
+                        collection.AddChild(CollectionTreeMapper.ToFolderViewModel(folder));
+                        importedCount++;
+                    }
+
+                    foreach (var request in requests)
+                    {
+                        collection.Model.Requests.Add(request);
+                        collection.AddChild(new RequestNodeViewModel(request));
+                        importedCount++;
+                    }
+
+                    collection.IsExpanded = true;
+                    break;
+
+                case FolderNodeViewModel folderNode:
+                    foreach (var folder in folders)
+                    {
+                        folderNode.Model.Folders.Add(folder);
+                        folderNode.AddChild(CollectionTreeMapper.ToFolderViewModel(folder));
+                        importedCount++;
+                    }
+
+                    foreach (var request in requests)
+                    {
+                        folderNode.Model.Requests.Add(request);
+                        folderNode.AddChild(new RequestNodeViewModel(request));
+                        importedCount++;
+                    }
+
+                    folderNode.IsExpanded = true;
+                    break;
+            }
+
+            SelectedNode = node;
+            StatusMessage = $"Imported {importedCount} item(s) into '{node.Name}' (Ctrl+S to persist)";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Import Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private static void PrepareNodeForExport(TreeNodeViewModel node)
+    {
+        switch (node)
+        {
+            case CollectionNodeViewModel collection:
+                CollectionTreeMapper.SyncModelFromView(collection);
+                break;
+            case FolderNodeViewModel folder:
+                CollectionTreeMapper.SyncFolder(folder);
+                break;
+            case RequestNodeViewModel:
+                // Request model is kept in sync by bindings.
+                break;
+        }
+    }
+
+    [RelayCommand]
     private void AddCollection()
     {
         if (!TryPromptName("New Collection", "Collection name:", "New Collection", out var name))
@@ -493,16 +691,22 @@ public partial class MainViewModel : ObservableObject
     private bool CanRenameNode() => SelectedNode is not null;
 
     [RelayCommand(CanExecute = nameof(CanDeleteNode))]
-    private void DeleteNode()
+    private void DeleteNode(TreeNodeViewModel? node)
     {
-        if (SelectedNode is null)
+        node ??= SelectedNode;
+        if (node is null)
         {
             return;
         }
 
-        var name = SelectedNode.Name;
+        var name = node.Name;
+        var childCount = node.CountDescendants();
+        var message = childCount > 0
+            ? $"Delete '{name}' and its {childCount} child item(s)?"
+            : $"Delete '{name}'?";
+
         var result = MessageBox.Show(
-            $"Delete '{name}'?",
+            message,
             "Confirm Delete",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
@@ -512,13 +716,34 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        var toSelect = SelectedNode.Parent;
-        RemoveNode(SelectedNode);
-        SelectedNode = toSelect;
-        StatusMessage = $"Deleted '{name}'";
+        var toSelect = node.Parent;
+        if (ReferenceEquals(SelectedNode, node) || IsUnder(SelectedNode, node))
+        {
+            SelectedNode = toSelect;
+        }
+
+        RemoveNode(node);
+        StatusMessage = childCount > 0
+            ? $"Deleted '{name}' and {childCount} child item(s)"
+            : $"Deleted '{name}'";
     }
 
-    private bool CanDeleteNode() => SelectedNode is not null;
+    private bool CanDeleteNode(TreeNodeViewModel? node) => (node ?? SelectedNode) is not null;
+
+    private static bool IsUnder(TreeNodeViewModel? candidate, TreeNodeViewModel ancestor)
+    {
+        while (candidate is not null)
+        {
+            if (ReferenceEquals(candidate, ancestor))
+            {
+                return true;
+            }
+
+            candidate = candidate.Parent;
+        }
+
+        return false;
+    }
 
     private void RemoveNode(TreeNodeViewModel node)
     {

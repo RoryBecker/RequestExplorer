@@ -18,13 +18,19 @@ public partial class KeyValueItemViewModel : ObservableObject
 
     public KeyValueItem Model { get; }
 
+    public bool HasContent =>
+        !string.IsNullOrWhiteSpace(Key) || !string.IsNullOrWhiteSpace(Value);
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasContent))]
     private bool _isEnabled;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasContent))]
     private string _key;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasContent))]
     private string _value;
 
     partial void OnIsEnabledChanged(bool value)

@@ -19,5 +19,6 @@ dotnet run --project RequestExplorer
 - Phase 0: scaffold (split main window)
 - Phase 1: domain model + collections tree + seed data + basic CRUD
 - Phase 2: RHS request/response shell (selection switching)
-- Later: editable request fields + dirty, save, send/response
+- Phase 3: editable request fields + dirty `*` tracking
+- Later: Ctrl+S persistence, send/response
 

@@ -1,6 +1,6 @@
 # RequestExplorer — Multiphase Plan
 
-**Status:** Phase 2 implemented — awaiting your verification & commit  
+**Status:** Phase 3 implemented — awaiting your verification & commit  
 **Created:** 2026-09-29  
 **Repo policy:** Do **not** auto-commit. User commits only after explicitly approving each phase as complete.
 
@@ -351,11 +351,14 @@ Each phase below has: **objectives**, **deliverables**, **out of scope**, **acce
 - Persistence, Send
 
 **Acceptance criteria**
-- [ ] Editing fields updates the in-memory request
-- [ ] Dirty appears after first change; cleared only by Save (Phase 4) or explicit discard (if we add it)
-- [ ] Switching selection respects agreed dirty policy (Q6/Q7) — may stub “keep dirty in memory” until Phase 4
+- [x] Editing fields updates the in-memory request
+- [x] Dirty appears after first change; cleared only by Save (Phase 4) or explicit discard (if we add it)
+- [x] Switching selection respects agreed dirty policy (Q6/Q7) — may stub “keep dirty in memory” until Phase 4
 
-**Depends on answers:** Q6, Q7, Q8–Q10 (depth of auth/body UI)
+**Phase 3 deliverables (done)**
+- Editable Verb, Address, name, Params, Headers, Auth (None/Bearer/Basic/ApiKey), Body + Content-Type
+- Dirty tracking on `RequestNodeViewModel`; banner “Unsaved changes *”; tree `*` on request and ancestors (**G★**)
+- Dirty retained when switching selection (in-memory); `ClearDirty()` ready for Phase 4 Save
 
 ---
 
@@ -440,7 +443,7 @@ No phase starts without your go-ahead. No agent git commits unless you later cha
 
 ## Immediate next step
 
-Phase 2 is implemented. Please verify RHS switching and the editor/response splitter, **commit when satisfied**, then **approve Phase 3**.
+Phase 3 is implemented. Please edit a request, confirm dirty `*` on the tree (and ancestors), switch away and back, **commit when satisfied**, then **approve Phase 4**.
 
 ```powershell
 dotnet run --project RequestExplorer
@@ -458,7 +461,9 @@ dotnet run --project RequestExplorer
 | 2026-09-29 | Phase 0 approved by user | Proceed to Phase 1 |
 | 2026-09-29 | Phase 1 implemented | Domain + TreeView + seed data + B2 CRUD. |
 | 2026-09-29 | Phase 1 approved by user | Proceed to Phase 2 |
-| 2026-09-29 | Phase 2 implemented | RHS request/response shell; selection switching; no agent commit. |
+| 2026-09-29 | Phase 2 implemented | RHS request/response shell; selection switching. |
+| 2026-09-29 | Phase 2 approved by user | Proceed to Phase 3 |
+| 2026-09-29 | Phase 3 implemented | Editable request fields + dirty/`*` tracking; no agent commit. |
 | | | |
 
 ---
@@ -469,8 +474,8 @@ dotnet run --project RequestExplorer
 |-------|--------|
 | 0 Foundations | **Done (approved)** |
 | 1 Domain + tree | **Done (approved)** |
-| 2 RHS shell | **Done (pending your commit)** |
-| 3 Editor + dirty | Not started |
+| 2 RHS shell | **Done (approved)** |
+| 3 Editor + dirty | **Done (pending your commit)** |
 | 4 Save Ctrl+S | Not started |
 | 5 Send + response | Not started |
 | 6 CRUD + polish | Not started |

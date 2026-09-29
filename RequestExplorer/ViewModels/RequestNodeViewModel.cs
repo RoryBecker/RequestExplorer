@@ -200,14 +200,70 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
 
     partial void OnBodyContentChanged(string value)
     {
+        var previous = Model.Body.Content;
+        if (string.Equals(previous, value, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         Model.Body.Content = value;
         MarkDirty();
+        RecordBodyUndo(RequestBodyField.Content, previous, "Edit request body");
     }
 
     partial void OnBodyContentTypeChanged(string value)
     {
-        Model.Body.ContentType = string.IsNullOrWhiteSpace(value) ? null : value;
+        var normalized = string.IsNullOrWhiteSpace(value) ? null : value;
+        var previous = Model.Body.ContentType;
+        if (string.Equals(previous, normalized, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Model.Body.ContentType = normalized;
         MarkDirty();
+        RecordBodyUndo(RequestBodyField.ContentType, previous, "Edit body content type");
+    }
+
+    public string? GetBodyField(RequestBodyField field) =>
+        field switch
+        {
+            RequestBodyField.Content => BodyContent,
+            RequestBodyField.ContentType => string.IsNullOrWhiteSpace(BodyContentType) ? null : BodyContentType,
+            _ => null
+        };
+
+    public void ApplyBodyField(RequestBodyField field, string? value)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            switch (field)
+            {
+                case RequestBodyField.Content:
+                    BodyContent = value ?? string.Empty;
+                    break;
+                case RequestBodyField.ContentType:
+                    BodyContentType = value ?? string.Empty;
+                    break;
+            }
+
+            MarkDirty();
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    private void RecordBodyUndo(RequestBodyField field, string? oldValue, string description)
+    {
+        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        _undoRecorder.Record(new SetRequestBodyFieldAction(this, field, oldValue, description));
     }
 
     [RelayCommand]

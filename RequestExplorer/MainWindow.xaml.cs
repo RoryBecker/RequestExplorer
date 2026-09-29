@@ -30,6 +30,30 @@ public partial class MainWindow : Window
         }
     }
 
+    private void UndoHistoryDrop_OnClick(object sender, RoutedEventArgs e)
+    {
+        OpenHistoryMenu(sender, UndoHistoryMenu, e);
+    }
+
+    private void RedoHistoryDrop_OnClick(object sender, RoutedEventArgs e)
+    {
+        OpenHistoryMenu(sender, RedoHistoryMenu, e);
+    }
+
+    private void OpenHistoryMenu(object sender, ContextMenu? menu, RoutedEventArgs e)
+    {
+        if (sender is not Button button || menu is null)
+        {
+            return;
+        }
+
+        menu.DataContext = DataContext;
+        menu.PlacementTarget = button;
+        menu.Placement = PlacementMode.Bottom;
+        menu.IsOpen = true;
+        e.Handled = true;
+    }
+
     private void CollectionTree_OnSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         if (DataContext is MainViewModel vm)

@@ -181,7 +181,7 @@
                         <TextBox Width="220"
                                  HorizontalAlignment="Left"
                                  VerticalContentAlignment="Center"
-                                 Text="{Binding BodyContentType, UpdateSourceTrigger=PropertyChanged}" />
+                                 Text="{Binding BodyContentType, UpdateSourceTrigger=LostFocus}" />
                     </DockPanel>
                     <TextBox AcceptsReturn="True"
                              AcceptsTab="True"
@@ -190,7 +190,7 @@
                              HorizontalScrollBarVisibility="Auto"
                              FontFamily="Consolas"
                              FontSize="12"
-                             Text="{Binding BodyContent, UpdateSourceTrigger=PropertyChanged}" />
+                             Text="{Binding BodyContent, UpdateSourceTrigger=LostFocus}" />
                 </DockPanel>
             </TabItem>
 

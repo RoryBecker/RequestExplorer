@@ -38,19 +38,29 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             if (e.PropertyName is nameof(UndoStack.CanUndo) or nameof(UndoStack.UndoDescription))
             {
                 UndoCommand.NotifyCanExecuteChanged();
+                UndoToCommand.NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(UndoMenuHeader));
+                OnPropertyChanged(nameof(HasUndoHistory));
+                RefreshHistoryMenus();
             }
 
             if (e.PropertyName is nameof(UndoStack.CanRedo) or nameof(UndoStack.RedoDescription))
             {
                 RedoCommand.NotifyCanExecuteChanged();
+                RedoToCommand.NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(RedoMenuHeader));
+                OnPropertyChanged(nameof(HasRedoHistory));
+                RefreshHistoryMenus();
             }
         };
         LoadWorkspace();
     }
 
     public ObservableCollection<CollectionNodeViewModel> Collections { get; } = [];
+
+    public ObservableCollection<HistoryMenuItem> UndoMenuItems { get; } = [];
+
+    public ObservableCollection<HistoryMenuItem> RedoMenuItems { get; } = [];
 
     public ResponseViewModel Response { get; } = new();
 
@@ -77,6 +87,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(RenameNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveAllCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendRequestCommand))]
     [NotifyCanExecuteChangedFor(nameof(DuplicateRequestCommand))]
     private TreeNodeViewModel? _selectedNode;
@@ -131,6 +142,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     public string RedoMenuHeader =>
         _history.CanRedo ? $"_Redo {_history.RedoDescription}" : "_Redo";
 
+    public bool HasUndoHistory => _history.CanUndo;
+
+    public bool HasRedoHistory => _history.CanRedo;
+
     partial void OnSelectedNodeChanged(TreeNodeViewModel? oldValue, TreeNodeViewModel? newValue)
     {
         if (oldValue is not null)
@@ -160,18 +175,101 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     [RelayCommand(CanExecute = nameof(CanUndo))]
-    private void Undo()
+    private void Undo() => ApplyUndo(forceApply: false);
+
+    private bool CanUndo() =>
+        _history.CanUndo && Keyboard.FocusedElement is not TextBox;
+
+    [RelayCommand(CanExecute = nameof(CanUndoTo))]
+    private void UndoTo(int depth)
     {
-        if (!CanUndo() || !_history.TryPeekUndo(out var action))
+        if (depth <= 0 || !CanUndoTo())
         {
             return;
+        }
+
+        var applied = 0;
+        for (var i = 0; i < depth; i++)
+        {
+            if (!_history.CanUndo)
+            {
+                break;
+            }
+
+            if (!ApplyUndo(forceApply: true))
+            {
+                break;
+            }
+
+            applied++;
+        }
+
+        if (applied > 0)
+        {
+            StatusMessage = applied == 1
+                ? "Undid 1 action"
+                : $"Undid {applied} actions";
+        }
+    }
+
+    private bool CanUndoTo() => _history.CanUndo;
+
+    [RelayCommand(CanExecute = nameof(CanRedo))]
+    private void Redo() => ApplyRedo(forceApply: false);
+
+    private bool CanRedo() =>
+        _history.CanRedo && Keyboard.FocusedElement is not TextBox;
+
+    [RelayCommand(CanExecute = nameof(CanRedoTo))]
+    private void RedoTo(int depth)
+    {
+        if (depth <= 0 || !CanRedoTo())
+        {
+            return;
+        }
+
+        var applied = 0;
+        for (var i = 0; i < depth; i++)
+        {
+            if (!_history.CanRedo)
+            {
+                break;
+            }
+
+            if (!ApplyRedo(forceApply: true))
+            {
+                break;
+            }
+
+            applied++;
+        }
+
+        if (applied > 0)
+        {
+            StatusMessage = applied == 1
+                ? "Redid 1 action"
+                : $"Redid {applied} actions";
+        }
+    }
+
+    private bool CanRedoTo() => _history.CanRedo;
+
+    /// <returns>True when a stack entry was consumed.</returns>
+    private bool ApplyUndo(bool forceApply)
+    {
+        if (!_history.TryPeekUndo(out var action))
+        {
+            return false;
         }
 
         if (action.RevealTarget is { } target && !IsRevealSatisfied(target))
         {
             Reveal(target);
-            StatusMessage = $"Showing {DescribeSurface(target.Surface)} — press Ctrl+Z again to undo";
-            return;
+            if (!forceApply)
+            {
+                StatusMessage = $"Showing {DescribeSurface(target.Surface)} — press Ctrl+Z again to undo";
+                return false;
+            }
         }
 
         _isApplyingHistory = true;
@@ -184,7 +282,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 Reveal(after);
             }
 
-            StatusMessage = $"Undid {description}";
+            if (!forceApply)
+            {
+                StatusMessage = $"Undid {description}";
+            }
+
+            return true;
         }
         finally
         {
@@ -192,22 +295,22 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    private bool CanUndo() =>
-        _history.CanUndo && Keyboard.FocusedElement is not TextBox;
-
-    [RelayCommand(CanExecute = nameof(CanRedo))]
-    private void Redo()
+    /// <returns>True when a stack entry was consumed.</returns>
+    private bool ApplyRedo(bool forceApply)
     {
-        if (!CanRedo() || !_history.TryPeekRedo(out var action))
+        if (!_history.TryPeekRedo(out var action))
         {
-            return;
+            return false;
         }
 
         if (action.RevealTarget is { } target && !IsRevealSatisfied(target))
         {
             Reveal(target);
-            StatusMessage = $"Showing {DescribeSurface(target.Surface)} — press Ctrl+Y again to redo";
-            return;
+            if (!forceApply)
+            {
+                StatusMessage = $"Showing {DescribeSurface(target.Surface)} — press Ctrl+Y again to redo";
+                return false;
+            }
         }
 
         _isApplyingHistory = true;
@@ -220,16 +323,18 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 Reveal(after);
             }
 
-            StatusMessage = $"Redid {description}";
+            if (!forceApply)
+            {
+                StatusMessage = $"Redid {description}";
+            }
+
+            return true;
         }
         finally
         {
             _isApplyingHistory = false;
         }
     }
-
-    private bool CanRedo() =>
-        _history.CanRedo && Keyboard.FocusedElement is not TextBox;
 
     bool IUndoRecorder.IsApplyingHistory => _isApplyingHistory;
 
@@ -243,6 +348,25 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         _history.Push(undoInstruction);
+    }
+
+    private void RefreshHistoryMenus()
+    {
+        UndoMenuItems.Clear();
+        var undoDepth = 0;
+        foreach (var description in _history.GetUndoDescriptions())
+        {
+            undoDepth++;
+            UndoMenuItems.Add(new HistoryMenuItem(undoDepth, description));
+        }
+
+        RedoMenuItems.Clear();
+        var redoDepth = 0;
+        foreach (var description in _history.GetRedoDescriptions())
+        {
+            redoDepth++;
+            RedoMenuItems.Add(new HistoryMenuItem(redoDepth, description));
+        }
     }
 
     private bool IsRevealSatisfied(UndoRevealTarget target) =>
@@ -376,7 +500,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanSave))]
     private void Save()
     {
         var collection = CollectionTreeMapper.FindRootCollection(SelectedNode);
@@ -408,7 +532,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    [RelayCommand]
+    private bool CanSave() =>
+        CollectionTreeMapper.FindRootCollection(SelectedNode) is not null
+        || Collections.Count > 0;
+
+    [RelayCommand(CanExecute = nameof(CanSaveAll))]
     private void SaveAll()
     {
         try
@@ -425,6 +553,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 MessageBoxImage.Error);
         }
     }
+
+    private bool CanSaveAll() => Collections.Count > 0;
 
     private void SaveAllCollections()
     {

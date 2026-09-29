@@ -23,6 +23,12 @@ public sealed class UndoStack : INotifyPropertyChanged
 
     public bool TryPeekRedo(out IUndoAction action) => _redo.TryPeek(out action!);
 
+    public IReadOnlyList<string> GetUndoDescriptions(int max = 25) =>
+        _undo.Take(Math.Max(0, max)).Select(a => a.Description).ToList();
+
+    public IReadOnlyList<string> GetRedoDescriptions(int max = 25) =>
+        _redo.Take(Math.Max(0, max)).Select(a => a.Description).ToList();
+
     public void Push(IUndoAction undoInstruction)
     {
         ArgumentNullException.ThrowIfNull(undoInstruction);

@@ -71,6 +71,137 @@
             </MenuItem>
         </Menu>
 
+        <Border DockPanel.Dock="Top"
+                Background="{StaticResource App.SurfaceBrush}"
+                BorderBrush="{StaticResource App.BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="4,2">
+            <ToolBarTray Background="Transparent">
+                <ToolBar Band="0"
+                         BandIndex="0"
+                         ToolBarTray.IsLocked="True"
+                         Background="Transparent"
+                         DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+
+                    <!-- Undo split -->
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding UndoCommand}"
+                            ToolTip="Undo (Ctrl+Z)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE7A7;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarSplitChevron}"
+                            IsEnabled="{Binding HasUndoHistory}"
+                            ToolTip="Undo multiple"
+                            Click="UndoHistoryDrop_OnClick">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" FontSize="10" Text="&#xE70D;" />
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="UndoHistoryMenu"
+                                         MinWidth="220"
+                                         ItemsSource="{Binding UndoMenuItems}">
+                                <ContextMenu.ItemContainerStyle>
+                                    <Style TargetType="MenuItem">
+                                        <Setter Property="Header" Value="{Binding Description}" />
+                                        <Setter Property="Command"
+                                                Value="{Binding DataContext.UndoToCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                        <Setter Property="CommandParameter" Value="{Binding Depth}" />
+                                    </Style>
+                                </ContextMenu.ItemContainerStyle>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+
+                    <!-- Redo split -->
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding RedoCommand}"
+                            ToolTip="Redo (Ctrl+Y)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE7A6;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarSplitChevron}"
+                            IsEnabled="{Binding HasRedoHistory}"
+                            ToolTip="Redo multiple"
+                            Click="RedoHistoryDrop_OnClick">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" FontSize="10" Text="&#xE70D;" />
+                        <Button.ContextMenu>
+                            <ContextMenu x:Name="RedoHistoryMenu"
+                                         MinWidth="220"
+                                         ItemsSource="{Binding RedoMenuItems}">
+                                <ContextMenu.ItemContainerStyle>
+                                    <Style TargetType="MenuItem">
+                                        <Setter Property="Header" Value="{Binding Description}" />
+                                        <Setter Property="Command"
+                                                Value="{Binding DataContext.RedoToCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                                        <Setter Property="CommandParameter" Value="{Binding Depth}" />
+                                    </Style>
+                                </ContextMenu.ItemContainerStyle>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+
+                    <Separator />
+
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding SaveCommand}"
+                            ToolTip="Save (Ctrl+S)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE74E;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding SaveAllCommand}"
+                            ToolTip="Save all (Ctrl+Shift+S)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE792;" />
+                    </Button>
+
+                    <Separator />
+
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding AddCollectionCommand}"
+                            ToolTip="New collection (Ctrl+Shift+N)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8B7;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding AddFolderCommand}"
+                            ToolTip="New folder under selection">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8F4;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding AddRequestCommand}"
+                            ToolTip="New request under selection">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8A5;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding DuplicateRequestCommand}"
+                            ToolTip="Duplicate request (Ctrl+D)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8C8;" />
+                    </Button>
+
+                    <Separator />
+
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding RenameNodeCommand}"
+                            ToolTip="Rename (F2)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE70F;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding DeleteNodeCommand}"
+                            ToolTip="Delete (Del)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE74D;" />
+                    </Button>
+
+                    <Separator />
+
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding SendRequestCommand}"
+                            ToolTip="Send request (Ctrl+Enter)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE724;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding CancelSendCommand}"
+                            ToolTip="Cancel in-flight request">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE711;" />
+                    </Button>
+                </ToolBar>
+            </ToolBarTray>
+        </Border>
+
         <StatusBar DockPanel.Dock="Bottom" Height="28">
             <StatusBarItem>
                 <TextBlock Text="{Binding SelectionSummary}" />
@@ -95,25 +226,6 @@
             </Grid.ColumnDefinitions>
 
             <DockPanel Grid.Column="0" Background="{StaticResource App.SurfaceBrush}">
-                <ToolBarTray DockPanel.Dock="Top" Background="{StaticResource App.SurfaceBrush}">
-                    <ToolBar Band="0" BandIndex="0" ToolBarTray.IsLocked="True">
-                        <Button Content="Save" Command="{Binding SaveCommand}"
-                                ToolTip="Save collection (Ctrl+S)" />
-                        <Separator />
-                        <Button Content="Collection" Command="{Binding AddCollectionCommand}"
-                                ToolTip="New collection (Ctrl+Shift+N)" />
-                        <Button Content="Folder" Command="{Binding AddFolderCommand}"
-                                ToolTip="New folder under selection" />
-                        <Button Content="Request" Command="{Binding AddRequestCommand}"
-                                ToolTip="New request under selection" />
-                        <Separator />
-                        <Button Content="Rename" Command="{Binding RenameNodeCommand}"
-                                ToolTip="Rename (F2)" />
-                        <Button Content="Delete" Command="{Binding DeleteNodeCommand}"
-                                ToolTip="Delete (Del)" />
-                    </ToolBar>
-                </ToolBarTray>
-
                 <TextBlock DockPanel.Dock="Top"
                            Margin="12,8,12,4"
                            Text="Collections"

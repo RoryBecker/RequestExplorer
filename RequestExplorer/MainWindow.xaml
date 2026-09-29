@@ -21,11 +21,86 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:VerbToBrushConverter x:Key="VerbBrush" />
-        <conv:TreeRowWidthConverter x:Key="TreeRowWidth" />
 
         <!-- ~50% lighter than accent blue for selection -->
         <SolidColorBrush x:Key="Tree.SelectionBrush" Color="#802563EB" />
         <SolidColorBrush x:Key="Tree.InactiveSelectionBrush" Color="#402563EB" />
+        <SolidColorBrush x:Key="Tree.DropIntoBrush" Color="#332563EB" />
+
+        <Style x:Key="TreeDropBeforeLine" TargetType="Border">
+            <Setter Property="Height" Value="2" />
+            <Setter Property="Margin" Value="0,0,0,1" />
+            <Setter Property="Background" Value="{StaticResource App.AccentBrush}" />
+            <Setter Property="CornerRadius" Value="1" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static vm:TreeDropIndicator.Before}">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="TreeDropAfterLine" TargetType="Border">
+            <Setter Property="Height" Value="2" />
+            <Setter Property="Margin" Value="0,1,0,0" />
+            <Setter Property="Background" Value="{StaticResource App.AccentBrush}" />
+            <Setter Property="CornerRadius" Value="1" />
+            <Setter Property="Visibility" Value="Collapsed" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static vm:TreeDropIndicator.After}">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="TreeDropIntoHighlight" TargetType="Border">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Padding" Value="2,0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static vm:TreeDropIndicator.Into}">
+                    <Setter Property="Background" Value="{StaticResource Tree.DropIntoBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Stretch header content so row grids can right-align action buttons. -->
+        <Style x:Key="TreeExpandToggle" TargetType="ToggleButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Width" Value="16" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="Transparent" Width="16" Height="16">
+                            <Path x:Name="ExpandPath"
+                                  Data="M 0,0 L 0,6 L 6,0 Z"
+                                  Fill="#FF6B7280"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"
+                                  RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <RotateTransform Angle="-45" />
+                                </Path.RenderTransform>
+                            </Path>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ExpandPath" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <RotateTransform Angle="45" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ExpandPath" Property="Fill" Value="#FF2563EB" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Window.InputBindings>
@@ -286,32 +361,96 @@
                         </StackPanel>
                     </Border>
 
-                    <TreeView x:Name="CollectionTree"
+                    <DockPanel Visibility="{Binding HasCollections, Converter={StaticResource BoolToVis}}">
+                        <Border DockPanel.Dock="Top"
+                                Height="3"
+                                Margin="8,4,8,0"
+                                Background="{StaticResource App.AccentBrush}"
+                                CornerRadius="1"
+                                Visibility="{Binding IsRootDropIndicatorVisible, Converter={StaticResource BoolToVis}}" />
+
+                        <TreeView x:Name="CollectionTree"
                               Margin="4,0,4,8"
                               BorderThickness="0"
                               Background="Transparent"
+                              AllowDrop="True"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
                               ItemsSource="{Binding Collections}"
                               SelectedItemChanged="CollectionTree_OnSelectedItemChanged"
-                              PreviewMouseRightButtonDown="CollectionTree_OnPreviewMouseRightButtonDown"
-                              Visibility="{Binding HasCollections, Converter={StaticResource BoolToVis}}">
+                              PreviewMouseRightButtonDown="CollectionTree_OnPreviewMouseRightButtonDown">
                         <TreeView.ItemContainerStyle>
                             <Style TargetType="TreeViewItem">
                                 <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                 <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
-                                <Setter Property="Padding" Value="10,1,2,1" />
+                                <Setter Property="Padding" Value="4,1,4,1" />
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="VerticalContentAlignment" Value="Center" />
                                 <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="AllowDrop" Value="True" />
+                                <Setter Property="SnapsToDevicePixels" Value="True" />
                                 <EventSetter Event="PreviewMouseDoubleClick" Handler="TreeViewItem_OnPreviewMouseDoubleClick" />
-                                <Style.Resources>
-                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"
-                                                     Color="#802563EB" />
-                                    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}"
-                                                     Color="#FF1F2937" />
-                                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}"
-                                                     Color="#402563EB" />
-                                    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}"
-                                                     Color="#FF1F2937" />
-                                </Style.Resources>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="TreeViewItem">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" MinWidth="16" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="*" />
+                                                </Grid.RowDefinitions>
+
+                                                <ToggleButton x:Name="Expander"
+                                                              Style="{StaticResource TreeExpandToggle}"
+                                                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
+                                                              ClickMode="Press"
+                                                              Margin="0,0,2,0" />
+
+                                                <Border x:Name="Bd"
+                                                        Grid.Column="1"
+                                                        Background="{TemplateBinding Background}"
+                                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                                        Padding="{TemplateBinding Padding}"
+                                                        SnapsToDevicePixels="True">
+                                                    <ContentPresenter x:Name="PART_Header"
+                                                                      ContentSource="Header"
+                                                                      HorizontalAlignment="Stretch"
+                                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                                </Border>
+
+                                                <ItemsPresenter x:Name="ItemsHost"
+                                                                Grid.Row="1"
+                                                                Grid.Column="1"
+                                                                Margin="16,0,0,0" />
+                                            </Grid>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="HasItems" Value="False">
+                                                    <Setter TargetName="Expander" Property="Visibility" Value="Hidden" />
+                                                </Trigger>
+                                                <Trigger Property="IsExpanded" Value="False">
+                                                    <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource Tree.SelectionBrush}" />
+                                                </Trigger>
+                                                <MultiTrigger>
+                                                    <MultiTrigger.Conditions>
+                                                        <Condition Property="IsSelected" Value="True" />
+                                                        <Condition Property="IsSelectionActive" Value="False" />
+                                                    </MultiTrigger.Conditions>
+                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource Tree.InactiveSelectionBrush}" />
+                                                </MultiTrigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Opacity" Value="0.5" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
                             </Style>
                         </TreeView.ItemContainerStyle>
 
@@ -337,142 +476,143 @@
                         <TreeView.Resources>
                             <HierarchicalDataTemplate DataType="{x:Type vm:CollectionNodeViewModel}"
                                                       ItemsSource="{Binding Children}">
-                                <Grid x:Name="CollectionRow" MinHeight="22" Margin="0,1">
-                                    <Grid.Width>
-                                        <MultiBinding Converter="{StaticResource TreeRowWidth}">
-                                            <Binding Path="ActualWidth" ElementName="CollectionTree" />
-                                            <Binding RelativeSource="{RelativeSource Self}" />
-                                        </MultiBinding>
-                                    </Grid.Width>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0"
-                                                Orientation="Horizontal"
-                                                VerticalAlignment="Center">
-                                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                                   Text="&#xE8F1;"
-                                                   Margin="0,0,6,0"
-                                                   Foreground="{StaticResource App.AccentBrush}"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1"
-                                                Orientation="Horizontal"
-                                                VerticalAlignment="Center"
-                                                Margin="8,0,0,0">
-                                        <Button Content="+"
-                                                Style="{StaticResource TreeActionButton}"
-                                                ToolTip="Add child"
-                                                Click="TreeAddButton_OnClick" />
-                                        <Button Content="-"
-                                                Style="{StaticResource TreeActionButton}"
-                                                Margin="4,0,0,0"
-                                                ToolTip="Delete"
-                                                Click="TreeDeleteButton_OnClick" />
-                                        <Button Content="…"
-                                                Style="{StaticResource TreeActionButton}"
-                                                Margin="4,0,0,0"
-                                                ToolTip="More actions"
-                                                Click="TreeMoreButton_OnClick" />
-                                    </StackPanel>
-                                </Grid>
+                                <StackPanel HorizontalAlignment="Stretch">
+                                    <Border Style="{StaticResource TreeDropBeforeLine}" />
+                                    <Border Style="{StaticResource TreeDropIntoHighlight}">
+                                        <Grid MinHeight="22" Margin="0,1" HorizontalAlignment="Stretch">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0"
+                                                        Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                           Text="&#xE8F1;"
+                                                           Margin="0,0,6,0"
+                                                           Foreground="{StaticResource App.AccentBrush}"
+                                                           VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        VerticalAlignment="Center"
+                                                        Margin="8,0,0,0">
+                                                <Button Content="+"
+                                                        Style="{StaticResource TreeActionButton}"
+                                                        ToolTip="Add child"
+                                                        Click="TreeAddButton_OnClick" />
+                                                <Button Content="-"
+                                                        Style="{StaticResource TreeActionButton}"
+                                                        Margin="4,0,0,0"
+                                                        ToolTip="Delete"
+                                                        Click="TreeDeleteButton_OnClick" />
+                                                <Button Content="…"
+                                                        Style="{StaticResource TreeActionButton}"
+                                                        Margin="4,0,0,0"
+                                                        ToolTip="More actions"
+                                                        Click="TreeMoreButton_OnClick" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Border Style="{StaticResource TreeDropAfterLine}" />
+                                </StackPanel>
                             </HierarchicalDataTemplate>
 
                             <HierarchicalDataTemplate DataType="{x:Type vm:FolderNodeViewModel}"
                                                       ItemsSource="{Binding Children}">
-                                <Grid MinHeight="22" Margin="0,1">
-                                    <Grid.Width>
-                                        <MultiBinding Converter="{StaticResource TreeRowWidth}">
-                                            <Binding Path="ActualWidth" ElementName="CollectionTree" />
-                                            <Binding RelativeSource="{RelativeSource Self}" />
-                                        </MultiBinding>
-                                    </Grid.Width>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0"
-                                                Orientation="Horizontal"
-                                                VerticalAlignment="Center">
-                                        <TextBlock FontFamily="Segoe MDL2 Assets"
-                                                   Text="&#xE8B7;"
-                                                   Margin="0,0,6,0"
-                                                   Foreground="{StaticResource App.MutedBrush}"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1"
-                                                Orientation="Horizontal"
-                                                VerticalAlignment="Center"
-                                                Margin="8,0,0,0">
-                                        <Button Content="+"
-                                                Style="{StaticResource TreeActionButton}"
-                                                ToolTip="Add child"
-                                                Click="TreeAddButton_OnClick" />
-                                        <Button Content="-"
-                                                Style="{StaticResource TreeActionButton}"
-                                                Margin="4,0,0,0"
-                                                ToolTip="Delete"
-                                                Click="TreeDeleteButton_OnClick" />
-                                        <Button Content="…"
-                                                Style="{StaticResource TreeActionButton}"
-                                                Margin="4,0,0,0"
-                                                ToolTip="More actions"
-                                                Click="TreeMoreButton_OnClick" />
-                                    </StackPanel>
-                                </Grid>
+                                <StackPanel HorizontalAlignment="Stretch">
+                                    <Border Style="{StaticResource TreeDropBeforeLine}" />
+                                    <Border Style="{StaticResource TreeDropIntoHighlight}">
+                                        <Grid MinHeight="22" Margin="0,1" HorizontalAlignment="Stretch">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0"
+                                                        Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                           Text="&#xE8B7;"
+                                                           Margin="0,0,6,0"
+                                                           Foreground="{StaticResource App.MutedBrush}"
+                                                           VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        VerticalAlignment="Center"
+                                                        Margin="8,0,0,0">
+                                                <Button Content="+"
+                                                        Style="{StaticResource TreeActionButton}"
+                                                        ToolTip="Add child"
+                                                        Click="TreeAddButton_OnClick" />
+                                                <Button Content="-"
+                                                        Style="{StaticResource TreeActionButton}"
+                                                        Margin="4,0,0,0"
+                                                        ToolTip="Delete"
+                                                        Click="TreeDeleteButton_OnClick" />
+                                                <Button Content="…"
+                                                        Style="{StaticResource TreeActionButton}"
+                                                        Margin="4,0,0,0"
+                                                        ToolTip="More actions"
+                                                        Click="TreeMoreButton_OnClick" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Border Style="{StaticResource TreeDropAfterLine}" />
+                                </StackPanel>
                             </HierarchicalDataTemplate>
 
                             <DataTemplate DataType="{x:Type vm:RequestNodeViewModel}">
-                                <Grid MinHeight="22" Margin="0,1">
-                                    <Grid.Width>
-                                        <MultiBinding Converter="{StaticResource TreeRowWidth}">
-                                            <Binding Path="ActualWidth" ElementName="CollectionTree" />
-                                            <Binding RelativeSource="{RelativeSource Self}" />
-                                        </MultiBinding>
-                                    </Grid.Width>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0"
-                                                Orientation="Horizontal"
-                                                VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Verb}"
-                                                   Width="56"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{Binding Verb, Converter={StaticResource VerbBrush}}" />
-                                        <TextBlock Text="{Binding DisplayName}"
-                                                   VerticalAlignment="Center"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1"
-                                                Orientation="Horizontal"
-                                                VerticalAlignment="Center"
-                                                Margin="8,0,0,0">
-                                        <FrameworkElement Width="22" Margin="0,0,4,0" />
-                                        <Button Content="-"
-                                                Style="{StaticResource TreeActionButton}"
-                                                ToolTip="Delete"
-                                                Click="TreeDeleteButton_OnClick" />
-                                        <Button Content="…"
-                                                Style="{StaticResource TreeActionButton}"
-                                                Margin="4,0,0,0"
-                                                ToolTip="More actions"
-                                                Click="TreeMoreButton_OnClick" />
-                                    </StackPanel>
-                                </Grid>
+                                <StackPanel HorizontalAlignment="Stretch">
+                                    <Border Style="{StaticResource TreeDropBeforeLine}" />
+                                    <Border Style="{StaticResource TreeDropIntoHighlight}">
+                                        <Grid MinHeight="22" Margin="0,1" HorizontalAlignment="Stretch">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0"
+                                                        Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Verb}"
+                                                           Width="56"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{Binding Verb, Converter={StaticResource VerbBrush}}" />
+                                                <TextBlock Text="{Binding DisplayName}"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1"
+                                                        Orientation="Horizontal"
+                                                        VerticalAlignment="Center"
+                                                        Margin="8,0,0,0">
+                                                <FrameworkElement Width="22" Margin="0,0,4,0" />
+                                                <Button Content="-"
+                                                        Style="{StaticResource TreeActionButton}"
+                                                        ToolTip="Delete"
+                                                        Click="TreeDeleteButton_OnClick" />
+                                                <Button Content="…"
+                                                        Style="{StaticResource TreeActionButton}"
+                                                        Margin="4,0,0,0"
+                                                        ToolTip="More actions"
+                                                        Click="TreeMoreButton_OnClick" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                    <Border Style="{StaticResource TreeDropAfterLine}" />
+                                </StackPanel>
                             </DataTemplate>
                         </TreeView.Resources>
                     </TreeView>
+                    </DockPanel>
                 </Grid>
             </DockPanel>
 

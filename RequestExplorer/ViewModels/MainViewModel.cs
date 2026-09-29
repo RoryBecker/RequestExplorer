@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -105,6 +106,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     /// <summary>0=Params, 1=Body, 2=Headers, 3=Auth</summary>
     [ObservableProperty]
     private int _selectedRequestTabIndex;
+
+    [ObservableProperty]
+    private bool _isRootDropIndicatorVisible;
 
     public RequestNodeViewModel? SelectedRequest => SelectedNode as RequestNodeViewModel;
 
@@ -1297,6 +1301,297 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     private bool CanDeleteNode(TreeNodeViewModel? node) => (node ?? SelectedNode) is not null;
+
+    public void ClearAllDropIndicators()
+    {
+        foreach (var collection in Collections)
+        {
+            ClearDropIndicators(collection);
+        }
+
+        IsRootDropIndicatorVisible = false;
+    }
+
+    private static void ClearDropIndicators(TreeNodeViewModel node)
+    {
+        node.DropIndicator = TreeDropIndicator.None;
+        foreach (var child in node.Children)
+        {
+            ClearDropIndicators(child);
+        }
+    }
+
+    /// <summary>Moves a node on drop. Returns true when the tree changed.</summary>
+    public bool TryMoveNode(TreeNodeViewModel source, TreeNodeViewModel? target, TreeDropPlacement placement)
+    {
+        if (placement == TreeDropPlacement.Root || (target is null && placement == TreeDropPlacement.Root))
+        {
+            return MoveToRoot(source, index: 0);
+        }
+
+        if (target is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(source, target) || IsUnder(target, source))
+        {
+            return false;
+        }
+
+        return placement switch
+        {
+            TreeDropPlacement.Into => MoveInto(source, target),
+            TreeDropPlacement.Before => MoveBeside(source, target, after: false),
+            TreeDropPlacement.After => MoveBeside(source, target, after: true),
+            _ => false
+        };
+    }
+
+    private bool MoveInto(TreeNodeViewModel source, TreeNodeViewModel target)
+    {
+        if (target is not (CollectionNodeViewModel or FolderNodeViewModel))
+        {
+            return false;
+        }
+
+        if (source is CollectionNodeViewModel collection)
+        {
+            return MoveCollectionAsFolder(collection, target, target.Children.Count);
+        }
+
+        return MoveIdentity(source, target, target.Children.Count);
+    }
+
+    private bool MoveBeside(TreeNodeViewModel source, TreeNodeViewModel target, bool after)
+    {
+        if (target is CollectionNodeViewModel && source is CollectionNodeViewModel)
+        {
+            var index = Collections.IndexOf((CollectionNodeViewModel)target);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            if (after)
+            {
+                index++;
+            }
+
+            return MoveIdentity(source, parent: null, index);
+        }
+
+        if (target is CollectionNodeViewModel)
+        {
+            // Folder/request beside a root collection → wrap as new collection at that root slot.
+            var index = Collections.IndexOf((CollectionNodeViewModel)target);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            if (after)
+            {
+                index++;
+            }
+
+            return MoveToRoot(source, index);
+        }
+
+        var parent = target.Parent;
+        if (parent is null)
+        {
+            return false;
+        }
+
+        var siblingIndex = parent.Children.IndexOf(target);
+        if (siblingIndex < 0)
+        {
+            return false;
+        }
+
+        if (after)
+        {
+            siblingIndex++;
+        }
+
+        if (source is CollectionNodeViewModel collection)
+        {
+            return MoveCollectionAsFolder(collection, parent, siblingIndex);
+        }
+
+        return MoveIdentity(source, parent, siblingIndex);
+    }
+
+    private void RefreshRowLayoutAfterMove(TreeNodeViewModel node)
+    {
+        node.NotifyRowLayoutChanged();
+        // Re-measure after the item is in its new visual indent.
+        Application.Current?.Dispatcher.BeginInvoke(
+            () => node.NotifyRowLayoutChanged(),
+            DispatcherPriority.Loaded);
+    }
+
+    private bool MoveToRoot(TreeNodeViewModel source, int index)
+    {
+        if (source is CollectionNodeViewModel)
+        {
+            return MoveIdentity(source, parent: null, index);
+        }
+
+        // Folder or request → create containing collection (move contents).
+        PrepareNodeForExport(source);
+        CollectionDefinition collectionModel;
+        switch (source)
+        {
+            case FolderNodeViewModel folder:
+                CollectionTreeMapper.SyncFolder(folder);
+                collectionModel = TreeNodeCloneService.WrapInNewCollection(folder.Model);
+                break;
+            case RequestNodeViewModel request:
+                collectionModel = TreeNodeCloneService.WrapInNewCollection(request.Model);
+                break;
+            default:
+                return false;
+        }
+
+        var oldParent = source.Parent;
+        var oldIndex = oldParent is not null
+            ? oldParent.Children.IndexOf(source)
+            : -1;
+
+        RemoveNodeCore(source);
+
+        if (index < 0 || index > Collections.Count)
+        {
+            index = Collections.Count;
+        }
+
+        var newNode = CollectionTreeMapper.ToViewModel(collectionModel);
+        WireUndoRecorders(newNode);
+        InsertNodeCore(null, newNode, index);
+        newNode.IsExpanded = true;
+        SelectedNode = newNode;
+
+        RefreshRowLayoutAfterMove(newNode);
+
+        RecordUndo(new CompositeUndoAction(
+            $"Move '{source.Name}' to top level",
+            [
+                new RemoveNodeAction(newNode, null, index, $"Move '{source.Name}' to top level"),
+                new InsertNodeAction(oldParent, source, oldIndex, $"Move '{source.Name}' to top level")
+            ]));
+
+        StatusMessage = $"Moved '{source.Name}' to top level (Ctrl+S to persist)";
+        return true;
+    }
+
+    private bool MoveCollectionAsFolder(CollectionNodeViewModel collection, TreeNodeViewModel parent, int index)
+    {
+        CollectionTreeMapper.SyncModelFromView(collection);
+        var folderModel = TreeNodeCloneService.CollectionAsFolder(collection.Model);
+        var oldIndex = Collections.IndexOf(collection);
+        if (oldIndex < 0)
+        {
+            return false;
+        }
+
+        RemoveNodeCore(collection);
+
+        if (ReferenceEquals(parent, collection) || IsUnder(parent, collection))
+        {
+            // Should never happen after remove, but keep safe.
+        }
+
+        var folderNode = CollectionTreeMapper.ToFolderViewModel(folderModel);
+        WireUndoRecorders(folderNode);
+
+        // Adjust index if inserting into a list that didn't contain the collection.
+        index = Math.Clamp(index, 0, parent.Children.Count);
+        InsertNodeCore(parent, folderNode, index);
+        parent.IsExpanded = true;
+        SelectedNode = folderNode;
+
+        RefreshRowLayoutAfterMove(folderNode);
+
+        RecordUndo(new CompositeUndoAction(
+            $"Move collection '{collection.Name}' into '{parent.Name}'",
+            [
+                new RemoveNodeAction(folderNode, parent, index, $"Move '{collection.Name}'"),
+                new InsertNodeAction(null, collection, oldIndex, $"Move '{collection.Name}'")
+            ]));
+
+        StatusMessage = $"Moved '{collection.Name}' into '{parent.Name}' as a folder (Ctrl+S to persist)";
+        return true;
+    }
+
+    private bool MoveIdentity(TreeNodeViewModel source, TreeNodeViewModel? parent, int index)
+    {
+        var oldParent = source.Parent;
+        var oldIndex = oldParent is not null
+            ? oldParent.Children.IndexOf(source)
+            : Collections.IndexOf((CollectionNodeViewModel)source);
+
+        if (oldIndex < 0 && source is not CollectionNodeViewModel)
+        {
+            return false;
+        }
+
+        // Same parent: adjust index when removing an earlier sibling.
+        if (ReferenceEquals(oldParent, parent) && oldIndex >= 0 && oldIndex < index)
+        {
+            index--;
+        }
+
+        if (parent is null && source is CollectionNodeViewModel
+            && oldParent is null && oldIndex == index)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(oldParent, parent) && oldIndex == index)
+        {
+            return false;
+        }
+
+        // Moving into own current parent at same logical place after adjust
+        RemoveNodeCore(source);
+
+        if (parent is null)
+        {
+            if (source is not CollectionNodeViewModel)
+            {
+                // Should have gone through MoveToRoot
+                return false;
+            }
+
+            index = Math.Clamp(index, 0, Collections.Count);
+        }
+        else
+        {
+            index = Math.Clamp(index, 0, parent.Children.Count);
+        }
+
+        InsertNodeCore(parent, source, index);
+        if (parent is not null)
+        {
+            parent.IsExpanded = true;
+        }
+
+        SelectedNode = source;
+
+        RefreshRowLayoutAfterMove(source);
+
+        RecordUndo(new CompositeUndoAction(
+            $"Move '{source.Name}'",
+            [
+                new RemoveNodeAction(source, parent, index, $"Move '{source.Name}'"),
+                new InsertNodeAction(oldParent, source, oldIndex, $"Move '{source.Name}'")
+            ]));
+
+        StatusMessage = $"Moved '{source.Name}' (Ctrl+S to persist)";
+        return true;
+    }
 
     private static bool IsUnder(TreeNodeViewModel? candidate, TreeNodeViewModel ancestor)
     {

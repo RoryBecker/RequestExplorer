@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         PreviewKeyDown += MainWindow_OnPreviewKeyDown;
+        _ = new TreeDragDropController(CollectionTree, () => DataContext as MainViewModel);
     }
 
     private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)

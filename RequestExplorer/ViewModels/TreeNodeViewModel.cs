@@ -10,6 +10,14 @@ public enum TreeNodeKind
     Request
 }
 
+public enum TreeDropIndicator
+{
+    None,
+    Before,
+    After,
+    Into
+}
+
 public abstract partial class TreeNodeViewModel : ObservableObject
 {
     protected TreeNodeViewModel(string name)
@@ -20,7 +28,29 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 
     public abstract TreeNodeKind Kind { get; }
 
-    public TreeNodeViewModel? Parent { get; set; }
+    public TreeNodeViewModel? Parent
+    {
+        get => _parent;
+        set
+        {
+            if (ReferenceEquals(_parent, value))
+            {
+                return;
+            }
+
+            _parent = value;
+            OnPropertyChanged(nameof(Parent));
+            // Indent / row width depends on parent chain; force row layout refresh.
+            OnPropertyChanged(nameof(RowLayoutToken));
+        }
+    }
+
+    private TreeNodeViewModel? _parent;
+
+    /// <summary>Changes when parentage changes so row-width bindings re-evaluate.</summary>
+    public object? RowLayoutToken => Parent;
+
+    public void NotifyRowLayoutChanged() => OnPropertyChanged(nameof(RowLayoutToken));
 
     public ObservableCollection<TreeNodeViewModel> Children { get; }
 
@@ -29,6 +59,9 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isSelected;
+
+    [ObservableProperty]
+    private TreeDropIndicator _dropIndicator;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DisplayName))]

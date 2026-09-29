@@ -19,12 +19,30 @@
                        VerticalAlignment="Center"
                        Foreground="{StaticResource App.MutedBrush}"
                        Text="Quick Export" />
+
             <Button DockPanel.Dock="Right"
                     Style="{StaticResource ToolbarIconButton}"
                     HorizontalAlignment="Right"
                     ToolTip="Copy export to clipboard"
                     Command="{Binding CopyQuickExportCommand}">
                 <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8C8;" />
+            </Button>
+
+            <Button DockPanel.Dock="Right"
+                    Margin="0,0,2,0"
+                    HorizontalAlignment="Right"
+                    ToolTip="Wrap text"
+                    Command="{Binding ToggleQuickExportWrapCommand}">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource ToolbarIconButton}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsQuickExportWrap}" Value="True">
+                                <Setter Property="Background" Value="#FFD1D5DB" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+                <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8C4;" />
             </Button>
         </DockPanel>
 
@@ -35,7 +53,8 @@
                   VerticalContentAlignment="Center"
                   Padding="8,4,24,4"
                   ItemsSource="{Binding ExportFormats}"
-                  SelectedItem="{Binding SelectedExportFormat, Mode=TwoWay}"
+                  SelectedValuePath="Format"
+                  SelectedValue="{Binding SelectedExportFormatKind, Mode=TwoWay}"
                   DisplayMemberPath="DisplayName" />
 
         <DockPanel Grid.Row="2">
@@ -73,9 +92,9 @@
                     Background="#FFF9FAFB">
                 <TextBox IsReadOnly="True"
                          AcceptsReturn="True"
-                         TextWrapping="NoWrap"
+                         TextWrapping="{Binding QuickExportTextWrapping}"
                          VerticalScrollBarVisibility="Auto"
-                         HorizontalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="{Binding QuickExportHorizontalScrollBarVisibility}"
                          FontFamily="Consolas"
                          FontSize="12"
                          BorderThickness="0"

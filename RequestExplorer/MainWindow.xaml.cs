@@ -12,13 +12,220 @@ namespace RequestExplorer;
 
 public partial class MainWindow : Window
 {
+    private const double QuickExportDefaultWidth = 320;
+    private const double QuickExportMinWidth = 220;
+    private const double CollectionsDefaultWidth = 360;
+    private const double CollectionsMinWidth = 220;
+    private const double CollectionsMaxWidth = 520;
+
     private readonly TreeDragDropController _treeDragDrop;
+    private MainViewModel? _subscribedVm;
+    private double _quickExportWidth = QuickExportDefaultWidth;
+    private bool _uiPreferencesApplied;
 
     public MainWindow()
     {
+        // Subscribe before InitializeComponent so the XAML DataContext assignment is observed.
+        DataContextChanged += MainWindow_OnDataContextChanged;
         InitializeComponent();
         PreviewKeyDown += MainWindow_OnPreviewKeyDown;
+        Loaded += MainWindow_OnLoaded;
+        SizeChanged += (_, _) => CaptureWindowBounds();
+        LocationChanged += (_, _) => CaptureWindowBounds();
+        StateChanged += (_, _) => CaptureWindowBounds();
         _treeDragDrop = new TreeDragDropController(CollectionTree, () => DataContext as MainViewModel);
+    }
+
+    private void MainWindow_OnLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplyUiPreferences();
+        SyncQuickExportColumns();
+    }
+
+    private void MainWindow_OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (_subscribedVm is not null)
+        {
+            _subscribedVm.PropertyChanged -= ViewModel_OnPropertyChanged;
+            _subscribedVm = null;
+        }
+
+        if (e.NewValue is MainViewModel vm)
+        {
+            _subscribedVm = vm;
+            _subscribedVm.PropertyChanged += ViewModel_OnPropertyChanged;
+            _quickExportWidth = SanitizeQuickExportWidth(vm.UiPreferences.QuickExportWidth);
+            if (IsLoaded)
+            {
+                ApplyUiPreferences();
+                SyncQuickExportColumns();
+            }
+        }
+    }
+
+    private void ViewModel_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainViewModel.IsQuickExportVisible))
+        {
+            SyncQuickExportColumns();
+            CaptureAndSaveUiPreferences();
+        }
+    }
+
+    private void ApplyUiPreferences()
+    {
+        if (_subscribedVm is null)
+        {
+            return;
+        }
+
+        var prefs = _subscribedVm.UiPreferences;
+        _quickExportWidth = SanitizeQuickExportWidth(prefs.QuickExportWidth);
+
+        var collectionsWidth = prefs.CollectionsWidth;
+        if (collectionsWidth < CollectionsMinWidth || collectionsWidth > CollectionsMaxWidth)
+        {
+            collectionsWidth = CollectionsDefaultWidth;
+        }
+
+        CollectionsColumn.Width = new GridLength(collectionsWidth);
+
+        if (prefs.RequestPaneHeight >= 220 && prefs.ResponsePaneHeight >= 160)
+        {
+            RequestRow.Height = new GridLength(prefs.RequestPaneHeight);
+            ResponseRow.Height = new GridLength(prefs.ResponsePaneHeight);
+        }
+
+        if (!_uiPreferencesApplied)
+        {
+            if (prefs.WindowWidth >= MinWidth && prefs.WindowHeight >= MinHeight)
+            {
+                Width = prefs.WindowWidth;
+                Height = prefs.WindowHeight;
+            }
+
+            if (!double.IsNaN(prefs.WindowLeft)
+                && !double.IsNaN(prefs.WindowTop)
+                && IsWindowOnScreen(prefs.WindowLeft, prefs.WindowTop, Width, Height))
+            {
+                Left = prefs.WindowLeft;
+                Top = prefs.WindowTop;
+                WindowStartupLocation = WindowStartupLocation.Manual;
+            }
+
+            if (Enum.TryParse<WindowState>(prefs.WindowState, ignoreCase: true, out var state)
+                && state is WindowState.Normal or WindowState.Maximized)
+            {
+                WindowState = state;
+            }
+
+            _uiPreferencesApplied = true;
+        }
+    }
+
+    private void SyncQuickExportColumns()
+    {
+        var visible = _subscribedVm?.IsQuickExportVisible == true;
+        if (visible)
+        {
+            if (_quickExportWidth < QuickExportMinWidth)
+            {
+                _quickExportWidth = QuickExportDefaultWidth;
+            }
+
+            QuickExportSplitterColumn.Width = new GridLength(6);
+            QuickExportColumn.MinWidth = QuickExportMinWidth;
+            QuickExportColumn.Width = new GridLength(_quickExportWidth);
+        }
+        else
+        {
+            if (QuickExportColumn.Width.IsAbsolute && QuickExportColumn.Width.Value > 0)
+            {
+                _quickExportWidth = QuickExportColumn.Width.Value;
+            }
+
+            QuickExportSplitterColumn.Width = new GridLength(0);
+            QuickExportColumn.MinWidth = 0;
+            QuickExportColumn.Width = new GridLength(0);
+        }
+    }
+
+    private void PanelSplitter_OnDragCompleted(object sender, DragCompletedEventArgs e) =>
+        CaptureAndSaveUiPreferences();
+
+    private void CaptureAndSaveUiPreferences()
+    {
+        if (_subscribedVm is null)
+        {
+            return;
+        }
+
+        var prefs = _subscribedVm.UiPreferences;
+
+        if (CollectionsColumn.Width.IsAbsolute && CollectionsColumn.Width.Value > 0)
+        {
+            prefs.CollectionsWidth = CollectionsColumn.Width.Value;
+        }
+        else if (CollectionsColumn.ActualWidth > 0)
+        {
+            prefs.CollectionsWidth = CollectionsColumn.ActualWidth;
+        }
+
+        if (QuickExportColumn.Width.IsAbsolute && QuickExportColumn.Width.Value > 0)
+        {
+            _quickExportWidth = QuickExportColumn.Width.Value;
+        }
+
+        prefs.QuickExportWidth = SanitizeQuickExportWidth(_quickExportWidth);
+
+        if (RequestRow.ActualHeight >= 220 && ResponseRow.ActualHeight >= 160)
+        {
+            prefs.RequestPaneHeight = RequestRow.ActualHeight;
+            prefs.ResponsePaneHeight = ResponseRow.ActualHeight;
+        }
+
+        CaptureWindowBounds();
+        _subscribedVm.PersistUiPreferences();
+    }
+
+    private void CaptureWindowBounds()
+    {
+        if (_subscribedVm is null || !_uiPreferencesApplied)
+        {
+            return;
+        }
+
+        var prefs = _subscribedVm.UiPreferences;
+        prefs.WindowState = WindowState.ToString();
+
+        if (WindowState == WindowState.Normal)
+        {
+            prefs.WindowWidth = Width;
+            prefs.WindowHeight = Height;
+            prefs.WindowLeft = Left;
+            prefs.WindowTop = Top;
+        }
+        else if (RestoreBounds is { Width: > 0, Height: > 0 } bounds)
+        {
+            prefs.WindowWidth = bounds.Width;
+            prefs.WindowHeight = bounds.Height;
+            prefs.WindowLeft = bounds.Left;
+            prefs.WindowTop = bounds.Top;
+        }
+    }
+
+    private static double SanitizeQuickExportWidth(double width) =>
+        width < QuickExportMinWidth || width > 720 ? QuickExportDefaultWidth : width;
+
+    private static bool IsWindowOnScreen(double left, double top, double width, double height)
+    {
+        var work = SystemParameters.WorkArea;
+        var right = left + Math.Max(width, 100);
+        var bottom = top + Math.Max(height, 100);
+        return right > work.Left + 40
+               && left < work.Right - 40
+               && bottom > work.Top + 40
+               && top < work.Bottom - 40;
     }
 
     private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
@@ -156,7 +363,10 @@ public partial class MainWindow : Window
         if (DataContext is MainViewModel vm && !vm.ConfirmClose())
         {
             e.Cancel = true;
+            return;
         }
+
+        CaptureAndSaveUiPreferences();
     }
 
     private void TreeAddButton_OnClick(object sender, RoutedEventArgs e)

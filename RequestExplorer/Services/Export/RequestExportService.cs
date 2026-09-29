@@ -10,6 +10,7 @@ public static class RequestExportService
     public static IReadOnlyList<RequestExportFormatOption> Formats { get; } =
     [
         new(RequestExportFormat.Curl, "cURL"),
+        new(RequestExportFormat.CurlWindows, "cURL (Windows)"),
         new(RequestExportFormat.Http, "HTTP"),
         new(RequestExportFormat.PostmanCollection, "Postman Collection v2.1"),
         new(RequestExportFormat.Fetch, "JavaScript Fetch"),
@@ -29,34 +30,36 @@ public static class RequestExportService
 
         return format switch
         {
-            RequestExportFormat.Curl => ToCurl(request),
+            RequestExportFormat.Curl => ToCurl(request, multiline: true),
+            RequestExportFormat.CurlWindows => ToCurl(request, multiline: false),
             RequestExportFormat.Http => ToHttp(request),
             RequestExportFormat.PostmanCollection => ToPostman(request),
             RequestExportFormat.Fetch => ToFetch(request),
             RequestExportFormat.PowerShell => ToPowerShell(request),
             RequestExportFormat.PythonRequests => ToPython(request),
             RequestExportFormat.Httpie => ToHttpie(request),
-            _ => ToCurl(request)
+            _ => ToCurl(request, multiline: true)
         };
     }
 
-    private static string ToCurl(RequestDefinition request)
+    private static string ToCurl(RequestDefinition request, bool multiline)
     {
         var sb = new StringBuilder();
         var url = BuildUrl(request);
         var method = request.Verb.ToString().ToUpperInvariant();
+        var sep = multiline ? " \\\n  " : " ";
 
         sb.Append("curl --request ").Append(method);
-        sb.Append(" \\\n  --url ").Append(ShellSingleQuote(url));
+        sb.Append(sep).Append("--url ").Append(ShellSingleQuote(url));
 
         foreach (var (name, value) in GetEffectiveHeaders(request))
         {
-            sb.Append(" \\\n  --header ").Append(ShellSingleQuote($"{name}: {value}"));
+            sb.Append(sep).Append("--header ").Append(ShellSingleQuote($"{name}: {value}"));
         }
 
         if (HasBody(request))
         {
-            sb.Append(" \\\n  --data-raw ").Append(ShellSingleQuote(request.Body.Content));
+            sb.Append(sep).Append("--data-raw ").Append(ShellSingleQuote(request.Body.Content));
         }
 
         return sb.ToString();

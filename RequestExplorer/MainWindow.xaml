@@ -1,4 +1,4 @@
-﻿<Window x:Class="RequestExplorer.MainWindow"
+<Window x:Class="RequestExplorer.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -327,9 +327,9 @@
 
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1*" MinWidth="220" MaxWidth="520" />
+                <ColumnDefinition x:Name="CollectionsColumn" Width="360" MinWidth="220" MaxWidth="520" />
                 <ColumnDefinition Width="6" />
-                <ColumnDefinition Width="2*" MinWidth="360" />
+                <ColumnDefinition Width="*" MinWidth="360" />
             </Grid.ColumnDefinitions>
 
             <DockPanel Grid.Column="0" Background="{StaticResource App.SurfaceBrush}">
@@ -632,97 +632,105 @@
                           VerticalAlignment="Stretch"
                           Background="{StaticResource App.BorderBrush}"
                           ShowsPreview="True"
-                          ResizeBehavior="PreviousAndNext" />
+                          ResizeBehavior="PreviousAndNext"
+                          DragCompleted="PanelSplitter_OnDragCompleted" />
 
             <Grid Grid.Column="2" Background="{StaticResource App.PanelBrush}">
-                <DockPanel>
-                    <Border x:Name="QuickExportHost"
-                            DockPanel.Dock="Right"
-                            Width="320"
-                            MinWidth="220"
-                            Background="{StaticResource App.SurfaceBrush}"
-                            BorderBrush="{StaticResource App.BorderBrush}"
-                            BorderThickness="1,0,0,0"
-                            Visibility="{Binding IsQuickExportVisible, Converter={StaticResource BoolToVis}}">
-                        <views:QuickExportView />
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="280" />
+                    <ColumnDefinition x:Name="QuickExportSplitterColumn" Width="0" />
+                    <ColumnDefinition x:Name="QuickExportColumn" Width="0" MinWidth="0" MaxWidth="720" />
+                </Grid.ColumnDefinitions>
+
+                <Grid Grid.Column="0">
+                    <Border>
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsNodeSelected}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
+                            <TextBlock Text="Select an item"
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource App.MutedBrush}"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Margin="0,8,0,0"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       Foreground="#FF9CA3AF"
+                                       HorizontalAlignment="Center"
+                                       Text="Choose a collection, folder, or request in the tree. Double-click to edit its name." />
+                        </StackPanel>
                     </Border>
 
-                    <GridSplitter x:Name="QuickExportSplitter"
-                                  DockPanel.Dock="Right"
-                                  Width="6"
-                                  HorizontalAlignment="Stretch"
-                                  VerticalAlignment="Stretch"
-                                  Background="{StaticResource App.BorderBrush}"
-                                  ShowsPreview="True"
-                                  ResizeBehavior="PreviousAndNext"
-                                  Visibility="{Binding IsQuickExportVisible, Converter={StaticResource BoolToVis}}" />
+                    <Border Margin="12"
+                            Visibility="{Binding IsCollectionSelected, Converter={StaticResource BoolToVis}}">
+                        <views:CollectionEditorView x:Name="CollectionEditor"
+                                                    DataContext="{Binding SelectedCollection}" />
+                    </Border>
 
-                    <Grid>
-                        <Border>
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsNodeSelected}" Value="True">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
-                                <TextBlock Text="Select an item"
-                                           FontSize="16"
-                                           FontWeight="SemiBold"
-                                           Foreground="{StaticResource App.MutedBrush}"
-                                           HorizontalAlignment="Center" />
-                                <TextBlock Margin="0,8,0,0"
-                                           TextAlignment="Center"
-                                           TextWrapping="Wrap"
-                                           Foreground="#FF9CA3AF"
-                                           HorizontalAlignment="Center"
-                                           Text="Choose a collection, folder, or request in the tree. Double-click to edit its name." />
-                            </StackPanel>
-                        </Border>
+                    <Border Margin="12"
+                            Visibility="{Binding IsFolderSelected, Converter={StaticResource BoolToVis}}">
+                        <views:FolderEditorView x:Name="FolderEditor"
+                                                DataContext="{Binding SelectedFolder}" />
+                    </Border>
 
-                        <Border Margin="12"
-                                Visibility="{Binding IsCollectionSelected, Converter={StaticResource BoolToVis}}">
-                            <views:CollectionEditorView x:Name="CollectionEditor"
-                                                        DataContext="{Binding SelectedCollection}" />
-                        </Border>
+                    <Grid x:Name="RequestResponseGrid"
+                          Visibility="{Binding IsRequestSelected, Converter={StaticResource BoolToVis}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition x:Name="RequestRow" Height="3*" MinHeight="220" />
+                            <RowDefinition Height="6" />
+                            <RowDefinition x:Name="ResponseRow" Height="2*" MinHeight="160" />
+                        </Grid.RowDefinitions>
 
-                        <Border Margin="12"
-                                Visibility="{Binding IsFolderSelected, Converter={StaticResource BoolToVis}}">
-                            <views:FolderEditorView x:Name="FolderEditor"
-                                                    DataContext="{Binding SelectedFolder}" />
-                        </Border>
+                        <views:RequestEditorView x:Name="RequestEditor"
+                                                 Grid.Row="0"
+                                                 Margin="12,12,12,4"
+                                                 DataContext="{Binding SelectedRequest}" />
 
-                        <Grid Visibility="{Binding IsRequestSelected, Converter={StaticResource BoolToVis}}">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="3*" MinHeight="220" />
-                                <RowDefinition Height="6" />
-                                <RowDefinition Height="2*" MinHeight="160" />
-                            </Grid.RowDefinitions>
+                        <GridSplitter Grid.Row="1"
+                                      Height="6"
+                                      HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Stretch"
+                                      Background="{StaticResource App.BorderBrush}"
+                                      ShowsPreview="True"
+                                      ResizeDirection="Rows"
+                                      ResizeBehavior="PreviousAndNext"
+                                      DragCompleted="PanelSplitter_OnDragCompleted" />
 
-                            <views:RequestEditorView x:Name="RequestEditor"
-                                                     Grid.Row="0"
-                                                     Margin="12,12,12,4"
-                                                     DataContext="{Binding SelectedRequest}" />
-
-                            <GridSplitter Grid.Row="1"
-                                          Height="6"
-                                          HorizontalAlignment="Stretch"
-                                          VerticalAlignment="Stretch"
-                                          Background="{StaticResource App.BorderBrush}"
-                                          ShowsPreview="True"
-                                          ResizeDirection="Rows"
-                                          ResizeBehavior="PreviousAndNext" />
-
-                            <views:ResponsePanelView Grid.Row="2"
-                                                     Margin="12,4,12,12"
-                                                     DataContext="{Binding Response}" />
-                        </Grid>
+                        <views:ResponsePanelView Grid.Row="2"
+                                                 Margin="12,4,12,12"
+                                                 DataContext="{Binding Response}" />
                     </Grid>
-                </DockPanel>
+                </Grid>
+
+                <GridSplitter x:Name="QuickExportSplitter"
+                              Grid.Column="1"
+                              Width="6"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch"
+                              Background="{StaticResource App.BorderBrush}"
+                              ShowsPreview="True"
+                              ResizeDirection="Columns"
+                              ResizeBehavior="PreviousAndNext"
+                              Visibility="{Binding IsQuickExportVisible, Converter={StaticResource BoolToVis}}"
+                              DragCompleted="PanelSplitter_OnDragCompleted" />
+
+                <Border x:Name="QuickExportHost"
+                        Grid.Column="2"
+                        HorizontalAlignment="Stretch"
+                        Background="{StaticResource App.SurfaceBrush}"
+                        BorderBrush="{StaticResource App.BorderBrush}"
+                        BorderThickness="1,0,0,0"
+                        Visibility="{Binding IsQuickExportVisible, Converter={StaticResource BoolToVis}}">
+                    <views:QuickExportView />
+                </Border>
             </Grid>
         </Grid>
     </DockPanel>

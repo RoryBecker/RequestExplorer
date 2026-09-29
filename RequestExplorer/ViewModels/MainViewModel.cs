@@ -21,19 +21,29 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 {
     private readonly CollectionPersistenceService _persistence;
     private readonly HttpRequestExecutor _httpExecutor;
+    private readonly UiPreferencesService _uiPreferencesService;
     private readonly UndoStack _history = new();
     private CancellationTokenSource? _sendCts;
     private bool _isApplyingHistory;
 
     public MainViewModel()
-        : this(new CollectionPersistenceService(), new HttpRequestExecutor())
+        : this(new CollectionPersistenceService(), new HttpRequestExecutor(), new UiPreferencesService())
     {
     }
 
-    public MainViewModel(CollectionPersistenceService persistence, HttpRequestExecutor httpExecutor)
+    public MainViewModel(
+        CollectionPersistenceService persistence,
+        HttpRequestExecutor httpExecutor,
+        UiPreferencesService? uiPreferencesService = null)
     {
         _persistence = persistence;
         _httpExecutor = httpExecutor;
+        _uiPreferencesService = uiPreferencesService ?? new UiPreferencesService();
+        UiPreferences = _uiPreferencesService.Load();
+        _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
+        _selectedExportFormat = ResolveExportFormat(UiPreferences.SelectedExportFormat);
+        _isQuickExportWrap = UiPreferences.GetQuickExportWrap(_selectedExportFormat.Format.ToString());
+
         Collections.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasCollections));
         _history.PropertyChanged += (_, e) =>
         {
@@ -56,6 +66,30 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             }
         };
         LoadWorkspace();
+    }
+
+    public UiPreferences UiPreferences { get; }
+
+    public void PersistUiPreferences()
+    {
+        UiPreferences.IsQuickExportVisible = IsQuickExportVisible;
+        UiPreferences.SelectedExportFormat = SelectedExportFormat.Format.ToString();
+        _uiPreferencesService.Save(UiPreferences);
+    }
+
+    private static RequestExportFormatOption ResolveExportFormat(string? name)
+    {
+        if (!string.IsNullOrWhiteSpace(name)
+            && Enum.TryParse<RequestExportFormat>(name, ignoreCase: true, out var format))
+        {
+            var match = RequestExportService.Formats.FirstOrDefault(f => f.Format == format);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return RequestExportService.Formats[0];
     }
 
     public ObservableCollection<CollectionNodeViewModel> Collections { get; } = [];
@@ -116,6 +150,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private bool _isQuickExportVisible;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(QuickExportTextWrapping))]
+    [NotifyPropertyChangedFor(nameof(QuickExportHorizontalScrollBarVisibility))]
+    private bool _isQuickExportWrap;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectedExportFormatKind))]
     private RequestExportFormatOption _selectedExportFormat = RequestExportService.Formats[0];
 
     [ObservableProperty]
@@ -127,7 +167,28 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     public bool HasQuickExportDiagnosis => !string.IsNullOrWhiteSpace(QuickExportDiagnosis);
 
+    public TextWrapping QuickExportTextWrapping =>
+        IsQuickExportWrap ? TextWrapping.Wrap : TextWrapping.NoWrap;
+
+    public ScrollBarVisibility QuickExportHorizontalScrollBarVisibility =>
+        IsQuickExportWrap ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Auto;
+
     public IReadOnlyList<RequestExportFormatOption> ExportFormats => RequestExportService.Formats;
+
+    /// <summary>ComboBox-friendly format value; persists via <see cref="SelectedExportFormat"/>.</summary>
+    public RequestExportFormat SelectedExportFormatKind
+    {
+        get => SelectedExportFormat.Format;
+        set
+        {
+            if (SelectedExportFormat.Format == value)
+            {
+                return;
+            }
+
+            SelectedExportFormat = ResolveExportFormat(value.ToString());
+        }
+    }
 
     public RequestNodeViewModel? SelectedRequest => SelectedNode as RequestNodeViewModel;
 
@@ -223,7 +284,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    partial void OnSelectedExportFormatChanged(RequestExportFormatOption value) => RefreshQuickExport();
+    partial void OnSelectedExportFormatChanged(RequestExportFormatOption value)
+    {
+        IsQuickExportWrap = UiPreferences.GetQuickExportWrap(value.Format.ToString());
+        RefreshQuickExport();
+        PersistUiPreferences();
+    }
 
     partial void OnIsQuickExportVisibleChanged(bool value)
     {
@@ -233,11 +299,24 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
+    partial void OnIsQuickExportWrapChanged(bool value)
+    {
+        UiPreferences.SetQuickExportWrap(SelectedExportFormat.Format.ToString(), value);
+        PersistUiPreferences();
+    }
+
     [RelayCommand]
     private void ToggleQuickExport()
     {
         IsQuickExportVisible = !IsQuickExportVisible;
         StatusMessage = IsQuickExportVisible ? "Quick Export shown" : "Quick Export hidden";
+    }
+
+    [RelayCommand]
+    private void ToggleQuickExportWrap()
+    {
+        IsQuickExportWrap = !IsQuickExportWrap;
+        StatusMessage = IsQuickExportWrap ? "Quick Export wrap on" : "Quick Export wrap off";
     }
 
     [RelayCommand(CanExecute = nameof(CanCopyQuickExport))]

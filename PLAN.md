@@ -1,6 +1,6 @@
 # RequestExplorer — Multiphase Plan
 
-**Status:** Phase 1 implemented — awaiting your verification & commit  
+**Status:** Phase 2 implemented — awaiting your verification & commit  
 **Created:** 2026-09-29  
 **Repo policy:** Do **not** auto-commit. User commits only after explicitly approving each phase as complete.
 
@@ -324,9 +324,15 @@ Each phase below has: **objectives**, **deliverables**, **out of scope**, **acce
 - Full two-way field editing, dirty/save, HTTP
 
 **Acceptance criteria**
-- [ ] Folder → blank/placeholder RHS
-- [ ] Request → editor + response panels visible
-- [ ] Vertical splitter between editor and response works
+- [x] Folder → blank/placeholder RHS
+- [x] Request → editor + response panels visible
+- [x] Vertical splitter between editor and response works
+
+**Phase 2 deliverables (done)**
+- RHS switches on selection: collection/folder → “Select a request”; request → editor + response
+- Upper `RequestEditorView`: verb, URL, disabled Send, Params/Headers/Auth/Body tabs (read-only preview)
+- Lower `ResponsePanelView`: Body / Headers / Cookies / Timing placeholders (Phase 5)
+- Horizontal splitter between editor and response
 
 ---
 
@@ -434,7 +440,7 @@ No phase starts without your go-ahead. No agent git commits unless you later cha
 
 ## Immediate next step
 
-Phase 1 is implemented. Please verify the tree, selection summary, and CRUD, **commit when satisfied**, then **approve Phase 2**.
+Phase 2 is implemented. Please verify RHS switching and the editor/response splitter, **commit when satisfied**, then **approve Phase 3**.
 
 ```powershell
 dotnet run --project RequestExplorer
@@ -450,7 +456,9 @@ dotnet run --project RequestExplorer
 | 2026-09-29 | Preferences locked | `A2 B2 C1 D3 E1 F1 H1 I2 J1 L2 M4 N1 O1 P4 R1 S2` + **G★**; **K1** default. **RequestExplorer**. |
 | 2026-09-29 | Phase 0 implemented | WPF `net8.0-windows` scaffold; split MainWindow. |
 | 2026-09-29 | Phase 0 approved by user | Proceed to Phase 1 |
-| 2026-09-29 | Phase 1 implemented | Domain + TreeView + seed data + B2 CRUD; no agent commit. |
+| 2026-09-29 | Phase 1 implemented | Domain + TreeView + seed data + B2 CRUD. |
+| 2026-09-29 | Phase 1 approved by user | Proceed to Phase 2 |
+| 2026-09-29 | Phase 2 implemented | RHS request/response shell; selection switching; no agent commit. |
 | | | |
 
 ---
@@ -460,8 +468,8 @@ dotnet run --project RequestExplorer
 | Phase | Status |
 |-------|--------|
 | 0 Foundations | **Done (approved)** |
-| 1 Domain + tree | **Done (pending your commit)** |
-| 2 RHS shell | Not started |
+| 1 Domain + tree | **Done (approved)** |
+| 2 RHS shell | **Done (pending your commit)** |
 | 3 Editor + dirty | Not started |
 | 4 Save Ctrl+S | Not started |
 | 5 Send + response | Not started |

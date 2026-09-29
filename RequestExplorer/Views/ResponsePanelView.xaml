@@ -1,0 +1,53 @@
+<UserControl x:Class="RequestExplorer.Views.ResponsePanelView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock DockPanel.Dock="Left"
+                       FontWeight="SemiBold"
+                       FontSize="14"
+                       Text="Response"
+                       VerticalAlignment="Center" />
+            <StackPanel DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center">
+                <TextBlock Margin="0,0,16,0" Foreground="#FF888888">
+                    <Run Text="Status: " />
+                    <Run Text="—" FontWeight="SemiBold" />
+                </TextBlock>
+                <TextBlock Foreground="#FF888888">
+                    <Run Text="Time: " />
+                    <Run Text="—" FontWeight="SemiBold" />
+                </TextBlock>
+            </StackPanel>
+        </DockPanel>
+
+        <TabControl Grid.Row="1">
+            <TabItem Header="Body">
+                <TextBlock Margin="12"
+                           Foreground="#FF999999"
+                           Text="No response yet. Send will populate this panel in Phase 5." />
+            </TabItem>
+            <TabItem Header="Headers">
+                <TextBlock Margin="12"
+                           Foreground="#FF999999"
+                           Text="Response headers will appear here after Send (Phase 5)." />
+            </TabItem>
+            <TabItem Header="Cookies">
+                <TextBlock Margin="12"
+                           Foreground="#FF999999"
+                           Text="Cookies will appear here after Send (Phase 5)." />
+            </TabItem>
+            <TabItem Header="Timing">
+                <TextBlock Margin="12"
+                           Foreground="#FF999999"
+                           Text="Timing breakdown will appear here after Send (Phase 5)." />
+            </TabItem>
+        </TabControl>
+    </Grid>
+</UserControl>

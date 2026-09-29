@@ -21,11 +21,17 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectionSummary))]
+    [NotifyPropertyChangedFor(nameof(SelectedRequest))]
+    [NotifyPropertyChangedFor(nameof(IsRequestSelected))]
     [NotifyCanExecuteChangedFor(nameof(AddFolderCommand))]
     [NotifyCanExecuteChangedFor(nameof(AddRequestCommand))]
     [NotifyCanExecuteChangedFor(nameof(RenameNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteNodeCommand))]
     private TreeNodeViewModel? _selectedNode;
+
+    public RequestNodeViewModel? SelectedRequest => SelectedNode as RequestNodeViewModel;
+
+    public bool IsRequestSelected => SelectedRequest is not null;
 
     public string SelectionSummary
     {

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:RequestExplorer.ViewModels"
         mc:Ignorable="d"
         Title="RequestExplorer"
         Height="720"
@@ -10,43 +11,124 @@
         MinHeight="480"
         MinWidth="800"
         WindowStartupLocation="CenterScreen">
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="280" MinWidth="160" />
-            <ColumnDefinition Width="6" />
-            <ColumnDefinition Width="*" MinWidth="320" />
-        </Grid.ColumnDefinitions>
+    <Window.DataContext>
+        <vm:MainViewModel />
+    </Window.DataContext>
 
-        <!-- Left: collections / folders / requests (Phase 1) -->
-        <Border Grid.Column="0"
-                Background="#FFF5F5F5"
-                BorderBrush="#FFD0D0D0"
-                BorderThickness="0,0,0,0"
-                Padding="12">
-            <TextBlock Text="Collections"
-                       FontSize="14"
-                       FontWeight="SemiBold"
-                       Foreground="#FF666666"
-                       VerticalAlignment="Top" />
-        </Border>
+    <Window.InputBindings>
+        <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding AddCollectionCommand}" />
+        <KeyBinding Key="F2" Command="{Binding RenameNodeCommand}" />
+        <KeyBinding Key="Delete" Command="{Binding DeleteNodeCommand}" />
+    </Window.InputBindings>
 
-        <GridSplitter Grid.Column="1"
-                      Width="6"
-                      HorizontalAlignment="Stretch"
-                      VerticalAlignment="Stretch"
-                      Background="#FFE0E0E0"
-                      ShowsPreview="True"
-                      ResizeBehavior="PreviousAndNext" />
+    <DockPanel>
+        <StatusBar DockPanel.Dock="Bottom" Height="28">
+            <StatusBarItem>
+                <TextBlock Text="{Binding SelectionSummary}" />
+            </StatusBarItem>
+        </StatusBar>
 
-        <!-- Right: request editor + response (Phases 2–5) -->
-        <Border Grid.Column="2"
-                Background="#FFFFFFFF"
-                Padding="12">
-            <TextBlock Text="Select a request"
-                       FontSize="14"
-                       Foreground="#FF999999"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center" />
-        </Border>
-    </Grid>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" MinWidth="180" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="*" MinWidth="320" />
+            </Grid.ColumnDefinitions>
+
+            <DockPanel Grid.Column="0" Background="#FFF5F5F5">
+                <ToolBarTray DockPanel.Dock="Top" Background="#FFF5F5F5">
+                    <ToolBar Band="0" BandIndex="0" ToolBarTray.IsLocked="True">
+                        <Button Content="Collection" Command="{Binding AddCollectionCommand}"
+                                ToolTip="New collection (Ctrl+Shift+N)" />
+                        <Button Content="Folder" Command="{Binding AddFolderCommand}"
+                                ToolTip="New folder under selection" />
+                        <Button Content="Request" Command="{Binding AddRequestCommand}"
+                                ToolTip="New request under selection" />
+                        <Separator />
+                        <Button Content="Rename" Command="{Binding RenameNodeCommand}"
+                                ToolTip="Rename (F2)" />
+                        <Button Content="Delete" Command="{Binding DeleteNodeCommand}"
+                                ToolTip="Delete (Del)" />
+                    </ToolBar>
+                </ToolBarTray>
+
+                <TextBlock DockPanel.Dock="Top"
+                           Margin="12,8,12,4"
+                           Text="Collections"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="#FF666666" />
+
+                <TreeView x:Name="CollectionTree"
+                          Margin="4,0,4,8"
+                          ItemsSource="{Binding Collections}"
+                          SelectedItemChanged="CollectionTree_OnSelectedItemChanged">
+                    <TreeView.ItemContainerStyle>
+                        <Style TargetType="TreeViewItem">
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                            <Setter Property="Padding" Value="2" />
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+
+                    <TreeView.ContextMenu>
+                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="New Collection" Command="{Binding AddCollectionCommand}" />
+                            <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" />
+                            <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" />
+                            <Separator />
+                            <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
+                            <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
+                        </ContextMenu>
+                    </TreeView.ContextMenu>
+
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type vm:CollectionNodeViewModel}"
+                                                  ItemsSource="{Binding Children}">
+                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                        </HierarchicalDataTemplate>
+
+                        <HierarchicalDataTemplate DataType="{x:Type vm:FolderNodeViewModel}"
+                                                  ItemsSource="{Binding Children}">
+                            <TextBlock Text="{Binding DisplayName}" />
+                        </HierarchicalDataTemplate>
+
+                        <DataTemplate DataType="{x:Type vm:RequestNodeViewModel}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Verb}"
+                                           Width="56"
+                                           FontWeight="SemiBold"
+                                           Foreground="#FF2B6CB0" />
+                                <TextBlock Text="{Binding DisplayName}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </TreeView.Resources>
+                </TreeView>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1"
+                          Width="6"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Background="#FFE0E0E0"
+                          ShowsPreview="True"
+                          ResizeBehavior="PreviousAndNext" />
+
+            <Border Grid.Column="2"
+                    Background="#FFFFFFFF"
+                    Padding="12">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="Select a request"
+                               FontSize="14"
+                               Foreground="#FF999999"
+                               HorizontalAlignment="Center" />
+                    <TextBlock Margin="0,8,0,0"
+                               Text="{Binding SelectionSummary}"
+                               FontSize="12"
+                               Foreground="#FFBBBBBB"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
 </Window>

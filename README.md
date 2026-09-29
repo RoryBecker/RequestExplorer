@@ -16,4 +16,7 @@ dotnet run --project RequestExplorer
 
 ## Phase status
 
-Phase 0 scaffold is in place (split main window). Later phases add the collection tree, request editor, save, and send/response.
+- Phase 0: scaffold (split main window)
+- Phase 1: domain model + collections tree + seed data + basic CRUD
+- Later: request editor, save, send/response
+

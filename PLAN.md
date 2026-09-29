@@ -1,6 +1,6 @@
 # RequestExplorer — Multiphase Plan
 
-**Status:** Phase 0 implemented — awaiting your verification & commit  
+**Status:** Phase 1 implemented — awaiting your verification & commit  
 **Created:** 2026-09-29  
 **Repo policy:** Do **not** auto-commit. User commits only after explicitly approving each phase as complete.
 
@@ -295,11 +295,16 @@ Each phase below has: **objectives**, **deliverables**, **out of scope**, **acce
 - Full editor forms, Send, persistence
 
 **Acceptance criteria**
-- [ ] Tree shows nested collections/folders/requests
-- [ ] Selecting nodes updates a debug/status binding or selected-item VM
-- [ ] Folder vs request selection is clear in code
+- [x] Tree shows nested collections/folders/requests
+- [x] Selecting nodes updates a debug/status binding or selected-item VM
+- [x] Folder vs request selection is clear in code
 
-**Depends on answers:** Q1, Q2 (if CRUD deferred, sample-only is fine), Q18
+**Phase 1 deliverables (done)**
+- Domain: `CollectionDefinition`, `FolderDefinition`, `RequestDefinition`, auth/body/params/headers, `HttpVerb`
+- MVVM tree nodes + `MainViewModel`; seeded **httpbin.org Demo** + **Sandbox** collections
+- Left `TreeView` with toolbar/context menu New Collection / Folder / Request, Rename, Delete (**B2**)
+- Status bar selection summary (`Collection ·` / `Folder ·` / `Request · VERB ·`)
+- Dirty `*` presentation hooks on nodes (active in Phase 3)
 
 ---
 
@@ -429,7 +434,7 @@ No phase starts without your go-ahead. No agent git commits unless you later cha
 
 ## Immediate next step
 
-Phase 0 is implemented. Please run the app, confirm the split window, **commit when satisfied**, then **approve Phase 1**.
+Phase 1 is implemented. Please verify the tree, selection summary, and CRUD, **commit when satisfied**, then **approve Phase 2**.
 
 ```powershell
 dotnet run --project RequestExplorer
@@ -442,8 +447,10 @@ dotnet run --project RequestExplorer
 | Date | Decision | Notes |
 |------|----------|-------|
 | 2026-09-29 | Plan created | Initial draft |
-| 2026-09-29 | Preferences locked | `A2 B2 C1 D3 E1 F1 H1 I2 J1 L2 M4 N1 O1 P4 R1 S2` + **G★** (in-memory + `*` on dirty / ancestors); **K1** default. Product name **RequestExplorer**. |
-| 2026-09-29 | Phase 0 implemented | WPF `net8.0-windows` scaffold; split MainWindow; `.gitignore` + README. No agent commit. |
+| 2026-09-29 | Preferences locked | `A2 B2 C1 D3 E1 F1 H1 I2 J1 L2 M4 N1 O1 P4 R1 S2` + **G★**; **K1** default. **RequestExplorer**. |
+| 2026-09-29 | Phase 0 implemented | WPF `net8.0-windows` scaffold; split MainWindow. |
+| 2026-09-29 | Phase 0 approved by user | Proceed to Phase 1 |
+| 2026-09-29 | Phase 1 implemented | Domain + TreeView + seed data + B2 CRUD; no agent commit. |
 | | | |
 
 ---
@@ -452,8 +459,8 @@ dotnet run --project RequestExplorer
 
 | Phase | Status |
 |-------|--------|
-| 0 Foundations | **Done (pending your commit)** |
-| 1 Domain + tree | Not started |
+| 0 Foundations | **Done (approved)** |
+| 1 Domain + tree | **Done (pending your commit)** |
 | 2 RHS shell | Not started |
 | 3 Editor + dirty | Not started |
 | 4 Save Ctrl+S | Not started |

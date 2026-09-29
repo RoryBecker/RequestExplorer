@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -22,6 +23,7 @@ public partial class MainViewModel : ObservableObject
     {
         _persistence = persistence;
         _httpExecutor = httpExecutor;
+        Collections.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasCollections));
         LoadWorkspace();
     }
 
@@ -30,6 +32,10 @@ public partial class MainViewModel : ObservableObject
     public ResponseViewModel Response { get; } = new();
 
     public string StorageDirectory => _persistence.StorageDirectory;
+
+    public bool HasCollections => Collections.Count > 0;
+
+    public string AppTitle => "RequestExplorer";
 
     [ObservableProperty]
     private string _statusMessage = "Ready";
@@ -44,6 +50,7 @@ public partial class MainViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(DeleteNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendRequestCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DuplicateRequestCommand))]
     private TreeNodeViewModel? _selectedNode;
 
     [ObservableProperty]
@@ -257,6 +264,119 @@ public partial class MainViewModel : ObservableObject
     }
 
     private bool CanCancelSend() => IsSending;
+
+    [RelayCommand(CanExecute = nameof(CanDuplicateRequest))]
+    private void DuplicateRequest()
+    {
+        if (SelectedRequest is null)
+        {
+            return;
+        }
+
+        var source = SelectedRequest.Model;
+        var copy = new RequestDefinition
+        {
+            Name = $"{source.Name} Copy",
+            Verb = source.Verb,
+            Address = source.Address,
+            Authentication = new AuthenticationSettings
+            {
+                Type = source.Authentication.Type,
+                BearerToken = source.Authentication.BearerToken,
+                BasicUsername = source.Authentication.BasicUsername,
+                BasicPassword = source.Authentication.BasicPassword,
+                ApiKeyName = source.Authentication.ApiKeyName,
+                ApiKeyValue = source.Authentication.ApiKeyValue,
+                ApiKeyLocation = source.Authentication.ApiKeyLocation
+            },
+            Body = new RequestBody
+            {
+                Content = source.Body.Content,
+                ContentType = source.Body.ContentType
+            }
+        };
+
+        foreach (var p in source.Params)
+        {
+            copy.Params.Add(new KeyValueItem
+            {
+                IsEnabled = p.IsEnabled,
+                Key = p.Key,
+                Value = p.Value
+            });
+        }
+
+        foreach (var h in source.Headers)
+        {
+            copy.Headers.Add(new KeyValueItem
+            {
+                IsEnabled = h.IsEnabled,
+                Key = h.Key,
+                Value = h.Value
+            });
+        }
+
+        var node = new RequestNodeViewModel(copy);
+        var parent = SelectedRequest.Parent;
+        switch (parent)
+        {
+            case CollectionNodeViewModel collection:
+                collection.Model.Requests.Add(copy);
+                collection.AddChild(node);
+                break;
+            case FolderNodeViewModel folder:
+                folder.Model.Requests.Add(copy);
+                folder.AddChild(node);
+                break;
+            default:
+                return;
+        }
+
+        SelectedNode = node;
+        StatusMessage = $"Duplicated '{source.Name}' (Ctrl+S to persist)";
+    }
+
+    private bool CanDuplicateRequest() => SelectedRequest is not null;
+
+    [RelayCommand]
+    private void OpenStorageFolder()
+    {
+        try
+        {
+            _persistence.EnsureStorageDirectory();
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{_persistence.StorageDirectory}\"",
+                UseShellExecute = true
+            });
+            StatusMessage = "Opened collections folder";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Open Folder Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void ShowAbout()
+    {
+        var dialog = new Views.AboutDialog(_persistence.StorageDirectory)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        dialog.ShowDialog();
+    }
+
+    [RelayCommand]
+    private void Exit()
+    {
+        Application.Current?.MainWindow?.Close();
+    }
 
     [RelayCommand]
     private void AddCollection()

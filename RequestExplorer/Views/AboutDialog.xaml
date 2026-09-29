@@ -1,0 +1,42 @@
+<Window x:Class="RequestExplorer.Views.AboutDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About RequestExplorer"
+        Height="280"
+        Width="440"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   FontSize="22"
+                   FontWeight="SemiBold"
+                   Text="RequestExplorer" />
+        <TextBlock Grid.Row="1"
+                   Margin="0,8,0,0"
+                   Foreground="#FF6B7280"
+                   TextWrapping="Wrap"
+                   Text="A local Windows HTTP client for exploring APIs. Collections are stored as JSON on this machine." />
+
+        <StackPanel Grid.Row="2" Margin="0,16,0,0">
+            <TextBlock x:Name="VersionBlock" />
+            <TextBlock x:Name="StorageBlock"
+                       Margin="0,8,0,0"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Button Grid.Row="3"
+                Content="OK"
+                Width="88"
+                HorizontalAlignment="Right"
+                IsDefault="True"
+                Click="Ok_Click" />
+    </Grid>
+</Window>

@@ -59,7 +59,8 @@
                     Width="88"
                     Height="32"
                     Content="Send"
-                    ToolTip="Send request (uses current in-memory values)"
+                    Style="{StaticResource PrimaryButton}"
+                    ToolTip="Send request (Ctrl+Enter)"
                     Command="{Binding DataContext.SendRequestCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
 
             <Button Grid.Column="3"

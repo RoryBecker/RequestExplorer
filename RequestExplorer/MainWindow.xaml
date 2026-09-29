@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:RequestExplorer.ViewModels"
         xmlns:views="clr-namespace:RequestExplorer.Views"
+        xmlns:conv="clr-namespace:RequestExplorer.Converters"
         mc:Ignorable="d"
         Title="RequestExplorer"
         Height="720"
@@ -19,17 +20,47 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:VerbToBrushConverter x:Key="VerbBrush" />
     </Window.Resources>
 
     <Window.InputBindings>
         <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveCommand}" />
         <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{Binding SaveAllCommand}" />
         <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding AddCollectionCommand}" />
+        <KeyBinding Key="Enter" Modifiers="Ctrl" Command="{Binding SendRequestCommand}" />
+        <KeyBinding Key="D" Modifiers="Ctrl" Command="{Binding DuplicateRequestCommand}" />
         <KeyBinding Key="F2" Command="{Binding RenameNodeCommand}" />
         <KeyBinding Key="Delete" Command="{Binding DeleteNodeCommand}" />
     </Window.InputBindings>
 
     <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S" />
+                <MenuItem Header="Save _All" Command="{Binding SaveAllCommand}" InputGestureText="Ctrl+Shift+S" />
+                <Separator />
+                <MenuItem Header="Open collections _folder" Command="{Binding OpenStorageFolderCommand}" />
+                <Separator />
+                <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Edit">
+                <MenuItem Header="New _Collection" Command="{Binding AddCollectionCommand}" InputGestureText="Ctrl+Shift+N" />
+                <MenuItem Header="New _Folder" Command="{Binding AddFolderCommand}" />
+                <MenuItem Header="New _Request" Command="{Binding AddRequestCommand}" />
+                <MenuItem Header="_Duplicate Request" Command="{Binding DuplicateRequestCommand}" InputGestureText="Ctrl+D" />
+                <Separator />
+                <MenuItem Header="_Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
+                <MenuItem Header="_Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
+            </MenuItem>
+            <MenuItem Header="_Request">
+                <MenuItem Header="_Send" Command="{Binding SendRequestCommand}" InputGestureText="Ctrl+Enter" />
+                <MenuItem Header="_Cancel" Command="{Binding CancelSendCommand}" />
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About RequestExplorer" Command="{Binding ShowAboutCommand}" />
+            </MenuItem>
+        </Menu>
+
         <StatusBar DockPanel.Dock="Bottom" Height="28">
             <StatusBarItem>
                 <TextBlock Text="{Binding SelectionSummary}" />
@@ -37,6 +68,12 @@
             <Separator />
             <StatusBarItem>
                 <TextBlock Text="{Binding StatusMessage}" />
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <TextBlock Text="{Binding StorageDirectory}"
+                           ToolTip="Collections storage path"
+                           Opacity="0.75"
+                           FontSize="11" />
             </StatusBarItem>
         </StatusBar>
 
@@ -47,8 +84,8 @@
                 <ColumnDefinition Width="*" MinWidth="320" />
             </Grid.ColumnDefinitions>
 
-            <DockPanel Grid.Column="0" Background="#FFF5F5F5">
-                <ToolBarTray DockPanel.Dock="Top" Background="#FFF5F5F5">
+            <DockPanel Grid.Column="0" Background="{StaticResource App.SurfaceBrush}">
+                <ToolBarTray DockPanel.Dock="Top" Background="{StaticResource App.SurfaceBrush}">
                     <ToolBar Band="0" BandIndex="0" ToolBarTray.IsLocked="True">
                         <Button Content="Save" Command="{Binding SaveCommand}"
                                 ToolTip="Save collection (Ctrl+S)" />
@@ -72,68 +109,115 @@
                            Text="Collections"
                            FontSize="14"
                            FontWeight="SemiBold"
-                           Foreground="#FF666666" />
+                           Foreground="{StaticResource App.MutedBrush}" />
 
-                <TreeView x:Name="CollectionTree"
-                          Margin="4,0,4,8"
-                          ItemsSource="{Binding Collections}"
-                          SelectedItemChanged="CollectionTree_OnSelectedItemChanged">
-                    <TreeView.ItemContainerStyle>
-                        <Style TargetType="TreeViewItem">
-                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                            <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
-                            <Setter Property="Padding" Value="2" />
-                        </Style>
-                    </TreeView.ItemContainerStyle>
+                <Grid>
+                    <Border Margin="8">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasCollections}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16">
+                            <TextBlock Text="No collections yet"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{StaticResource App.MutedBrush}" />
+                            <TextBlock Margin="0,8,0,12"
+                                       TextAlignment="Center"
+                                       TextWrapping="Wrap"
+                                       Foreground="{StaticResource App.MutedBrush}"
+                                       Text="Create a collection to start building requests." />
+                            <Button Content="New Collection"
+                                    HorizontalAlignment="Center"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding AddCollectionCommand}" />
+                        </StackPanel>
+                    </Border>
 
-                    <TreeView.ContextMenu>
-                        <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                            <MenuItem Header="Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S" />
-                            <MenuItem Header="Save All" Command="{Binding SaveAllCommand}" InputGestureText="Ctrl+Shift+S" />
-                            <Separator />
-                            <MenuItem Header="New Collection" Command="{Binding AddCollectionCommand}" />
-                            <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" />
-                            <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" />
-                            <Separator />
-                            <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
-                            <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
-                        </ContextMenu>
-                    </TreeView.ContextMenu>
+                    <TreeView x:Name="CollectionTree"
+                              Margin="4,0,4,8"
+                              BorderThickness="0"
+                              Background="Transparent"
+                              ItemsSource="{Binding Collections}"
+                              SelectedItemChanged="CollectionTree_OnSelectedItemChanged"
+                              Visibility="{Binding HasCollections, Converter={StaticResource BoolToVis}}">
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="TreeViewItem">
+                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                <Setter Property="Padding" Value="2" />
+                            </Style>
+                        </TreeView.ItemContainerStyle>
 
-                    <TreeView.Resources>
-                        <HierarchicalDataTemplate DataType="{x:Type vm:CollectionNodeViewModel}"
-                                                  ItemsSource="{Binding Children}">
-                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
-                        </HierarchicalDataTemplate>
+                        <TreeView.ContextMenu>
+                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S" />
+                                <MenuItem Header="Save All" Command="{Binding SaveAllCommand}" InputGestureText="Ctrl+Shift+S" />
+                                <Separator />
+                                <MenuItem Header="New Collection" Command="{Binding AddCollectionCommand}" />
+                                <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" />
+                                <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" />
+                                <MenuItem Header="Duplicate Request" Command="{Binding DuplicateRequestCommand}" InputGestureText="Ctrl+D" />
+                                <Separator />
+                                <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
+                                <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
+                            </ContextMenu>
+                        </TreeView.ContextMenu>
 
-                        <HierarchicalDataTemplate DataType="{x:Type vm:FolderNodeViewModel}"
-                                                  ItemsSource="{Binding Children}">
-                            <TextBlock Text="{Binding DisplayName}" />
-                        </HierarchicalDataTemplate>
+                        <TreeView.Resources>
+                            <HierarchicalDataTemplate DataType="{x:Type vm:CollectionNodeViewModel}"
+                                                      ItemsSource="{Binding Children}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe MDL2 Assets"
+                                               Text="&#xE8F1;"
+                                               Margin="0,0,6,0"
+                                               Foreground="{StaticResource App.AccentBrush}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </HierarchicalDataTemplate>
 
-                        <DataTemplate DataType="{x:Type vm:RequestNodeViewModel}">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Verb}"
-                                           Width="56"
-                                           FontWeight="SemiBold"
-                                           Foreground="#FF2B6CB0" />
-                                <TextBlock Text="{Binding DisplayName}" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </TreeView.Resources>
-                </TreeView>
+                            <HierarchicalDataTemplate DataType="{x:Type vm:FolderNodeViewModel}"
+                                                      ItemsSource="{Binding Children}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock FontFamily="Segoe MDL2 Assets"
+                                               Text="&#xE8B7;"
+                                               Margin="0,0,6,0"
+                                               Foreground="{StaticResource App.MutedBrush}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </StackPanel>
+                            </HierarchicalDataTemplate>
+
+                            <DataTemplate DataType="{x:Type vm:RequestNodeViewModel}">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Verb}"
+                                               Width="56"
+                                               FontWeight="SemiBold"
+                                               Foreground="{Binding Verb, Converter={StaticResource VerbBrush}}" />
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </TreeView.Resources>
+                    </TreeView>
+                </Grid>
             </DockPanel>
 
             <GridSplitter Grid.Column="1"
                           Width="6"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
-                          Background="#FFE0E0E0"
+                          Background="{StaticResource App.BorderBrush}"
                           ShowsPreview="True"
                           ResizeBehavior="PreviousAndNext" />
 
-            <!-- Right: request editor + response (Phase 2) -->
-            <Grid Grid.Column="2" Background="#FFFFFFFF">
+            <Grid Grid.Column="2" Background="{StaticResource App.PanelBrush}">
                 <Border>
                     <Border.Style>
                         <Style TargetType="Border">
@@ -145,12 +229,19 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="360">
                         <TextBlock Text="Select a request"
-                                   FontSize="14"
-                                   Foreground="#FF999999"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource App.MutedBrush}"
                                    HorizontalAlignment="Center" />
                         <TextBlock Margin="0,8,0,0"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Foreground="#FF9CA3AF"
+                                   HorizontalAlignment="Center"
+                                   Text="Choose a request in the tree, or create one with Edit → New Request." />
+                        <TextBlock Margin="0,12,0,0"
                                    Text="{Binding SelectionSummary}"
                                    FontSize="12"
                                    Foreground="#FFBBBBBB"
@@ -173,7 +264,7 @@
                                   Height="6"
                                   HorizontalAlignment="Stretch"
                                   VerticalAlignment="Stretch"
-                                  Background="#FFE0E0E0"
+                                  Background="{StaticResource App.BorderBrush}"
                                   ShowsPreview="True"
                                   ResizeDirection="Rows"
                                   ResizeBehavior="PreviousAndNext" />

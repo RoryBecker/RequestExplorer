@@ -1,6 +1,6 @@
 # RequestExplorer — Multiphase Plan
 
-**Status:** Phase 5 implemented — awaiting your verification & commit  
+**Status:** Phase 6 implemented — all phases complete; awaiting your verification & commit  
 **Created:** 2026-09-29  
 **Repo policy:** Do **not** auto-commit. User commits only after explicitly approving each phase as complete.
 
@@ -433,8 +433,16 @@ Each phase below has: **objectives**, **deliverables**, **out of scope**, **acce
 - README with build/run and file format notes
 
 **Acceptance criteria**
-- [ ] User can build a small collection from scratch and send requests
-- [ ] App feels coherent enough for repeated local use
+- [x] User can build a small collection from scratch and send requests
+- [x] App feels coherent enough for repeated local use
+
+**Phase 6 deliverables (done)**
+- Menu bar (File / Edit / Request / Help); About dialog; open collections folder
+- Tree icons (Segoe MDL2), verb colour coding, empty-collection state, clearer RHS empty state
+- Duplicate request (Ctrl+D); Send via Ctrl+Enter; primary Send button styling
+- Shared App.xaml brushes/styles; storage path on status bar
+- README: shortcuts, persistence schema, unpackaged publish notes (**P4**)
+- CRUD already from Phase 1 (**B2**); no drag-and-drop (**C1**)
 
 ---
 
@@ -452,7 +460,7 @@ No phase starts without your go-ahead. No agent git commits unless you later cha
 
 ## Immediate next step
 
-Phase 5 is implemented. Please Send a few demo requests (GET/POST/auth), confirm response tabs, **commit when satisfied**, then **approve Phase 6** (polish) if desired.
+**All phases 0–6 are implemented.** Please smoke-test (new collection → request → send → save), then **commit** when satisfied. Further changes are optional enhancements beyond the original plan.
 
 ```powershell
 dotnet run --project RequestExplorer
@@ -476,7 +484,9 @@ dotnet run --project RequestExplorer
 | 2026-09-29 | Phase 3 approved by user | Proceed to Phase 4 |
 | 2026-09-29 | Phase 4 implemented | JSON per collection + Ctrl+S. |
 | 2026-09-29 | Phase 4 approved by user | Proceed to Phase 5 |
-| 2026-09-29 | Phase 5 implemented | Send/Cancel + response panel; no agent commit. |
+| 2026-09-29 | Phase 5 implemented | Send/Cancel + response panel. |
+| 2026-09-29 | Phase 5 approved by user | Proceed to Phase 6 |
+| 2026-09-29 | Phase 6 implemented | UX polish, menus, README/publish notes; no agent commit. |
 | | | |
 
 ---
@@ -490,5 +500,5 @@ dotnet run --project RequestExplorer
 | 2 RHS shell | **Done (approved)** |
 | 3 Editor + dirty | **Done (approved)** |
 | 4 Save Ctrl+S | **Done (approved)** |
-| 5 Send + response | **Done (pending your commit)** |
-| 6 CRUD + polish | Not started |
+| 5 Send + response | **Done (approved)** |
+| 6 CRUD + polish | **Done (pending your commit)** |

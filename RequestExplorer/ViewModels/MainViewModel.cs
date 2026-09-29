@@ -125,7 +125,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveAllCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendRequestCommand))]
-    [NotifyCanExecuteChangedFor(nameof(DuplicateRequestCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DuplicateNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(CopyNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(PasteIntoNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(PasteAtRootCommand))]
@@ -930,80 +930,90 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private bool CanCancelSend() => IsSending;
 
-    [RelayCommand(CanExecute = nameof(CanDuplicateRequest))]
-    private void DuplicateRequest()
+    [RelayCommand(CanExecute = nameof(CanDuplicateNode))]
+    private void DuplicateNode()
     {
-        if (SelectedRequest is null)
+        if (SelectedNode is null)
         {
             return;
         }
 
-        var source = SelectedRequest.Model;
-        var copy = new RequestDefinition
+        TreeNodeViewModel? cloneNode;
+        var sourceName = SelectedNode.Name;
+
+        switch (SelectedNode)
         {
-            Name = $"{source.Name} Copy",
-            Verb = source.Verb,
-            Address = source.Address,
-            Authentication = new AuthenticationSettings
+            case RequestNodeViewModel request:
             {
-                Type = source.Authentication.Type,
-                BearerToken = source.Authentication.BearerToken,
-                BasicUsername = source.Authentication.BasicUsername,
-                BasicPassword = source.Authentication.BasicPassword,
-                ApiKeyName = source.Authentication.ApiKeyName,
-                ApiKeyValue = source.Authentication.ApiKeyValue,
-                ApiKeyLocation = source.Authentication.ApiKeyLocation
-            },
-            Body = new RequestBody
-            {
-                Content = source.Body.Content,
-                ContentType = source.Body.ContentType
+                var copy = TreeNodeCloneService.CloneRequest(request.Model);
+                copy.Name = $"{request.Name} Copy";
+                cloneNode = new RequestNodeViewModel(copy);
+                WireUndoRecorders(cloneNode);
+                if (!TryInsertAsSiblingAfter(request, cloneNode))
+                {
+                    return;
+                }
+
+                break;
             }
-        };
-
-        foreach (var p in source.Params)
-        {
-            copy.Params.Add(new KeyValueItem
+            case FolderNodeViewModel folder:
             {
-                IsEnabled = p.IsEnabled,
-                Key = p.Key,
-                Value = p.Value
-            });
+                var copy = TreeNodeCloneService.CloneFolder(folder.Model);
+                copy.Name = $"{folder.Name} Copy";
+                cloneNode = CollectionTreeMapper.ToFolderViewModel(copy);
+                WireUndoRecorders(cloneNode);
+                if (!TryInsertAsSiblingAfter(folder, cloneNode))
+                {
+                    return;
+                }
+
+                break;
+            }
+            case CollectionNodeViewModel collection:
+            {
+                var copy = TreeNodeCloneService.CloneCollection(collection.Model);
+                copy.Name = $"{collection.Name} Copy";
+                var collectionNode = CollectionTreeMapper.ToViewModel(copy);
+                WireUndoRecorders(collectionNode);
+                var insertAt = Collections.IndexOf(collection) + 1;
+                if (insertAt < 1)
+                {
+                    insertAt = Collections.Count;
+                }
+
+                Collections.Insert(insertAt, collectionNode);
+                cloneNode = collectionNode;
+                break;
+            }
+            default:
+                return;
         }
 
-        foreach (var h in source.Headers)
-        {
-            copy.Headers.Add(new KeyValueItem
-            {
-                IsEnabled = h.IsEnabled,
-                Key = h.Key,
-                Value = h.Value
-            });
-        }
+        SelectedNode = cloneNode;
+        RecordUndo(CreateRemoveAction(cloneNode, $"Duplicate '{sourceName}'"));
+        StatusMessage = $"Duplicated '{sourceName}' (Ctrl+S to persist)";
+    }
 
-        var node = new RequestNodeViewModel(copy);
-        node.AttachUndoRecorder(this);
-        var parent = SelectedRequest.Parent;
+    private bool CanDuplicateNode() => SelectedNode is not null;
+
+    private bool TryInsertAsSiblingAfter(TreeNodeViewModel source, TreeNodeViewModel clone)
+    {
+        var parent = source.Parent;
         if (parent is not (CollectionNodeViewModel or FolderNodeViewModel))
         {
-            return;
+            return false;
         }
 
-        var insertAt = parent.Children.IndexOf(SelectedRequest) + 1;
+        var insertAt = parent.Children.IndexOf(source) + 1;
         if (insertAt < 1)
         {
             insertAt = parent.Children.Count;
         }
 
-        AttachToModel(parent, node, insertAt);
-        parent.InsertChild(node, insertAt);
-
-        SelectedNode = node;
-        RecordUndo(CreateRemoveAction(node, $"Duplicate '{source.Name}'"));
-        StatusMessage = $"Duplicated '{source.Name}' (Ctrl+S to persist)";
+        AttachToModel(parent, clone, insertAt);
+        parent.InsertChild(clone, insertAt);
+        return true;
     }
-
-    private bool CanDuplicateRequest() => SelectedRequest is not null;
 
     [RelayCommand(CanExecute = nameof(CanCopyNode))]
     private void CopyNode(TreeNodeViewModel? node)

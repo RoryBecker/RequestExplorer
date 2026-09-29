@@ -426,6 +426,15 @@ public partial class MainWindow : Window
 
         menu.Items.Add(new MenuItem
         {
+            Header = "Duplicate",
+            Command = vm.DuplicateNodeCommand,
+            InputGestureText = "Ctrl+D"
+        });
+
+        menu.Items.Add(new Separator());
+
+        menu.Items.Add(new MenuItem
+        {
             Header = "Copy",
             Command = vm.CopyNodeCommand,
             CommandParameter = node,

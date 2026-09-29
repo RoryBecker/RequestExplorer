@@ -110,7 +110,7 @@
         <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{Binding SaveAllCommand}" />
         <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding AddCollectionCommand}" />
         <KeyBinding Key="Enter" Modifiers="Ctrl" Command="{Binding SendRequestCommand}" />
-        <KeyBinding Key="D" Modifiers="Ctrl" Command="{Binding DuplicateRequestCommand}" />
+        <KeyBinding Key="D" Modifiers="Ctrl" Command="{Binding DuplicateNodeCommand}" />
         <KeyBinding Key="C" Modifiers="Ctrl" Command="{Binding CopyNodeCommand}" />
         <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding SmartPasteCommand}" />
         <KeyBinding Key="F2" Command="{Binding RenameNodeCommand}" />
@@ -134,7 +134,7 @@
                 <MenuItem Header="New _Collection" Command="{Binding AddCollectionCommand}" InputGestureText="Ctrl+Shift+N" />
                 <MenuItem Header="New _Folder" Command="{Binding AddFolderCommand}" />
                 <MenuItem Header="New _Request" Command="{Binding AddRequestCommand}" />
-                <MenuItem Header="_Duplicate Request" Command="{Binding DuplicateRequestCommand}" InputGestureText="Ctrl+D" />
+                <MenuItem Header="_Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" />
                 <Separator />
                 <MenuItem Header="_Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
                 <MenuItem Header="_Paste" Command="{Binding SmartPasteCommand}" InputGestureText="Ctrl+V" />
@@ -249,8 +249,8 @@
                         <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8A5;" />
                     </Button>
                     <Button Style="{StaticResource ToolbarIconButton}"
-                            Command="{Binding DuplicateRequestCommand}"
-                            ToolTip="Duplicate request (Ctrl+D)">
+                            Command="{Binding DuplicateNodeCommand}"
+                            ToolTip="Duplicate (Ctrl+D)">
                         <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8C8;" />
                     </Button>
 
@@ -470,7 +470,7 @@
                                 <MenuItem Header="New Collection" Command="{Binding AddCollectionCommand}" />
                                 <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" />
                                 <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" />
-                                <MenuItem Header="Duplicate Request" Command="{Binding DuplicateRequestCommand}" InputGestureText="Ctrl+D" />
+                                <MenuItem Header="Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" />
                                 <Separator />
                                 <MenuItem Header="Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
                                 <MenuItem Header="Paste" Command="{Binding SmartPasteCommand}" InputGestureText="Ctrl+V" />

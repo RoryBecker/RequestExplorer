@@ -3,10 +3,10 @@ using RequestExplorer.Models;
 
 namespace RequestExplorer.ViewModels;
 
-public sealed class FolderNodeViewModel : TreeNodeViewModel
+public sealed class FolderNodeViewModel : ContainerNodeViewModel
 {
     public FolderNodeViewModel(FolderDefinition model)
-        : base(model.Name)
+        : base(model.Name, model.Variables)
     {
         Model = model;
         Children.CollectionChanged += OnChildrenChanged;

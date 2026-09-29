@@ -309,7 +309,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         try
         {
-            QuickExportText = RequestExportService.Export(SelectedRequest.Model, SelectedExportFormat.Format);
+            var resolved = VariableResolver.Resolve(SelectedRequest.Model, SelectedRequest);
+            QuickExportText = RequestExportService.Export(resolved, SelectedExportFormat.Format);
         }
         catch (Exception ex)
         {
@@ -514,14 +515,30 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    private bool IsRevealSatisfied(UndoRevealTarget target) =>
-        ReferenceEquals(SelectedRequest, target.Request)
-        && SelectedRequestTabIndex == ToTabIndex(target.Surface);
+    private bool IsRevealSatisfied(UndoRevealTarget target)
+    {
+        if (!ReferenceEquals(SelectedNode, target.Node))
+        {
+            return false;
+        }
+
+        if (target.Node is RequestNodeViewModel
+            && target.Surface is not EditorSurface.None and not EditorSurface.Variables)
+        {
+            return SelectedRequestTabIndex == ToTabIndex(target.Surface);
+        }
+
+        return true;
+    }
 
     private void Reveal(UndoRevealTarget target)
     {
-        SelectedNode = target.Request;
-        SelectedRequestTabIndex = ToTabIndex(target.Surface);
+        SelectedNode = target.Node;
+        if (target.Node is RequestNodeViewModel
+            && target.Surface is not EditorSurface.None and not EditorSurface.Variables)
+        {
+            SelectedRequestTabIndex = ToTabIndex(target.Surface);
+        }
     }
 
     private static int ToTabIndex(EditorSurface surface) =>
@@ -541,6 +558,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             EditorSurface.Body => "Body",
             EditorSurface.Headers => "Headers",
             EditorSurface.Auth => "Auth",
+            EditorSurface.Variables => "Variables",
             _ => "editor"
         };
 
@@ -587,6 +605,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         if (node is RequestNodeViewModel request)
         {
             request.AttachUndoRecorder(this);
+        }
+        else if (node is ContainerNodeViewModel container)
+        {
+            container.AttachUndoRecorder(this);
         }
 
         foreach (var child in node.Children)
@@ -733,11 +755,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         IsSending = true;
         Response.BeginSend();
-        StatusMessage = $"Sending {SelectedRequest.Verb} {SelectedRequest.Address}…";
+        var resolved = VariableResolver.Resolve(SelectedRequest.Model, SelectedRequest);
+        StatusMessage = $"Sending {SelectedRequest.Verb} {resolved.Address}…";
 
         try
         {
-            var result = await _httpExecutor.SendAsync(SelectedRequest.Model, _sendCts.Token);
+            var result = await _httpExecutor.SendAsync(resolved, _sendCts.Token);
             Response.Apply(result);
 
             StatusMessage = result.Succeeded
@@ -1183,6 +1206,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             var requests = new List<RequestDefinition>();
             PostmanCollectionMapper.ApplyItems(document.Item, folders, requests);
 
+            if (document.Variable is { Count: > 0 } && node is ContainerNodeViewModel container)
+            {
+                container.AppendVariables(PostmanCollectionMapper.ToKeyValueItems(document.Variable));
+            }
+
             var importedNodes = new List<TreeNodeViewModel>();
             switch (node)
             {
@@ -1281,6 +1309,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         var model = new CollectionDefinition { Name = name };
         var node = new CollectionNodeViewModel(model);
+        node.AttachUndoRecorder(this);
         Collections.Add(node);
         SelectedNode = node;
         RecordUndo(CreateRemoveAction(node, $"Add collection '{name}'"));
@@ -1302,6 +1331,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         var model = new FolderDefinition { Name = name };
         var node = new FolderNodeViewModel(model);
+        node.AttachUndoRecorder(this);
 
         switch (SelectedNode)
         {

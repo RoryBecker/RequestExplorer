@@ -23,6 +23,7 @@ public static class PostmanCollectionMapper
                 PostmanId = collection.Id.ToString(),
                 Name = collection.Name
             },
+            Variable = ToPostmanVariables(collection.Variables),
             Item = ToItems(collection.Folders, collection.Requests)
         };
 
@@ -34,6 +35,7 @@ public static class PostmanCollectionMapper
                 PostmanId = folder.Id.ToString(),
                 Name = folder.Name
             },
+            Variable = ToPostmanVariables(folder.Variables),
             Item = ToItems(folder.Folders, folder.Requests)
         };
 
@@ -61,6 +63,7 @@ public static class PostmanCollectionMapper
         }
 
         ApplyItems(document.Item, collection.Folders, collection.Requests);
+        ApplyVariables(document.Variable, collection.Variables);
         return collection;
     }
 
@@ -75,6 +78,7 @@ public static class PostmanCollectionMapper
             {
                 var folder = new FolderDefinition { Name = item.Name };
                 ApplyItems(item.Item, folder.Folders, folder.Requests);
+                ApplyVariables(item.Variable, folder.Variables);
                 folders.Add(folder);
             }
             else if (item.Request is not null)
@@ -92,6 +96,7 @@ public static class PostmanCollectionMapper
             items.Add(new PostmanItem
             {
                 Name = folder.Name,
+                Variable = ToPostmanVariables(folder.Variables),
                 Item = ToItems(folder.Folders, folder.Requests)
             });
         }
@@ -102,6 +107,52 @@ public static class PostmanCollectionMapper
         }
 
         return items;
+    }
+
+    private static List<PostmanKeyValue>? ToPostmanVariables(IEnumerable<KeyValueItem> variables)
+    {
+        var list = variables
+            .Where(v => !string.IsNullOrWhiteSpace(v.Key))
+            .Select(v => new PostmanKeyValue
+            {
+                Key = v.Key,
+                Value = v.Value,
+                Disabled = v.IsEnabled ? null : true,
+                Type = "string"
+            })
+            .ToList();
+        return list.Count == 0 ? null : list;
+    }
+
+    public static IEnumerable<KeyValueItem> ToKeyValueItems(IEnumerable<PostmanKeyValue>? source)
+    {
+        if (source is null)
+        {
+            yield break;
+        }
+
+        foreach (var item in source)
+        {
+            if (string.IsNullOrWhiteSpace(item.Key))
+            {
+                continue;
+            }
+
+            yield return new KeyValueItem
+            {
+                Key = item.Key ?? string.Empty,
+                Value = item.Value ?? string.Empty,
+                IsEnabled = item.Disabled != true
+            };
+        }
+    }
+
+    private static void ApplyVariables(IEnumerable<PostmanKeyValue>? source, List<KeyValueItem> target)
+    {
+        foreach (var item in ToKeyValueItems(source))
+        {
+            target.Add(item);
+        }
     }
 
     private static PostmanItem ToRequestItem(RequestDefinition request)

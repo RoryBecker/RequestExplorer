@@ -8,6 +8,10 @@ public sealed class PostmanCollectionDocument
     [JsonPropertyName("info")]
     public PostmanInfo Info { get; set; } = new();
 
+    [JsonPropertyName("variable")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PostmanKeyValue>? Variable { get; set; }
+
     [JsonPropertyName("item")]
     public List<PostmanItem> Item { get; set; } = [];
 }
@@ -33,6 +37,10 @@ public sealed class PostmanItem
     [JsonPropertyName("item")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public List<PostmanItem>? Item { get; set; }
+
+    [JsonPropertyName("variable")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PostmanKeyValue>? Variable { get; set; }
 
     /// <summary>Present for requests. May be a string URL or a request object.</summary>
     [JsonPropertyName("request")]

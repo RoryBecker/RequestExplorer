@@ -3,6 +3,64 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="KeyValueGrid" TargetType="DataGrid">
+            <Style.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#802563EB" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FF1F2937" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#402563EB" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FF1F2937" />
+            </Style.Resources>
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HorizontalGridLinesBrush" Value="#FFEEEEEE" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#FFE5E7EB" />
+            <Setter Property="RowHeight" Value="30" />
+            <Setter Property="ColumnHeaderHeight" Value="28" />
+            <Setter Property="SelectionUnit" Value="FullRow" />
+            <Setter Property="RowStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridRow">
+                        <Style.Resources>
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#802563EB" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FF1F2937" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#402563EB" />
+                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FF1F2937" />
+                        </Style.Resources>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="CellStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#802563EB" />
+                                <Setter Property="Foreground" Value="#FF1F2937" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="KeyValueCellText" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Padding" Value="4,0" />
+        </Style>
+
+        <Style x:Key="KeyValueCellEdit" TargetType="TextBox">
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="4,0" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="0">
@@ -11,6 +69,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Margin="0,0,0,8">
@@ -34,13 +93,13 @@
         </DockPanel>
 
         <TextBlock Grid.Row="1"
-                   Margin="0,0,0,16"
+                   Margin="0,0,0,8"
                    FontSize="12"
                    FontWeight="SemiBold"
                    Foreground="{StaticResource App.MutedBrush}"
                    Text="COLLECTION" />
 
-        <StackPanel Grid.Row="2" Margin="0,0,0,16">
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
             <TextBlock FontSize="13" Foreground="#FF374151">
                 <Run Text="{Binding ChildFolderCount, Mode=OneWay}" />
                 <Run Text=" folder(s)," />
@@ -50,10 +109,55 @@
             <TextBlock Margin="0,8,0,0"
                        TextWrapping="Wrap"
                        Foreground="{StaticResource App.MutedBrush}"
-                       Text="Rename this collection here, then press Enter or leave the field to apply. Use the buttons below to add children." />
+                       Text="Variables defined here are available to all requests in this collection via {{{{name}}}}. Closer folders override matching names." />
         </StackPanel>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" VerticalAlignment="Top">
+        <DockPanel Grid.Row="3" Margin="0,0,0,12">
+            <TextBlock DockPanel.Dock="Top"
+                       Margin="0,0,0,6"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource App.MutedBrush}"
+                       Text="VARIABLES" />
+            <DataGrid Style="{StaticResource KeyValueGrid}"
+                      ItemsSource="{Binding Variables}">
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn Header="On" Width="44">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTextColumn Header="Key"
+                                        Binding="{Binding Key, UpdateSourceTrigger=LostFocus}"
+                                        Width="*"
+                                        ElementStyle="{StaticResource KeyValueCellText}"
+                                        EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                    <DataGridTextColumn Header="Value"
+                                        Binding="{Binding Value, UpdateSourceTrigger=LostFocus}"
+                                        Width="2*"
+                                        ElementStyle="{StaticResource KeyValueCellText}"
+                                        EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                    <DataGridTemplateColumn Header="" Width="36">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Button Content="-"
+                                        Style="{StaticResource TreeActionButton}"
+                                        ToolTip="Remove row"
+                                        Visibility="{Binding HasContent, Converter={StaticResource BoolToVis}}"
+                                        Command="{Binding DataContext.RemoveVariableCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" VerticalAlignment="Top">
             <Button Content="New Folder"
                     Style="{StaticResource PrimaryButton}"
                     Command="{Binding DataContext.AddFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}" />

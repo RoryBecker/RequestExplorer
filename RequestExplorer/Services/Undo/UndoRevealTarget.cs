@@ -8,7 +8,8 @@ public enum EditorSurface
     Params,
     Body,
     Headers,
-    Auth
+    Auth,
+    Variables
 }
 
-public readonly record struct UndoRevealTarget(RequestNodeViewModel Request, EditorSurface Surface);
+public readonly record struct UndoRevealTarget(TreeNodeViewModel Node, EditorSurface Surface);

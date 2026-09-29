@@ -1,6 +1,6 @@
 # RequestExplorer — Multiphase Plan
 
-**Status:** Phase 3 implemented — awaiting your verification & commit  
+**Status:** Phase 4 implemented — awaiting your verification & commit  
 **Created:** 2026-09-29  
 **Repo policy:** Do **not** auto-commit. User commits only after explicitly approving each phase as complete.
 
@@ -378,11 +378,16 @@ Each phase below has: **objectives**, **deliverables**, **out of scope**, **acce
 - Cloud, multi-user, migration tooling
 
 **Acceptance criteria**
-- [ ] Edit → Ctrl+S → restart app → values restored
-- [ ] Dirty cleared after save
-- [ ] Failed save surfaces an error (message box or status)
+- [x] Edit → Ctrl+S → restart app → values restored
+- [x] Dirty cleared after save
+- [x] Failed save surfaces an error (message box or status)
 
-**Depends on answers:** Q5, Q6, Q7
+**Phase 4 deliverables (done)**
+- `CollectionPersistenceService`: one JSON file per collection under `%LocalAppData%\RequestExplorer\collections\` (**E1**)
+- Load all on startup; seed + persist demo when store is empty
+- **Ctrl+S** saves selection’s collection; **Ctrl+Shift+S** saves all; toolbar/context Save
+- Clears dirty/`*` after successful save; close prompt if unsaved (**G★** exit warn)
+- Schema noted in `README.md`
 
 ---
 
@@ -443,11 +448,13 @@ No phase starts without your go-ahead. No agent git commits unless you later cha
 
 ## Immediate next step
 
-Phase 3 is implemented. Please edit a request, confirm dirty `*` on the tree (and ancestors), switch away and back, **commit when satisfied**, then **approve Phase 4**.
+Phase 4 is implemented. Please edit → Ctrl+S → restart and confirm restore, **commit when satisfied**, then **approve Phase 5**.
 
 ```powershell
 dotnet run --project RequestExplorer
 ```
+
+Storage: `%LocalAppData%\RequestExplorer\collections\`
 
 ---
 
@@ -463,7 +470,9 @@ dotnet run --project RequestExplorer
 | 2026-09-29 | Phase 1 approved by user | Proceed to Phase 2 |
 | 2026-09-29 | Phase 2 implemented | RHS request/response shell; selection switching. |
 | 2026-09-29 | Phase 2 approved by user | Proceed to Phase 3 |
-| 2026-09-29 | Phase 3 implemented | Editable request fields + dirty/`*` tracking; no agent commit. |
+| 2026-09-29 | Phase 3 implemented | Editable request fields + dirty/`*` tracking. |
+| 2026-09-29 | Phase 3 approved by user | Proceed to Phase 4 |
+| 2026-09-29 | Phase 4 implemented | JSON per collection + Ctrl+S; no agent commit. |
 | | | |
 
 ---
@@ -475,7 +484,7 @@ dotnet run --project RequestExplorer
 | 0 Foundations | **Done (approved)** |
 | 1 Domain + tree | **Done (approved)** |
 | 2 RHS shell | **Done (approved)** |
-| 3 Editor + dirty | **Done (pending your commit)** |
-| 4 Save Ctrl+S | Not started |
+| 3 Editor + dirty | **Done (approved)** |
+| 4 Save Ctrl+S | **Done (pending your commit)** |
 | 5 Send + response | Not started |
 | 6 CRUD + polish | Not started |

@@ -14,11 +14,41 @@ dotnet build RequestExplorer.sln
 dotnet run --project RequestExplorer
 ```
 
+## Persistence
+
+- One JSON file per collection under `%LocalAppData%\RequestExplorer\collections\`
+- File name: `{collectionId}.json` (GUID, no dashes)
+- **Ctrl+S** saves the collection that contains the current selection (or all collections if nothing is selected)
+- **Ctrl+Shift+S** saves all collections
+- First launch with an empty store seeds the httpbin demo and writes it to disk
+
+### Collection JSON shape (camelCase)
+
+```json
+{
+  "id": "…",
+  "name": "httpbin.org Demo",
+  "folders": [ { "id": "…", "name": "…", "folders": [], "requests": [] } ],
+  "requests": [
+    {
+      "id": "…",
+      "name": "GET",
+      "verb": "get",
+      "address": "https://httpbin.org/get",
+      "params": [ { "isEnabled": true, "key": "q", "value": "x" } ],
+      "headers": [],
+      "authentication": { "type": "none", "bearerToken": "", "…": "…" },
+      "body": { "content": "", "contentType": "application/json" }
+    }
+  ]
+}
+```
+
 ## Phase status
 
 - Phase 0: scaffold (split main window)
 - Phase 1: domain model + collections tree + seed data + basic CRUD
 - Phase 2: RHS request/response shell (selection switching)
 - Phase 3: editable request fields + dirty `*` tracking
-- Later: Ctrl+S persistence, send/response
-
+- Phase 4: Ctrl+S persistence (one JSON file per collection)
+- Later: send/response

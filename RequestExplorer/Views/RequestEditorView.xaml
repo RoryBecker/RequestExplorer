@@ -31,7 +31,7 @@
                        FontWeight="SemiBold"
                        Foreground="#FFB45309"
                        Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}"
-                       Text="Unsaved changes *" />
+                       Text="Unsaved changes *  (Ctrl+S to save)" />
         </DockPanel>
 
         <!-- Verb + URL + Send -->

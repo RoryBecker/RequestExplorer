@@ -11,7 +11,8 @@
         Width="1200"
         MinHeight="480"
         MinWidth="800"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        Closing="MainWindow_OnClosing">
     <Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>
@@ -21,6 +22,8 @@
     </Window.Resources>
 
     <Window.InputBindings>
+        <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveCommand}" />
+        <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{Binding SaveAllCommand}" />
         <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding AddCollectionCommand}" />
         <KeyBinding Key="F2" Command="{Binding RenameNodeCommand}" />
         <KeyBinding Key="Delete" Command="{Binding DeleteNodeCommand}" />
@@ -30,6 +33,10 @@
         <StatusBar DockPanel.Dock="Bottom" Height="28">
             <StatusBarItem>
                 <TextBlock Text="{Binding SelectionSummary}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" />
             </StatusBarItem>
         </StatusBar>
 
@@ -43,6 +50,9 @@
             <DockPanel Grid.Column="0" Background="#FFF5F5F5">
                 <ToolBarTray DockPanel.Dock="Top" Background="#FFF5F5F5">
                     <ToolBar Band="0" BandIndex="0" ToolBarTray.IsLocked="True">
+                        <Button Content="Save" Command="{Binding SaveCommand}"
+                                ToolTip="Save collection (Ctrl+S)" />
+                        <Separator />
                         <Button Content="Collection" Command="{Binding AddCollectionCommand}"
                                 ToolTip="New collection (Ctrl+Shift+N)" />
                         <Button Content="Folder" Command="{Binding AddFolderCommand}"
@@ -78,6 +88,9 @@
 
                     <TreeView.ContextMenu>
                         <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                            <MenuItem Header="Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S" />
+                            <MenuItem Header="Save All" Command="{Binding SaveAllCommand}" InputGestureText="Ctrl+Shift+S" />
+                            <Separator />
                             <MenuItem Header="New Collection" Command="{Binding AddCollectionCommand}" />
                             <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" />
                             <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" />

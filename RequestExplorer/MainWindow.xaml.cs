@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.ComponentModel;
+using System.Windows;
 using System.Windows.Controls;
 using RequestExplorer.ViewModels;
 
@@ -16,6 +17,14 @@ public partial class MainWindow : Window
         if (DataContext is MainViewModel vm)
         {
             vm.SelectedNode = e.NewValue as TreeNodeViewModel;
+        }
+    }
+
+    private void MainWindow_OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (DataContext is MainViewModel vm && !vm.ConfirmClose())
+        {
+            e.Cancel = true;
         }
     }
 }

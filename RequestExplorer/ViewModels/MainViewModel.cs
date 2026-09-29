@@ -9,15 +9,25 @@ namespace RequestExplorer.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private readonly CollectionPersistenceService _persistence;
+
     public MainViewModel()
+        : this(new CollectionPersistenceService())
     {
-        foreach (var collection in SampleDataFactory.CreateDemoWorkspace())
-        {
-            Collections.Add(collection);
-        }
+    }
+
+    public MainViewModel(CollectionPersistenceService persistence)
+    {
+        _persistence = persistence;
+        LoadWorkspace();
     }
 
     public ObservableCollection<CollectionNodeViewModel> Collections { get; } = [];
+
+    public string StorageDirectory => _persistence.StorageDirectory;
+
+    [ObservableProperty]
+    private string _statusMessage = "Ready";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectionSummary))]
@@ -27,6 +37,7 @@ public partial class MainViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(AddRequestCommand))]
     [NotifyCanExecuteChangedFor(nameof(RenameNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteNodeCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand))]
     private TreeNodeViewModel? _selectedNode;
 
     public RequestNodeViewModel? SelectedRequest => SelectedNode as RequestNodeViewModel;
@@ -52,6 +63,8 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    public bool HasAnyDirty => Collections.Any(CollectionTreeMapper.HasDirty);
+
     partial void OnSelectedNodeChanged(TreeNodeViewModel? oldValue, TreeNodeViewModel? newValue)
     {
         if (oldValue is not null)
@@ -63,6 +76,121 @@ public partial class MainViewModel : ObservableObject
         {
             newValue.IsSelected = true;
         }
+    }
+
+    private void LoadWorkspace()
+    {
+        Collections.Clear();
+
+        try
+        {
+            var loaded = _persistence.LoadAll();
+            if (loaded.Count == 0)
+            {
+                SeedAndPersistDemo();
+                StatusMessage = $"Seeded demo collections → {_persistence.StorageDirectory}";
+                return;
+            }
+
+            foreach (var definition in loaded)
+            {
+                Collections.Add(CollectionTreeMapper.ToViewModel(definition));
+            }
+
+            StatusMessage = $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Could not load collections.\n\n{ex.Message}",
+                "Load Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+
+            foreach (var node in SampleDataFactory.CreateDemoWorkspace())
+            {
+                Collections.Add(node);
+            }
+
+            StatusMessage = "Load failed — using in-memory demo (not saved)";
+        }
+    }
+
+    private void SeedAndPersistDemo()
+    {
+        foreach (var definition in SampleDataFactory.CreateDemoDefinitions())
+        {
+            _persistence.Save(definition);
+            Collections.Add(CollectionTreeMapper.ToViewModel(definition));
+        }
+    }
+
+    [RelayCommand]
+    private void Save()
+    {
+        var collection = CollectionTreeMapper.FindRootCollection(SelectedNode);
+        if (collection is null)
+        {
+            if (Collections.Count == 0)
+            {
+                StatusMessage = "Nothing to save";
+                return;
+            }
+
+            SaveAllCollections();
+            return;
+        }
+
+        try
+        {
+            SaveCollection(collection);
+            StatusMessage = $"Saved '{collection.Name}'";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Save failed";
+            MessageBox.Show(
+                ex.Message,
+                "Save Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void SaveAll()
+    {
+        try
+        {
+            SaveAllCollections();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Save failed";
+            MessageBox.Show(
+                ex.Message,
+                "Save Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    private void SaveAllCollections()
+    {
+        foreach (var collection in Collections)
+        {
+            SaveCollection(collection);
+        }
+
+        StatusMessage = $"Saved all ({Collections.Count}) collection(s)";
+    }
+
+    private void SaveCollection(CollectionNodeViewModel collection)
+    {
+        CollectionTreeMapper.SyncModelFromView(collection);
+        _persistence.Save(collection.Model);
+        CollectionTreeMapper.ClearDirty(collection);
+        OnPropertyChanged(nameof(HasAnyDirty));
     }
 
     [RelayCommand]
@@ -77,6 +205,7 @@ public partial class MainViewModel : ObservableObject
         var node = new CollectionNodeViewModel(model);
         Collections.Add(node);
         SelectedNode = node;
+        StatusMessage = $"Created collection '{name}' (Ctrl+S to persist)";
     }
 
     [RelayCommand(CanExecute = nameof(CanAddFolder))]
@@ -110,6 +239,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedNode = node;
+        StatusMessage = $"Created folder '{name}' (Ctrl+S to persist)";
     }
 
     private bool CanAddFolder() =>
@@ -151,6 +281,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         SelectedNode = node;
+        StatusMessage = $"Created request '{name}' (Ctrl+S to persist)";
     }
 
     private bool CanAddRequest() =>
@@ -171,6 +302,7 @@ public partial class MainViewModel : ObservableObject
 
         SelectedNode.Name = name;
         OnPropertyChanged(nameof(SelectionSummary));
+        StatusMessage = $"Renamed to '{name}' (Ctrl+S to persist)";
     }
 
     private bool CanRenameNode() => SelectedNode is not null;
@@ -198,6 +330,7 @@ public partial class MainViewModel : ObservableObject
         var toSelect = SelectedNode.Parent;
         RemoveNode(SelectedNode);
         SelectedNode = toSelect;
+        StatusMessage = $"Deleted '{name}'";
     }
 
     private bool CanDeleteNode() => SelectedNode is not null;
@@ -207,6 +340,19 @@ public partial class MainViewModel : ObservableObject
         if (node is CollectionNodeViewModel collection)
         {
             Collections.Remove(collection);
+            try
+            {
+                _persistence.Delete(collection.Model.Id);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Collection removed from workspace, but the file could not be deleted.\n\n{ex.Message}",
+                    "Delete Warning",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
             return;
         }
 
@@ -233,6 +379,45 @@ public partial class MainViewModel : ObservableObject
         }
 
         parent.RemoveChild(node);
+    }
+
+    public bool ConfirmClose()
+    {
+        if (!HasAnyDirty)
+        {
+            return true;
+        }
+
+        var result = MessageBox.Show(
+            "You have unsaved changes. Save all before closing?",
+            "Unsaved Changes",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Warning);
+
+        switch (result)
+        {
+            case MessageBoxResult.Cancel:
+                return false;
+            case MessageBoxResult.No:
+                return true;
+            case MessageBoxResult.Yes:
+                try
+                {
+                    SaveAllCollections();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        ex.Message,
+                        "Save Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return false;
+                }
+            default:
+                return false;
+        }
     }
 
     private static bool TryPromptName(string title, string prompt, string initial, out string name)

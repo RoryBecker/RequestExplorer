@@ -5,9 +5,8 @@ namespace RequestExplorer.Services;
 
 public static class SampleDataFactory
 {
-    public static IReadOnlyList<CollectionNodeViewModel> CreateDemoWorkspace()
+    public static IReadOnlyList<CollectionDefinition> CreateDemoDefinitions()
     {
-        var httpbin = BuildHttpbinCollection();
         var sandbox = new CollectionDefinition { Name = "Sandbox" };
         sandbox.Requests.Add(new RequestDefinition
         {
@@ -16,12 +15,11 @@ public static class SampleDataFactory
             Address = "https://httpbin.org/get"
         });
 
-        return
-        [
-            ToViewModel(httpbin),
-            ToViewModel(sandbox)
-        ];
+        return [BuildHttpbinCollection(), sandbox];
     }
+
+    public static IReadOnlyList<CollectionNodeViewModel> CreateDemoWorkspace() =>
+        CreateDemoDefinitions().Select(CollectionTreeMapper.ToViewModel).ToList();
 
     private static CollectionDefinition BuildHttpbinCollection()
     {
@@ -115,41 +113,5 @@ public static class SampleDataFactory
         }
 
         return request;
-    }
-
-    private static CollectionNodeViewModel ToViewModel(CollectionDefinition collection)
-    {
-        var node = new CollectionNodeViewModel(collection);
-
-        foreach (var folder in collection.Folders)
-        {
-            node.AddChild(ToFolderViewModel(folder));
-        }
-
-        foreach (var request in collection.Requests)
-        {
-            node.AddChild(new RequestNodeViewModel(request));
-        }
-
-        node.IsExpanded = true;
-        return node;
-    }
-
-    private static FolderNodeViewModel ToFolderViewModel(FolderDefinition folder)
-    {
-        var node = new FolderNodeViewModel(folder);
-
-        foreach (var child in folder.Folders)
-        {
-            node.AddChild(ToFolderViewModel(child));
-        }
-
-        foreach (var request in folder.Requests)
-        {
-            node.AddChild(new RequestNodeViewModel(request));
-        }
-
-        node.IsExpanded = true;
-        return node;
     }
 }

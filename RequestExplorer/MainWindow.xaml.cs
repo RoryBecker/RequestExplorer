@@ -62,6 +62,23 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CollectionTree_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var treeItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
+        if (treeItem?.DataContext is not TreeNodeViewModel node)
+        {
+            return;
+        }
+
+        treeItem.Focus();
+        treeItem.IsSelected = true;
+
+        if (DataContext is MainViewModel vm)
+        {
+            vm.SelectedNode = node;
+        }
+    }
+
     private void TreeViewItem_OnPreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (sender is not TreeViewItem { DataContext: TreeNodeViewModel node }
@@ -192,6 +209,32 @@ public partial class MainWindow : Window
             PlacementTarget = button,
             Placement = PlacementMode.Bottom
         };
+
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Copy",
+            Command = vm.CopyNodeCommand,
+            CommandParameter = node,
+            InputGestureText = "Ctrl+C"
+        });
+
+        if (node is CollectionNodeViewModel or FolderNodeViewModel)
+        {
+            menu.Items.Add(new MenuItem
+            {
+                Header = "Paste",
+                Command = vm.PasteIntoNodeCommand,
+                CommandParameter = node
+            });
+        }
+
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Paste at Top Level",
+            Command = vm.PasteAtRootCommand
+        });
+
+        menu.Items.Add(new Separator());
 
         menu.Items.Add(new MenuItem
         {

@@ -90,7 +90,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(SaveAllCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendRequestCommand))]
     [NotifyCanExecuteChangedFor(nameof(DuplicateRequestCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CopyNodeCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PasteIntoNodeCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PasteAtRootCommand))]
     private TreeNodeViewModel? _selectedNode;
+
+    private TreeClipboardPayload? _treeClipboard;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendRequestCommand))]
@@ -136,6 +141,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     public bool HasAnyDirty => Collections.Any(CollectionTreeMapper.HasDirty);
 
+    public bool HasTreeClipboard => _treeClipboard is not null;
+
     public string UndoMenuHeader =>
         _history.CanUndo ? $"_Undo {_history.UndoDescription}" : "_Undo";
 
@@ -159,6 +166,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             newValue.IsSelected = true;
             newValue.PropertyChanged += OnSelectedNodePropertyChanged;
         }
+
+        CopyNodeCommand.NotifyCanExecuteChanged();
+        PasteIntoNodeCommand.NotifyCanExecuteChanged();
     }
 
     private void OnSelectedNodePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -702,6 +712,206 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     private bool CanDuplicateRequest() => SelectedRequest is not null;
+
+    [RelayCommand(CanExecute = nameof(CanCopyNode))]
+    private void CopyNode(TreeNodeViewModel? node)
+    {
+        node ??= SelectedNode;
+        if (node is null)
+        {
+            return;
+        }
+
+        PrepareNodeForExport(node);
+        _treeClipboard = node switch
+        {
+            CollectionNodeViewModel collection =>
+                TreeClipboardPayload.FromCollection(collection.Model, collection.Name),
+            FolderNodeViewModel folder =>
+                TreeClipboardPayload.FromFolder(folder.Model, folder.Name),
+            RequestNodeViewModel request =>
+                TreeClipboardPayload.FromRequest(request.Model, request.Name),
+            _ => null
+        };
+
+        if (_treeClipboard is null)
+        {
+            return;
+        }
+
+        _treeClipboard.WriteToClipboard();
+        OnPropertyChanged(nameof(HasTreeClipboard));
+        PasteIntoNodeCommand.NotifyCanExecuteChanged();
+        PasteAtRootCommand.NotifyCanExecuteChanged();
+        StatusMessage = $"Copied '{node.Name}'";
+    }
+
+    private bool CanCopyNode(TreeNodeViewModel? node) => (node ?? SelectedNode) is not null;
+
+    [RelayCommand(CanExecute = nameof(CanPasteIntoNode))]
+    private void PasteIntoNode(TreeNodeViewModel? target)
+    {
+        target ??= SelectedNode;
+        if (target is not (CollectionNodeViewModel or FolderNodeViewModel) || !TryGetClipboard(out var payload))
+        {
+            return;
+        }
+
+        var pasted = PastePayloadIntoParent(payload, target);
+        if (pasted is null)
+        {
+            return;
+        }
+
+        target.IsExpanded = true;
+        SelectedNode = pasted;
+        RecordUndo(CreateRemoveAction(pasted, $"Paste '{payload.SourceName}'"));
+        StatusMessage = $"Pasted '{payload.SourceName}' into '{target.Name}' (Ctrl+S to persist)";
+    }
+
+    private bool CanPasteIntoNode(TreeNodeViewModel? target)
+    {
+        if (!HasTreeClipboard && !TreeClipboardPayload.TryReadFromClipboard(out _))
+        {
+            return false;
+        }
+
+        target ??= SelectedNode;
+        return target is CollectionNodeViewModel or FolderNodeViewModel;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanPasteAtRoot))]
+    private void PasteAtRoot()
+    {
+        if (!TryGetClipboard(out var payload))
+        {
+            return;
+        }
+
+        var pasted = PastePayloadAtRoot(payload);
+        if (pasted is null)
+        {
+            return;
+        }
+
+        SelectedNode = pasted;
+        RecordUndo(CreateRemoveAction(pasted, $"Paste '{payload.SourceName}' at top level"));
+        StatusMessage = $"Pasted '{payload.SourceName}' as top-level collection (Ctrl+S to persist)";
+    }
+
+    private bool CanPasteAtRoot() =>
+        HasTreeClipboard || TreeClipboardPayload.TryReadFromClipboard(out _);
+
+    [RelayCommand(CanExecute = nameof(CanSmartPaste))]
+    private void SmartPaste()
+    {
+        if (CanPasteIntoNode(SelectedNode))
+        {
+            PasteIntoNode(SelectedNode);
+        }
+        else if (CanPasteAtRoot())
+        {
+            PasteAtRoot();
+        }
+    }
+
+    private bool CanSmartPaste() => CanPasteIntoNode(SelectedNode) || CanPasteAtRoot();
+
+    private bool TryGetClipboard(out TreeClipboardPayload payload)
+    {
+        if (_treeClipboard is not null)
+        {
+            payload = _treeClipboard;
+            return true;
+        }
+
+        if (TreeClipboardPayload.TryReadFromClipboard(out var fromSystem) && fromSystem is not null)
+        {
+            _treeClipboard = fromSystem;
+            OnPropertyChanged(nameof(HasTreeClipboard));
+            payload = fromSystem;
+            return true;
+        }
+
+        payload = null!;
+        return false;
+    }
+
+    private TreeNodeViewModel? PastePayloadIntoParent(TreeClipboardPayload payload, TreeNodeViewModel parent)
+    {
+        return payload.Kind switch
+        {
+            TreeNodeKind.Request when payload.Request is not null =>
+                AttachPastedRequest(parent, TreeNodeCloneService.CloneRequest(payload.Request)),
+            TreeNodeKind.Folder when payload.Folder is not null =>
+                AttachPastedFolder(parent, TreeNodeCloneService.CloneFolder(payload.Folder)),
+            TreeNodeKind.Collection when payload.Collection is not null =>
+                AttachPastedFolder(parent, TreeNodeCloneService.CollectionAsFolder(payload.Collection)),
+            _ => null
+        };
+    }
+
+    private TreeNodeViewModel? PastePayloadAtRoot(TreeClipboardPayload payload)
+    {
+        CollectionNodeViewModel node;
+        switch (payload.Kind)
+        {
+            case TreeNodeKind.Collection when payload.Collection is not null:
+                node = CollectionTreeMapper.ToViewModel(TreeNodeCloneService.CloneCollection(payload.Collection));
+                break;
+            case TreeNodeKind.Folder when payload.Folder is not null:
+                node = CollectionTreeMapper.ToViewModel(TreeNodeCloneService.WrapInNewCollection(payload.Folder));
+                break;
+            case TreeNodeKind.Request when payload.Request is not null:
+                node = CollectionTreeMapper.ToViewModel(TreeNodeCloneService.WrapInNewCollection(payload.Request));
+                break;
+            default:
+                return null;
+        }
+
+        WireUndoRecorders(node);
+        Collections.Add(node);
+        node.IsExpanded = true;
+        return node;
+    }
+
+    private RequestNodeViewModel AttachPastedRequest(TreeNodeViewModel parent, RequestDefinition model)
+    {
+        var node = new RequestNodeViewModel(model);
+        WireUndoRecorders(node);
+        switch (parent)
+        {
+            case CollectionNodeViewModel collection:
+                collection.Model.Requests.Add(model);
+                collection.AddChild(node);
+                break;
+            case FolderNodeViewModel folder:
+                folder.Model.Requests.Add(model);
+                folder.AddChild(node);
+                break;
+        }
+
+        return node;
+    }
+
+    private FolderNodeViewModel AttachPastedFolder(TreeNodeViewModel parent, FolderDefinition model)
+    {
+        var node = CollectionTreeMapper.ToFolderViewModel(model);
+        WireUndoRecorders(node);
+        switch (parent)
+        {
+            case CollectionNodeViewModel collection:
+                collection.Model.Folders.Add(model);
+                collection.AddChild(node);
+                break;
+            case FolderNodeViewModel folder:
+                folder.Model.Folders.Add(model);
+                folder.AddChild(node);
+                break;
+        }
+
+        return node;
+    }
 
     [RelayCommand]
     private void OpenStorageFolder()

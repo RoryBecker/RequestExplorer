@@ -36,6 +36,8 @@
         <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding AddCollectionCommand}" />
         <KeyBinding Key="Enter" Modifiers="Ctrl" Command="{Binding SendRequestCommand}" />
         <KeyBinding Key="D" Modifiers="Ctrl" Command="{Binding DuplicateRequestCommand}" />
+        <KeyBinding Key="C" Modifiers="Ctrl" Command="{Binding CopyNodeCommand}" />
+        <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding SmartPasteCommand}" />
         <KeyBinding Key="F2" Command="{Binding RenameNodeCommand}" />
         <KeyBinding Key="Delete" Command="{Binding DeleteNodeCommand}" />
     </Window.InputBindings>
@@ -58,6 +60,10 @@
                 <MenuItem Header="New _Folder" Command="{Binding AddFolderCommand}" />
                 <MenuItem Header="New _Request" Command="{Binding AddRequestCommand}" />
                 <MenuItem Header="_Duplicate Request" Command="{Binding DuplicateRequestCommand}" InputGestureText="Ctrl+D" />
+                <Separator />
+                <MenuItem Header="_Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
+                <MenuItem Header="_Paste" Command="{Binding PasteIntoNodeCommand}" InputGestureText="Ctrl+V" />
+                <MenuItem Header="Paste at _Top Level" Command="{Binding PasteAtRootCommand}" />
                 <Separator />
                 <MenuItem Header="_Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
                 <MenuItem Header="_Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
@@ -176,6 +182,24 @@
                     <Separator />
 
                     <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding CopyNodeCommand}"
+                            ToolTip="Copy tree item (Ctrl+C)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8DE;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding SmartPasteCommand}"
+                            ToolTip="Paste into collection or folder (Ctrl+V)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE77D;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding PasteAtRootCommand}"
+                            ToolTip="Paste as new top-level collection">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8A9;" />
+                    </Button>
+
+                    <Separator />
+
+                    <Button Style="{StaticResource ToolbarIconButton}"
                             Command="{Binding RenameNodeCommand}"
                             ToolTip="Rename (F2)">
                         <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE70F;" />
@@ -268,6 +292,7 @@
                               Background="Transparent"
                               ItemsSource="{Binding Collections}"
                               SelectedItemChanged="CollectionTree_OnSelectedItemChanged"
+                              PreviewMouseRightButtonDown="CollectionTree_OnPreviewMouseRightButtonDown"
                               Visibility="{Binding HasCollections, Converter={StaticResource BoolToVis}}">
                         <TreeView.ItemContainerStyle>
                             <Style TargetType="TreeViewItem">
@@ -299,6 +324,10 @@
                                 <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" />
                                 <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" />
                                 <MenuItem Header="Duplicate Request" Command="{Binding DuplicateRequestCommand}" InputGestureText="Ctrl+D" />
+                                <Separator />
+                                <MenuItem Header="Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
+                                <MenuItem Header="Paste" Command="{Binding PasteIntoNodeCommand}" />
+                                <MenuItem Header="Paste at Top Level" Command="{Binding PasteAtRootCommand}" />
                                 <Separator />
                                 <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
                                 <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />

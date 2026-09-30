@@ -124,6 +124,7 @@
             <MenuItem Header="_File">
                 <MenuItem Header="_Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S" />
                 <MenuItem Header="Save _All" Command="{Binding SaveAllCommand}" InputGestureText="Ctrl+Shift+S" />
+                <MenuItem Header="_Reload from Disk" Command="{Binding ReloadFromDiskCommand}" />
                 <Separator />
                 <MenuItem Header="Open collections _folder" Command="{Binding OpenStorageFolderCommand}" />
                 <Separator />
@@ -234,6 +235,11 @@
                             ToolTip="Save all (Ctrl+Shift+S)">
                         <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE792;" />
                     </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding ReloadFromDiskCommand}"
+                            ToolTip="Reload collections from disk">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE72C;" />
+                    </Button>
 
                     <Separator />
 
@@ -304,11 +310,11 @@
 
                     <Separator />
 
-                    <Button Style="{StaticResource ToolbarIconButton}"
-                            Command="{Binding ToggleQuickExportCommand}"
-                            ToolTip="Show/Hide Quick Export">
+                    <ToggleButton Style="{StaticResource ToolbarIconToggleButton}"
+                                  IsChecked="{Binding IsQuickExportVisible, Mode=TwoWay}"
+                                  ToolTip="Show/Hide Quick Export">
                         <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8F2;" />
-                    </Button>
+                    </ToggleButton>
                 </ToolBar>
             </ToolBarTray>
         </Border>
@@ -343,6 +349,42 @@
                            FontSize="14"
                            FontWeight="SemiBold"
                            Foreground="{StaticResource App.MutedBrush}" />
+
+                <Grid DockPanel.Dock="Top" Margin="8,0,8,6" MinHeight="28">
+                    <TextBox x:Name="TreeFilterBox"
+                             Text="{Binding TreeFilterText, UpdateSourceTrigger=PropertyChanged}"
+                             Padding="8,4,28,4"
+                             VerticalContentAlignment="Center"
+                             BorderBrush="{StaticResource App.BorderBrush}"
+                             ToolTip="Filter by path, name, or URL"
+                             PreviewKeyDown="TreeFilterBox_OnPreviewKeyDown" />
+                    <TextBlock Text="Filter by path, name, or URL…"
+                               Margin="10,0,28,0"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource App.MutedBrush}"
+                               IsHitTestVisible="False">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasTreeFilter}" Value="False">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <Button Content="✕"
+                            Width="22"
+                            Height="22"
+                            Margin="0,0,4,0"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource TreeActionButton}"
+                            ToolTip="Clear filter"
+                            Command="{Binding ClearTreeFilterCommand}"
+                            Visibility="{Binding HasTreeFilter, Converter={StaticResource BoolToVis}}" />
+                </Grid>
 
                 <Grid>
                     <Border Margin="8">
@@ -396,6 +438,7 @@
                             <Style TargetType="TreeViewItem">
                                 <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                 <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                <Setter Property="Visibility" Value="{Binding IsVisibleInFilter, Converter={StaticResource BoolToVis}}" />
                                 <Setter Property="Padding" Value="2,1,2,1" />
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                 <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -593,7 +636,7 @@
                                                         Orientation="Horizontal"
                                                         VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Verb}"
-                                                           Width="56"
+                                                           Margin="0,0,6,0"
                                                            FontWeight="SemiBold"
                                                            VerticalAlignment="Center"
                                                            Foreground="{Binding Verb, Converter={StaticResource VerbBrush}}" />

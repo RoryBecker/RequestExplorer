@@ -19,12 +19,18 @@ public partial class ConfirmSaveDialog : Window
     public ConfirmSaveChoice Choice { get; private set; } = ConfirmSaveChoice.Cancel;
 
     /// <summary>Escape and Cancel both return <see cref="ConfirmSaveChoice.Cancel"/>.</summary>
-    public static ConfirmSaveChoice Prompt(Window? owner)
+    public static ConfirmSaveChoice Prompt(Window? owner, string? message = null)
     {
         var dialog = new ConfirmSaveDialog
         {
             Owner = owner ?? Application.Current?.MainWindow
         };
+
+        if (!string.IsNullOrWhiteSpace(message))
+        {
+            dialog.MessageText.Text = message;
+        }
+
         dialog.ShowDialog();
         return dialog.Choice;
     }

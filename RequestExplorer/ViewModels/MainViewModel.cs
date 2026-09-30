@@ -44,7 +44,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _selectedExportFormat = ResolveExportFormat(UiPreferences.SelectedExportFormat);
         _isQuickExportWrap = UiPreferences.GetQuickExportWrap(_selectedExportFormat.Format.ToString());
 
-        Collections.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasCollections));
+        Collections.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasCollections));
+            ApplyTreeFilterIfActive();
+            PersistCollectionOrder();
+        };
+        TreeNodeViewModel.SearchTextInvalidated += ApplyTreeFilterIfActive;
         _history.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(UndoStack.CanUndo) or nameof(UndoStack.UndoDescription))
@@ -108,6 +114,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     [ObservableProperty]
     private string _statusMessage = "Ready";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasTreeFilter))]
+    [NotifyCanExecuteChangedFor(nameof(ClearTreeFilterCommand))]
+    private string _treeFilterText = string.Empty;
+
+    public bool HasTreeFilter => !string.IsNullOrWhiteSpace(TreeFilterText);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectionSummary))]
@@ -303,6 +316,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         {
             RefreshQuickExport();
         }
+
+        StatusMessage = value ? "Quick Export shown" : "Quick Export hidden";
+        PersistUiPreferences();
     }
 
     partial void OnIsQuickExportWrapChanged(bool value)
@@ -315,7 +331,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private void ToggleQuickExport()
     {
         IsQuickExportVisible = !IsQuickExportVisible;
-        StatusMessage = IsQuickExportVisible ? "Quick Export shown" : "Quick Export hidden";
+    }
+
+    [RelayCommand]
+    private void HideQuickExport()
+    {
+        IsQuickExportVisible = false;
     }
 
     [RelayCommand]
@@ -717,48 +738,87 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    private void LoadWorkspace()
+    private bool _suppressCollectionOrderPersist;
+
+    private void LoadWorkspace(IReadOnlyList<Guid>? priorOrder = null)
     {
-        Collections.Clear();
+        _suppressCollectionOrderPersist = true;
+        try
+        {
+            Collections.Clear();
+
+            try
+            {
+                var loaded = _persistence.LoadAll();
+                if (loaded.Count == 0)
+                {
+                    SeedAndPersistDemo();
+                    WireUndoRecorders();
+                    CollapseAllCollections();
+                    StatusMessage = $"Seeded demo collections → {_persistence.StorageDirectory}";
+                    return;
+                }
+
+                var preferredOrder = priorOrder ?? _persistence.LoadCollectionOrder();
+                var ordered = CollectionPersistenceService.ApplyCollectionOrder(loaded, preferredOrder);
+
+                foreach (var definition in ordered)
+                {
+                    Collections.Add(CollectionTreeMapper.ToViewModel(definition));
+                }
+
+                WireUndoRecorders();
+                CollapseAllCollections();
+                StatusMessage = $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Could not load collections.\n\n{ex.Message}",
+                    "Load Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+
+                foreach (var node in SampleDataFactory.CreateDemoWorkspace())
+                {
+                    Collections.Add(node);
+                }
+
+                WireUndoRecorders();
+                CollapseAllCollections();
+                StatusMessage = "Load failed — using in-memory demo (not saved)";
+            }
+        }
+        finally
+        {
+            _suppressCollectionOrderPersist = false;
+        }
+
+        PersistCollectionOrder();
+    }
+
+    private void PersistCollectionOrder()
+    {
+        if (_suppressCollectionOrderPersist)
+        {
+            return;
+        }
 
         try
         {
-            var loaded = _persistence.LoadAll();
-            if (loaded.Count == 0)
-            {
-                SeedAndPersistDemo();
-                WireUndoRecorders();
-                CollapseAllCollections();
-                StatusMessage = $"Seeded demo collections → {_persistence.StorageDirectory}";
-                return;
-            }
-
-            foreach (var definition in loaded)
-            {
-                Collections.Add(CollectionTreeMapper.ToViewModel(definition));
-            }
-
-            WireUndoRecorders();
-            CollapseAllCollections();
-            StatusMessage = $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}";
+            _persistence.SaveCollectionOrder(Collections.Select(c => c.Model.Id));
         }
-        catch (Exception ex)
+        catch
         {
-            MessageBox.Show(
-                $"Could not load collections.\n\n{ex.Message}",
-                "Load Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-
-            foreach (var node in SampleDataFactory.CreateDemoWorkspace())
-            {
-                Collections.Add(node);
-            }
-
-            WireUndoRecorders();
-            CollapseAllCollections();
-            StatusMessage = "Load failed — using in-memory demo (not saved)";
+            // Order persistence should not block workspace edits.
         }
+    }
+
+    [RelayCommand]
+    private void CollapseAllNodes()
+    {
+        CollapseAllCollections();
+        StatusMessage = "Collapsed all nodes";
     }
 
     private void CollapseAllCollections()
@@ -767,6 +827,74 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         {
             CollapseSubtree(collection);
         }
+    }
+
+    partial void OnTreeFilterTextChanged(string value) => ApplyTreeFilter();
+
+    [RelayCommand(CanExecute = nameof(CanClearTreeFilter))]
+    private void ClearTreeFilter() => TreeFilterText = string.Empty;
+
+    private bool CanClearTreeFilter() => HasTreeFilter;
+
+    private bool _treeFilterApplyQueued;
+
+    private void ApplyTreeFilterIfActive()
+    {
+        if (!HasTreeFilter || _treeFilterApplyQueued)
+        {
+            return;
+        }
+
+        _treeFilterApplyQueued = true;
+        Application.Current?.Dispatcher.BeginInvoke(
+            () =>
+            {
+                _treeFilterApplyQueued = false;
+                if (HasTreeFilter)
+                {
+                    ApplyTreeFilter();
+                }
+            },
+            DispatcherPriority.Background);
+    }
+
+    private void ApplyTreeFilter()
+    {
+        var filter = TreeFilterText.Trim();
+        var filtering = filter.Length > 0;
+
+        foreach (var collection in Collections)
+        {
+            ApplyTreeFilterRecursive(collection, filter, filtering);
+        }
+
+        ClearTreeFilterCommand.NotifyCanExecuteChanged();
+    }
+
+    private static bool ApplyTreeFilterRecursive(TreeNodeViewModel node, string filter, bool filtering)
+    {
+        var selfMatch = !filtering
+                        || node.SearchText.Contains(filter, StringComparison.OrdinalIgnoreCase);
+
+        var descendantMatch = false;
+        foreach (var child in node.Children)
+        {
+            if (ApplyTreeFilterRecursive(child, filter, filtering))
+            {
+                descendantMatch = true;
+            }
+        }
+
+        var visible = selfMatch || descendantMatch;
+        node.IsVisibleInFilter = visible;
+
+        // Reveal matches under collapsed parents while filtering.
+        if (filtering && descendantMatch)
+        {
+            node.IsExpanded = true;
+        }
+
+        return visible;
     }
 
     private void SeedAndPersistDemo()
@@ -2368,14 +2496,21 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    public bool ConfirmClose()
+    public bool ConfirmClose() =>
+        ConfirmSaveIfDirty("You have unsaved changes. Save all before closing?");
+
+    /// <summary>
+    /// When there are dirty nodes, prompts to save / discard / cancel.
+    /// Returns false if the caller should abort.
+    /// </summary>
+    private bool ConfirmSaveIfDirty(string message)
     {
         if (!HasAnyDirty)
         {
             return true;
         }
 
-        var choice = Views.ConfirmSaveDialog.Prompt(Application.Current?.MainWindow);
+        var choice = Views.ConfirmSaveDialog.Prompt(Application.Current?.MainWindow, message);
 
         switch (choice)
         {
@@ -2401,6 +2536,29 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             default:
                 return false;
         }
+    }
+
+    [RelayCommand]
+    private void ReloadFromDisk()
+    {
+        if (!ConfirmSaveIfDirty("You have unsaved changes. Save all before reloading from disk?"))
+        {
+            return;
+        }
+
+        var priorOrder = Collections.Select(c => c.Model.Id).ToList();
+
+        SelectedNode = null;
+        _treeClipboard = null;
+        OnPropertyChanged(nameof(HasTreeClipboard));
+        _history.Clear();
+        RefreshHistoryMenus();
+
+        // New disk collections (absent from priorOrder) are prepended by ApplyCollectionOrder.
+        LoadWorkspace(priorOrder);
+        ApplyTreeFilter();
+        OnPropertyChanged(nameof(HasAnyDirty));
+        StatusMessage = $"Reloaded {Collections.Count} collection(s) from disk";
     }
 
     private static bool TryPromptName(string title, string prompt, string initial, out string name)

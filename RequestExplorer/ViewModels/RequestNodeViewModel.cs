@@ -145,9 +145,12 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
         MarkDirty();
     }
 
+    protected override string? GetSearchUrl() => Address;
+
     partial void OnAddressChanged(string value)
     {
         Model.Address = value;
+        OnPropertyChanged(nameof(SearchText));
         if (_syncingUrlAndParams)
         {
             return;
@@ -155,6 +158,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
 
         MarkDirty();
         SyncParamsFromAddress(value);
+        RaiseSearchTextInvalidated();
     }
 
     partial void OnAuthTypeChanged(AuthType value)

@@ -13,16 +13,18 @@
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Margin="0,0,0,8">
-            <TextBlock DockPanel.Dock="Left"
-                       FontSize="14"
-                       FontWeight="SemiBold"
-                       VerticalAlignment="Center"
-                       Foreground="{StaticResource App.MutedBrush}"
-                       Text="Quick Export" />
+            <Button DockPanel.Dock="Right"
+                    Style="{StaticResource ToolbarIconButton}"
+                    HorizontalAlignment="Right"
+                    ToolTip="Close Quick Export"
+                    Command="{Binding HideQuickExportCommand}">
+                <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE711;" />
+            </Button>
 
             <Button DockPanel.Dock="Right"
                     Style="{StaticResource ToolbarIconButton}"
                     HorizontalAlignment="Right"
+                    Margin="0,0,2,0"
                     ToolTip="Copy export to clipboard"
                     Command="{Binding CopyQuickExportCommand}">
                 <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8C8;" />
@@ -44,6 +46,12 @@
                 </Button.Style>
                 <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8C4;" />
             </Button>
+
+            <TextBlock FontSize="14"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       Foreground="{StaticResource App.MutedBrush}"
+                       Text="Quick Export" />
         </DockPanel>
 
         <ComboBox Grid.Row="1"

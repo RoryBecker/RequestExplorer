@@ -14,7 +14,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0"
+        <TextBlock x:Name="MessageText"
+                   Grid.Row="0"
                    TextWrapping="Wrap"
                    MaxWidth="460"
                    FontSize="13"

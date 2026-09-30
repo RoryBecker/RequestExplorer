@@ -20,6 +20,9 @@ public enum TreeDropIndicator
 
 public abstract partial class TreeNodeViewModel : ObservableObject
 {
+    /// <summary>Raised when a node's name/URL (or similar) may change filter matching.</summary>
+    public static event Action? SearchTextInvalidated;
+
     protected TreeNodeViewModel(string name)
     {
         _name = name;
@@ -42,6 +45,7 @@ public abstract partial class TreeNodeViewModel : ObservableObject
             OnPropertyChanged(nameof(Parent));
             // Indent / row width depends on parent chain; force row layout refresh.
             OnPropertyChanged(nameof(RowLayoutToken));
+            OnPropertyChanged(nameof(SearchText));
         }
     }
 
@@ -63,8 +67,13 @@ public abstract partial class TreeNodeViewModel : ObservableObject
     [ObservableProperty]
     private TreeDropIndicator _dropIndicator;
 
+    /// <summary>False when a tree filter is active and this node (and its descendants) do not match.</summary>
+    [ObservableProperty]
+    private bool _isVisibleInFilter = true;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DisplayName))]
+    [NotifyPropertyChangedFor(nameof(SearchText))]
     private string _name;
 
     /// <summary>True when this request (or a descendant) has unsaved edits. Wired fully in Phase 3.</summary>
@@ -80,6 +89,20 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 
     public string DisplayName => ShowsDirtyMarker ? $"{Name} *" : Name;
 
+    /// <summary>
+    /// Ancestor names (slash-separated), this node's name, and request URL when present.
+    /// Example: <c>Collection/Folder/Request https://example.com/api</c>
+    /// </summary>
+    public string SearchText
+    {
+        get
+        {
+            var path = string.Join('/', EnumeratePathNames());
+            var url = GetSearchUrl();
+            return string.IsNullOrWhiteSpace(url) ? path : $"{path} {url}";
+        }
+    }
+
     public void NotifyDirtyPresentationChanged()
     {
         OnPropertyChanged(nameof(ContainsDirtyDescendant));
@@ -90,10 +113,42 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 
     partial void OnIsDirtyChanged(bool value) => NotifyDirtyPresentationChanged();
 
-    partial void OnNameChanged(string value) => OnNameUpdated(value);
+    partial void OnNameChanged(string value)
+    {
+        OnNameUpdated(value);
+        NotifySearchTextChanged();
+        RaiseSearchTextInvalidated();
+    }
 
     protected virtual void OnNameUpdated(string value)
     {
+    }
+
+    /// <summary>Optional URL (or similar) appended to <see cref="SearchText"/>.</summary>
+    protected virtual string? GetSearchUrl() => null;
+
+    protected void NotifySearchTextChanged()
+    {
+        OnPropertyChanged(nameof(SearchText));
+        foreach (var child in Children)
+        {
+            child.NotifySearchTextChanged();
+        }
+    }
+
+    protected static void RaiseSearchTextInvalidated() => SearchTextInvalidated?.Invoke();
+
+    private IEnumerable<string> EnumeratePathNames()
+    {
+        if (Parent is not null)
+        {
+            foreach (var name in Parent.EnumeratePathNames())
+            {
+                yield return name;
+            }
+        }
+
+        yield return Name ?? string.Empty;
     }
 
     public void AddChild(TreeNodeViewModel child)
@@ -101,6 +156,7 @@ public abstract partial class TreeNodeViewModel : ObservableObject
         child.Parent = this;
         Children.Add(child);
         NotifyDirtyPresentationChanged();
+        RaiseSearchTextInvalidated();
     }
 
     public void InsertChild(TreeNodeViewModel child, int index)
@@ -113,6 +169,7 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 
         Children.Insert(index, child);
         NotifyDirtyPresentationChanged();
+        RaiseSearchTextInvalidated();
     }
 
     public bool RemoveChild(TreeNodeViewModel child)
@@ -124,6 +181,7 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 
         child.Parent = null;
         NotifyDirtyPresentationChanged();
+        RaiseSearchTextInvalidated();
         return true;
     }
 

@@ -288,21 +288,67 @@ public partial class MainWindow : Window
         }
     }
 
+    private void TreeFilterBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Down || Keyboard.Modifiers != ModifierKeys.None)
+        {
+            return;
+        }
+
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        var target = vm.SelectedNode is { IsVisibleInFilter: true } selected
+            ? selected
+            : GetFirstVisibleNode(vm);
+
+        if (target is null || !TryFocusTreeNode(target))
+        {
+            return;
+        }
+
+        e.Handled = true;
+    }
+
     private void CollectionTree_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        if (Keyboard.FocusedElement is ButtonBase)
+        {
+            return;
+        }
+
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        if (e.Key == Key.Left && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            vm.CollapseAllNodesCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Up
+            && Keyboard.Modifiers == ModifierKeys.None
+            && vm.SelectedNode is not null
+            && ReferenceEquals(vm.SelectedNode, GetFirstVisibleNode(vm)))
+        {
+            TreeFilterBox.Focus();
+            TreeFilterBox.CaretIndex = TreeFilterBox.Text?.Length ?? 0;
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key is not (Key.Enter or Key.Return)
             || Keyboard.Modifiers != ModifierKeys.None)
         {
             return;
         }
 
-        // Don't steal Enter from tree action buttons (+ / …).
-        if (Keyboard.FocusedElement is ButtonBase)
-        {
-            return;
-        }
-
-        if (DataContext is not MainViewModel { SelectedNode: { } node })
+        if (vm.SelectedNode is not { } node)
         {
             return;
         }
@@ -315,6 +361,85 @@ public partial class MainWindow : Window
 
         node.IsExpanded = !node.IsExpanded;
         e.Handled = true;
+    }
+
+    private static TreeNodeViewModel? GetFirstVisibleNode(MainViewModel vm)
+    {
+        foreach (var collection in vm.Collections)
+        {
+            if (collection.IsVisibleInFilter)
+            {
+                return collection;
+            }
+        }
+
+        return null;
+    }
+
+    private bool TryFocusTreeNode(TreeNodeViewModel node)
+    {
+        CollectionTree.UpdateLayout();
+        var item = FindTreeViewItem(CollectionTree, node);
+        if (item is null)
+        {
+            return false;
+        }
+
+        item.IsSelected = true;
+        item.BringIntoView();
+        item.Focus();
+
+        if (DataContext is MainViewModel vm)
+        {
+            vm.SelectedNode = node;
+        }
+
+        return true;
+    }
+
+    private static TreeViewItem? FindTreeViewItem(ItemsControl parent, object item)
+    {
+        if (parent.ItemContainerGenerator.ContainerFromItem(item) is TreeViewItem direct)
+        {
+            return direct;
+        }
+
+        foreach (var child in parent.Items)
+        {
+            if (parent.ItemContainerGenerator.ContainerFromItem(child) is not TreeViewItem childItem)
+            {
+                continue;
+            }
+
+            if (childItem.DataContext is TreeNodeViewModel { IsExpanded: false } node
+                && node.Children.Count > 0
+                && ContainsDescendant(node, item))
+            {
+                childItem.IsExpanded = true;
+                childItem.UpdateLayout();
+            }
+
+            var nested = FindTreeViewItem(childItem, item);
+            if (nested is not null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool ContainsDescendant(TreeNodeViewModel root, object item)
+    {
+        foreach (var child in root.Children)
+        {
+            if (ReferenceEquals(child, item) || ContainsDescendant(child, item))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void CollectionTree_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)

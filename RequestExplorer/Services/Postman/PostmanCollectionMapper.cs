@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RequestExplorer.Models;
@@ -54,7 +55,7 @@ public static class PostmanCollectionMapper
     {
         var collection = new CollectionDefinition
         {
-            Name = string.IsNullOrWhiteSpace(document.Info.Name) ? "Imported Collection" : document.Info.Name
+            Name = ResolveCollectionName(document)
         };
 
         if (Guid.TryParse(document.Info.PostmanId, out var id))
@@ -66,6 +67,69 @@ public static class PostmanCollectionMapper
         ApplyVariables(document.Variable, collection.Variables);
         return collection;
     }
+
+    /// <summary>
+    /// Imports a Postman collection as one folder under the import target.
+    /// Naming: if the export has a single top-level folder (and no loose requests), that folder
+    /// is used as-is; otherwise a wrapper folder is created named from <paramref name="fileNameHint"/>
+    /// (typically the .json file name) or the collection info name.
+    /// </summary>
+    public static FolderDefinition FromCollectionDocumentAsFolder(
+        PostmanCollectionDocument document,
+        string? fileNameHint = null)
+    {
+        var folders = new List<FolderDefinition>();
+        var requests = new List<RequestDefinition>();
+        ApplyItems(document.Item, folders, requests);
+
+        var collectionVariables = ToKeyValueItems(document.Variable).ToList();
+
+        // Single top-level folder → import that folder directly (keeps its name and nesting).
+        if (folders.Count == 1 && requests.Count == 0)
+        {
+            var sole = folders[0];
+            if (collectionVariables.Count > 0)
+            {
+                sole.Variables.InsertRange(0, collectionVariables);
+            }
+
+            return sole;
+        }
+
+        var folder = new FolderDefinition
+        {
+            Name = ResolveImportFolderName(document, fileNameHint)
+        };
+        folder.Folders.AddRange(folders);
+        folder.Requests.AddRange(requests);
+        folder.Variables.AddRange(collectionVariables);
+        return folder;
+    }
+
+    public static string ResolveImportNameFromFilePath(string filePath)
+    {
+        var fileName = Path.GetFileName(filePath);
+        const string postmanSuffix = ".postman_collection.json";
+        if (fileName.EndsWith(postmanSuffix, StringComparison.OrdinalIgnoreCase))
+        {
+            return fileName[..^postmanSuffix.Length].Trim();
+        }
+
+        return Path.GetFileNameWithoutExtension(fileName).Trim();
+    }
+
+    private static string ResolveImportFolderName(PostmanCollectionDocument document, string? fileNameHint)
+    {
+        if (!string.IsNullOrWhiteSpace(fileNameHint))
+        {
+            return fileNameHint.Trim();
+        }
+
+        return ResolveCollectionName(document);
+    }
+
+    private static string ResolveCollectionName(PostmanCollectionDocument document) =>
+        string.IsNullOrWhiteSpace(document.Info.Name) ? "Imported Collection" : document.Info.Name.Trim();
 
     public static void ApplyItems(
         IEnumerable<PostmanItem> items,

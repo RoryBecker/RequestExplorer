@@ -725,7 +725,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
         _ensuringSpare = true;
         try
         {
-            var item = new KeyValueItem();
+            var item = new KeyValueItem { IsEnabled = false };
             Model.Params.Add(item);
             Params.Add(CreateParamVm(item));
         }
@@ -750,7 +750,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
         _ensuringSpare = true;
         try
         {
-            var item = new KeyValueItem();
+            var item = new KeyValueItem { IsEnabled = false };
             Model.Headers.Add(item);
             Headers.Add(CreateHeaderVm(item));
         }

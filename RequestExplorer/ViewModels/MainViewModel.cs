@@ -130,6 +130,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(PasteIntoNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(PasteAtRootCommand))]
     [NotifyCanExecuteChangedFor(nameof(DiagnoseVariablesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CollapseChildrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExpandChildrenCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveNodeUpCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveNodeDownCommand))]
     private TreeNodeViewModel? _selectedNode;
 
     private TreeClipboardPayload? _treeClipboard;
@@ -724,6 +728,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             {
                 SeedAndPersistDemo();
                 WireUndoRecorders();
+                CollapseAllCollections();
                 StatusMessage = $"Seeded demo collections → {_persistence.StorageDirectory}";
                 return;
             }
@@ -734,6 +739,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             }
 
             WireUndoRecorders();
+            CollapseAllCollections();
             StatusMessage = $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}";
         }
         catch (Exception ex)
@@ -750,7 +756,16 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             }
 
             WireUndoRecorders();
+            CollapseAllCollections();
             StatusMessage = "Load failed — using in-memory demo (not saved)";
+        }
+    }
+
+    private void CollapseAllCollections()
+    {
+        foreach (var collection in Collections)
+        {
+            CollapseSubtree(collection);
         }
     }
 
@@ -1429,100 +1444,100 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         {
             var dialog = new OpenFileDialog
             {
-                Title = "Import Postman Collection",
+                Title = "Import Postman Collection(s)",
                 Filter = "Postman Collection (*.json)|*.json|All files (*.*)|*.*",
-                CheckFileExists = true
+                CheckFileExists = true,
+                Multiselect = true
             };
 
-            if (dialog.ShowDialog(Application.Current?.MainWindow) != true)
+            if (dialog.ShowDialog(Application.Current?.MainWindow) != true
+                || dialog.FileNames.Length == 0)
             {
                 return;
             }
 
-            var json = File.ReadAllText(dialog.FileName);
-            var document = JsonSerializer.Deserialize<PostmanCollectionDocument>(json, PostmanCollectionMapper.JsonOptions)
-                           ?? throw new InvalidOperationException("File is not a valid Postman collection.");
+            var importedNodes = new List<FolderNodeViewModel>();
+            var errors = new List<string>();
 
-            if (document.Item.Count == 0)
+            foreach (var filePath in dialog.FileNames.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var json = File.ReadAllText(filePath);
+                    var document = JsonSerializer.Deserialize<PostmanCollectionDocument>(
+                                       json,
+                                       PostmanCollectionMapper.JsonOptions)
+                                   ?? throw new InvalidOperationException("File is not a valid Postman collection.");
+
+                    var fileHint = PostmanCollectionMapper.ResolveImportNameFromFilePath(filePath);
+                    var importedFolder = PostmanCollectionMapper.FromCollectionDocumentAsFolder(document, fileHint);
+                    if (importedFolder.Folders.Count == 0
+                        && importedFolder.Requests.Count == 0
+                        && importedFolder.Variables.Count == 0)
+                    {
+                        errors.Add($"{Path.GetFileName(filePath)}: no items or variables to import.");
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(importedFolder.Name))
+                    {
+                        importedFolder.Name = string.IsNullOrWhiteSpace(fileHint) ? "Imported Collection" : fileHint;
+                    }
+
+                    var child = AttachImportedFolder(node, importedFolder);
+                    importedNodes.Add(child);
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"{Path.GetFileName(filePath)}: {ex.Message}");
+                }
+            }
+
+            if (importedNodes.Count == 0)
             {
                 MessageBox.Show(
-                    "The Postman collection has no items to import.",
+                    errors.Count > 0
+                        ? string.Join(Environment.NewLine, errors)
+                        : "No Postman collections were imported.",
                     "Import",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
                 return;
             }
 
-            var folders = new List<FolderDefinition>();
-            var requests = new List<RequestDefinition>();
-            PostmanCollectionMapper.ApplyItems(document.Item, folders, requests);
-
-            if (document.Variable is { Count: > 0 } && node is ContainerNodeViewModel container)
+            node.IsExpanded = true;
+            node.IsDirty = true;
+            foreach (var child in importedNodes)
             {
-                container.AppendVariables(PostmanCollectionMapper.ToKeyValueItems(document.Variable));
+                CollapseSubtree(child);
+                MarkSubtreeDirty(child);
             }
 
-            var importedNodes = new List<TreeNodeViewModel>();
-            switch (node)
+            var undoSteps = importedNodes
+                .AsEnumerable()
+                .Reverse()
+                .Select(n => CreateRemoveAction(n, $"Import into '{node.Name}'"))
+                .ToList();
+            RecordUndo(new CompositeUndoAction(
+                importedNodes.Count == 1
+                    ? $"Import '{importedNodes[0].Name}' into '{node.Name}'"
+                    : $"Import {importedNodes.Count} collections into '{node.Name}'",
+                undoSteps));
+
+            SelectedNode = importedNodes[^1];
+            OnPropertyChanged(nameof(HasAnyDirty));
+            StatusMessage = importedNodes.Count == 1
+                ? $"Imported '{importedNodes[0].Name}' into '{node.Name}' (Ctrl+S to persist)"
+                : $"Imported {importedNodes.Count} collections into '{node.Name}' (Ctrl+S to persist)";
+
+            if (errors.Count > 0)
             {
-                case CollectionNodeViewModel collection:
-                    foreach (var folder in folders)
-                    {
-                        collection.Model.Folders.Add(folder);
-                        var child = CollectionTreeMapper.ToFolderViewModel(folder);
-                        WireUndoRecorders(child);
-                        collection.AddChild(child);
-                        importedNodes.Add(child);
-                    }
-
-                    foreach (var request in requests)
-                    {
-                        collection.Model.Requests.Add(request);
-                        var child = new RequestNodeViewModel(request);
-                        child.AttachUndoRecorder(this);
-                        collection.AddChild(child);
-                        importedNodes.Add(child);
-                    }
-
-                    collection.IsExpanded = true;
-                    break;
-
-                case FolderNodeViewModel folderNode:
-                    foreach (var folder in folders)
-                    {
-                        folderNode.Model.Folders.Add(folder);
-                        var child = CollectionTreeMapper.ToFolderViewModel(folder);
-                        WireUndoRecorders(child);
-                        folderNode.AddChild(child);
-                        importedNodes.Add(child);
-                    }
-
-                    foreach (var request in requests)
-                    {
-                        folderNode.Model.Requests.Add(request);
-                        var child = new RequestNodeViewModel(request);
-                        child.AttachUndoRecorder(this);
-                        folderNode.AddChild(child);
-                        importedNodes.Add(child);
-                    }
-
-                    folderNode.IsExpanded = true;
-                    break;
+                MessageBox.Show(
+                    $"Imported {importedNodes.Count} collection(s), with {errors.Count} skipped:{Environment.NewLine}{string.Join(Environment.NewLine, errors)}",
+                    "Import",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
-
-            if (importedNodes.Count > 0)
-            {
-                // Undo removes imported nodes last→first so sibling indices stay valid.
-                var undoSteps = importedNodes
-                    .AsEnumerable()
-                    .Reverse()
-                    .Select(n => CreateRemoveAction(n, $"Import into '{node.Name}'"))
-                    .ToList();
-                RecordUndo(new CompositeUndoAction($"Import into '{node.Name}'", undoSteps));
-            }
-
-            SelectedNode = node;
-            StatusMessage = $"Imported {importedNodes.Count} item(s) into '{node.Name}' (Ctrl+S to persist)";
         }
         catch (Exception ex)
         {
@@ -1531,6 +1546,102 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 "Import Error",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
+        }
+    }
+
+    private FolderNodeViewModel AttachImportedFolder(TreeNodeViewModel node, FolderDefinition importedFolder)
+    {
+        switch (node)
+        {
+            case CollectionNodeViewModel collection:
+                collection.Model.Folders.Add(importedFolder);
+                var collectionChild = CollectionTreeMapper.ToFolderViewModel(importedFolder);
+                WireUndoRecorders(collectionChild);
+                collection.AddChild(collectionChild);
+                return collectionChild;
+
+            case FolderNodeViewModel folderNode:
+                folderNode.Model.Folders.Add(importedFolder);
+                var folderChild = CollectionTreeMapper.ToFolderViewModel(importedFolder);
+                WireUndoRecorders(folderChild);
+                folderNode.AddChild(folderChild);
+                return folderChild;
+
+            default:
+                throw new InvalidOperationException("Import target must be a collection or folder.");
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCollapseOrExpandChildren))]
+    private void CollapseChildren(TreeNodeViewModel? node)
+    {
+        node ??= SelectedNode;
+        if (node is null || node.Children.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var child in node.Children)
+        {
+            CollapseSubtree(child);
+        }
+
+        StatusMessage = $"Collapsed children of '{node.Name}'";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCollapseOrExpandChildren))]
+    private void ExpandChildren(TreeNodeViewModel? node)
+    {
+        node ??= SelectedNode;
+        if (node is null || node.Children.Count == 0)
+        {
+            return;
+        }
+
+        node.IsExpanded = true;
+        foreach (var child in node.Children)
+        {
+            ExpandSubtree(child);
+        }
+
+        StatusMessage = $"Expanded children of '{node.Name}'";
+    }
+
+    private bool CanCollapseOrExpandChildren(TreeNodeViewModel? node)
+    {
+        node ??= SelectedNode;
+        return node is CollectionNodeViewModel or FolderNodeViewModel
+               && node.Children.Count > 0;
+    }
+
+    private static void CollapseSubtree(TreeNodeViewModel node)
+    {
+        node.IsExpanded = false;
+        foreach (var child in node.Children)
+        {
+            CollapseSubtree(child);
+        }
+    }
+
+    private static void ExpandSubtree(TreeNodeViewModel node)
+    {
+        if (node.Children.Count > 0)
+        {
+            node.IsExpanded = true;
+        }
+
+        foreach (var child in node.Children)
+        {
+            ExpandSubtree(child);
+        }
+    }
+
+    private static void MarkSubtreeDirty(TreeNodeViewModel node)
+    {
+        node.IsDirty = true;
+        foreach (var child in node.Children)
+        {
+            MarkSubtreeDirty(child);
         }
     }
 
@@ -1757,6 +1868,95 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             TreeDropPlacement.After => MoveBeside(source, target, after: true),
             _ => false
         };
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMoveNodeUp))]
+    private void MoveNodeUp()
+    {
+        if (TryMoveSelectedAmongSiblings(-1))
+        {
+            NotifyMoveAmongSiblingsCanExecuteChanged();
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMoveNodeDown))]
+    private void MoveNodeDown()
+    {
+        if (TryMoveSelectedAmongSiblings(1))
+        {
+            NotifyMoveAmongSiblingsCanExecuteChanged();
+        }
+    }
+
+    private bool CanMoveNodeUp() => CanMoveSelectedAmongSiblings(-1);
+
+    private bool CanMoveNodeDown() => CanMoveSelectedAmongSiblings(1);
+
+    private void NotifyMoveAmongSiblingsCanExecuteChanged()
+    {
+        MoveNodeUpCommand.NotifyCanExecuteChanged();
+        MoveNodeDownCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanMoveSelectedAmongSiblings(int direction)
+    {
+        if (Keyboard.FocusedElement is TextBox || SelectedNode is null)
+        {
+            return false;
+        }
+
+        return TryGetSibling(SelectedNode, direction, out _, out _);
+    }
+
+    private bool TryMoveSelectedAmongSiblings(int direction)
+    {
+        if (SelectedNode is null
+            || !TryGetSibling(SelectedNode, direction, out var sibling, out _))
+        {
+            return false;
+        }
+
+        // Up → place before the sibling above; Down → place after the sibling below.
+        return MoveBeside(SelectedNode, sibling, after: direction > 0);
+    }
+
+    private bool TryGetSibling(
+        TreeNodeViewModel node,
+        int direction,
+        out TreeNodeViewModel sibling,
+        out int index)
+    {
+        sibling = null!;
+        index = -1;
+
+        if (node is CollectionNodeViewModel collection && node.Parent is null)
+        {
+            index = Collections.IndexOf(collection);
+            var next = index + direction;
+            if (index < 0 || next < 0 || next >= Collections.Count)
+            {
+                return false;
+            }
+
+            sibling = Collections[next];
+            return true;
+        }
+
+        var parent = node.Parent;
+        if (parent is null)
+        {
+            return false;
+        }
+
+        index = parent.Children.IndexOf(node);
+        var nextIndex = index + direction;
+        if (index < 0 || nextIndex < 0 || nextIndex >= parent.Children.Count)
+        {
+            return false;
+        }
+
+        sibling = parent.Children[nextIndex];
+        return true;
     }
 
     private bool MoveInto(TreeNodeViewModel source, TreeNodeViewModel target)

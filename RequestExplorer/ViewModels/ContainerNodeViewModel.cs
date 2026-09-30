@@ -215,7 +215,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel
         _ensuringSpare = true;
         try
         {
-            var item = new KeyValueItem();
+            var item = new KeyValueItem { IsEnabled = false };
             ModelVariables.Add(item);
             Variables.Add(CreateVariableVm(item));
         }

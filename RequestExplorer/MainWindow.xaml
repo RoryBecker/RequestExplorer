@@ -75,13 +75,13 @@
                     <ControlTemplate TargetType="ToggleButton">
                         <Border Background="Transparent" Width="12" Height="12">
                             <Path x:Name="ExpandPath"
-                                  Data="M 0,0 L 0,5 L 5,0 Z"
+                                  Data="M 1,0 L 5.5,3.5 L 1,7 Z"
                                   Fill="#FF6B7280"
                                   HorizontalAlignment="Center"
                                   VerticalAlignment="Center"
                                   RenderTransformOrigin="0.5,0.5">
                                 <Path.RenderTransform>
-                                    <RotateTransform Angle="-45" />
+                                    <RotateTransform Angle="0" />
                                 </Path.RenderTransform>
                             </Path>
                         </Border>
@@ -89,7 +89,7 @@
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="ExpandPath" Property="RenderTransform">
                                     <Setter.Value>
-                                        <RotateTransform Angle="45" />
+                                        <RotateTransform Angle="90" />
                                     </Setter.Value>
                                 </Setter>
                             </Trigger>
@@ -115,6 +115,8 @@
         <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding SmartPasteCommand}" />
         <KeyBinding Key="F2" Command="{Binding RenameNodeCommand}" />
         <KeyBinding Key="Delete" Command="{Binding DeleteNodeCommand}" />
+        <KeyBinding Key="Up" Modifiers="Alt" Command="{Binding MoveNodeUpCommand}" />
+        <KeyBinding Key="Down" Modifiers="Alt" Command="{Binding MoveNodeDownCommand}" />
     </Window.InputBindings>
 
     <DockPanel>
@@ -141,6 +143,8 @@
                 <MenuItem Header="Paste at _Top Level" Command="{Binding PasteAtRootCommand}" />
                 <Separator />
                 <MenuItem Header="_Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
+                <MenuItem Header="Move _Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
+                <MenuItem Header="Move _Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />
                 <MenuItem Header="_Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
             </MenuItem>
             <MenuItem Header="_Request">
@@ -386,7 +390,8 @@
                               ScrollViewer.VerticalScrollBarVisibility="Auto"
                               ItemsSource="{Binding Collections}"
                               SelectedItemChanged="CollectionTree_OnSelectedItemChanged"
-                              PreviewMouseRightButtonDown="CollectionTree_OnPreviewMouseRightButtonDown">
+                              PreviewMouseRightButtonDown="CollectionTree_OnPreviewMouseRightButtonDown"
+                              PreviewKeyDown="CollectionTree_OnPreviewKeyDown">
                         <TreeView.ItemContainerStyle>
                             <Style TargetType="TreeViewItem">
                                 <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
@@ -477,6 +482,12 @@
                                 <MenuItem Header="Paste at Top Level" Command="{Binding PasteAtRootCommand}" />
                                 <Separator />
                                 <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" />
+                                <Separator />
+                                <MenuItem Header="Expand All Children" Command="{Binding ExpandChildrenCommand}" />
+                                <MenuItem Header="Collapse All Children" Command="{Binding CollapseChildrenCommand}" />
+                                <Separator />
+                                <MenuItem Header="Move Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
+                                <MenuItem Header="Move Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />
                                 <Separator />
                                 <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
                                 <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />

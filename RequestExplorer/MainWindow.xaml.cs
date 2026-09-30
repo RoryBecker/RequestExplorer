@@ -4,7 +4,6 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Threading;
 using RequestExplorer.ViewModels;
 using RequestExplorer.Views;
 
@@ -289,6 +288,35 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CollectionTree_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Return)
+            || Keyboard.Modifiers != ModifierKeys.None)
+        {
+            return;
+        }
+
+        // Don't steal Enter from tree action buttons (+ / …).
+        if (Keyboard.FocusedElement is ButtonBase)
+        {
+            return;
+        }
+
+        if (DataContext is not MainViewModel { SelectedNode: { } node })
+        {
+            return;
+        }
+
+        if (node is not (CollectionNodeViewModel or FolderNodeViewModel)
+            || node.Children.Count == 0)
+        {
+            return;
+        }
+
+        node.IsExpanded = !node.IsExpanded;
+        e.Handled = true;
+    }
+
     private void CollectionTree_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         var treeItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
@@ -308,8 +336,16 @@ public partial class MainWindow : Window
 
     private void TreeViewItem_OnPreviewMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not TreeViewItem { DataContext: TreeNodeViewModel node }
+        if (sender is not TreeViewItem item
+            || item.DataContext is not TreeNodeViewModel node
             || DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        // PreviewMouseDoubleClick also fires on ancestor TreeViewItems; only handle the clicked node.
+        var clickedItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
+        if (!ReferenceEquals(clickedItem, item))
         {
             return;
         }
@@ -321,26 +357,12 @@ public partial class MainWindow : Window
 
         e.Handled = true;
         vm.SelectedNode = node;
-        Dispatcher.BeginInvoke(FocusSelectedTitle, DispatcherPriority.Input);
-    }
 
-    private void FocusSelectedTitle()
-    {
-        TextBox? titleBox = null;
-        if (DataContext is MainViewModel { IsRequestSelected: true })
+        if (node is CollectionNodeViewModel or FolderNodeViewModel
+            && node.Children.Count > 0)
         {
-            titleBox = RequestEditor.NameTitleBox;
+            node.IsExpanded = !node.IsExpanded;
         }
-        else if (DataContext is MainViewModel { IsCollectionSelected: true })
-        {
-            titleBox = CollectionEditor.NameTitleBox;
-        }
-        else if (DataContext is MainViewModel { IsFolderSelected: true })
-        {
-            titleBox = FolderEditor.NameTitleBox;
-        }
-
-        TitleEditHelper.FocusAndSelect(titleBox);
     }
 
     private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
@@ -456,6 +478,37 @@ public partial class MainWindow : Window
 
         menu.Items.Add(new Separator());
 
+        if (node is CollectionNodeViewModel or FolderNodeViewModel)
+        {
+            menu.Items.Add(new MenuItem
+            {
+                Header = "Expand All Children",
+                Command = vm.ExpandChildrenCommand,
+                CommandParameter = node
+            });
+            menu.Items.Add(new MenuItem
+            {
+                Header = "Collapse All Children",
+                Command = vm.CollapseChildrenCommand,
+                CommandParameter = node
+            });
+            menu.Items.Add(new Separator());
+        }
+
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Move Up",
+            Command = vm.MoveNodeUpCommand,
+            InputGestureText = "Alt+Up"
+        });
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Move Down",
+            Command = vm.MoveNodeDownCommand,
+            InputGestureText = "Alt+Down"
+        });
+        menu.Items.Add(new Separator());
+
         menu.Items.Add(new MenuItem
         {
             Header = "Delete",
@@ -477,7 +530,7 @@ public partial class MainWindow : Window
         {
             menu.Items.Add(new MenuItem
             {
-                Header = "Import Postman Collection…",
+                Header = "Import Postman Collection(s)…",
                 Command = vm.ImportIntoNodeCommand,
                 CommandParameter = node
             });

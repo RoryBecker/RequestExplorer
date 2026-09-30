@@ -15,9 +15,16 @@ public partial class KeyValueItemViewModel : ObservableObject
     {
         Model = model;
         _onFieldChanged = onFieldChanged;
-        _isEnabled = model.IsEnabled;
         _key = model.Key;
         _value = model.Value;
+
+        // Blank / spare rows stay disabled until they have a name.
+        var enabled = model.IsEnabled && !string.IsNullOrWhiteSpace(model.Key);
+        _isEnabled = enabled;
+        if (model.IsEnabled != enabled)
+        {
+            model.IsEnabled = enabled;
+        }
     }
 
     public KeyValueItem Model { get; }
@@ -25,12 +32,16 @@ public partial class KeyValueItemViewModel : ObservableObject
     public bool HasContent =>
         !string.IsNullOrWhiteSpace(Key) || !string.IsNullOrWhiteSpace(Value);
 
+    /// <summary>True when the row has a non-empty key/name and may be toggled on.</summary>
+    public bool HasKey => !string.IsNullOrWhiteSpace(Key);
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasContent))]
     private bool _isEnabled;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasContent))]
+    [NotifyPropertyChangedFor(nameof(HasKey))]
     private string _key;
 
     [ObservableProperty]
@@ -54,7 +65,7 @@ public partial class KeyValueItemViewModel : ObservableObject
             switch (field)
             {
                 case KeyValueField.IsEnabled:
-                    IsEnabled = value is true;
+                    IsEnabled = value is true && HasKey;
                     break;
                 case KeyValueField.Key:
                     Key = value as string ?? string.Empty;
@@ -72,6 +83,12 @@ public partial class KeyValueItemViewModel : ObservableObject
 
     partial void OnIsEnabledChanged(bool value)
     {
+        if (value && !HasKey)
+        {
+            SetEnabledCore(false);
+            return;
+        }
+
         var previous = Model.IsEnabled;
         Model.IsEnabled = value;
         if (!_silent && previous != value)
@@ -84,6 +101,9 @@ public partial class KeyValueItemViewModel : ObservableObject
     {
         var previous = Model.Key;
         Model.Key = value;
+
+        SyncEnabledWithKey(previous, value);
+
         if (!_silent && !string.Equals(previous, value, StringComparison.Ordinal))
         {
             _onFieldChanged(this, KeyValueField.Key, previous, value);
@@ -97,6 +117,43 @@ public partial class KeyValueItemViewModel : ObservableObject
         if (!_silent && !string.Equals(previous, value, StringComparison.Ordinal))
         {
             _onFieldChanged(this, KeyValueField.Value, previous, value);
+        }
+    }
+
+    private void SyncEnabledWithKey(string previousKey, string newKey)
+    {
+        var hadKey = !string.IsNullOrWhiteSpace(previousKey);
+        var hasKey = !string.IsNullOrWhiteSpace(newKey);
+
+        if (!hasKey && IsEnabled)
+        {
+            // Clearing the name turns the row off without a separate undo step.
+            SetEnabledCore(false);
+        }
+        else if (hasKey && !hadKey && !IsEnabled)
+        {
+            // Naming a blank spare row turns it on.
+            SetEnabledCore(true);
+        }
+    }
+
+    private void SetEnabledCore(bool enabled)
+    {
+        if (IsEnabled == enabled && Model.IsEnabled == enabled)
+        {
+            return;
+        }
+
+        var previousSilent = _silent;
+        _silent = true;
+        try
+        {
+            IsEnabled = enabled;
+            Model.IsEnabled = enabled;
+        }
+        finally
+        {
+            _silent = previousSilent;
         }
     }
 }

@@ -338,3 +338,4 @@ FodyWeavers.xsd
 # Local Application Data / secrets (future)
 *.env
 appsettings.*.local.json
+/SamplePostmanExports

@@ -28,6 +28,7 @@ public partial class MainWindow : Window
         DataContextChanged += MainWindow_OnDataContextChanged;
         InitializeComponent();
         PreviewKeyDown += MainWindow_OnPreviewKeyDown;
+        PreviewKeyUp += MainWindow_OnPreviewKeyUp;
         Loaded += MainWindow_OnLoaded;
         SizeChanged += (_, _) => CaptureWindowBounds();
         LocationChanged += (_, _) => CaptureWindowBounds();
@@ -253,6 +254,19 @@ public partial class MainWindow : Window
         if (_treeDragDrop.CancelPendingOrIndicators())
         {
             e.Handled = true;
+        }
+    }
+
+    private void MainWindow_OnPreviewKeyUp(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.LeftAlt or Key.RightAlt or Key.System))
+        {
+            return;
+        }
+
+        if (DataContext is MainViewModel vm)
+        {
+            vm.EndAltMoveFilterDeferral();
         }
     }
 

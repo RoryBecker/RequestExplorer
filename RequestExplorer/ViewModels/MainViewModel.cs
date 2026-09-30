@@ -939,10 +939,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private bool CanClearTreeFilter() => HasTreeFilter;
 
     private bool _treeFilterApplyQueued;
+    private bool _deferTreeFilterDuringAltMove;
 
     private void ApplyTreeFilterIfActive()
     {
-        if (!HasTreeFilter || _treeFilterApplyQueued)
+        if (_deferTreeFilterDuringAltMove || !HasTreeFilter || _treeFilterApplyQueued)
         {
             return;
         }
@@ -952,12 +953,32 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             () =>
             {
                 _treeFilterApplyQueued = false;
-                if (HasTreeFilter)
+                if (_deferTreeFilterDuringAltMove || !HasTreeFilter)
                 {
-                    ApplyTreeFilter();
+                    return;
                 }
+
+                ApplyTreeFilter();
             },
             DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// Called when Alt is released after keyboard sibling moves so filter visibility
+    /// can catch up without flickering mid-move.
+    /// </summary>
+    public void EndAltMoveFilterDeferral()
+    {
+        if (!_deferTreeFilterDuringAltMove)
+        {
+            return;
+        }
+
+        _deferTreeFilterDuringAltMove = false;
+        if (HasTreeFilter)
+        {
+            ApplyTreeFilter();
+        }
     }
 
     private void ApplyTreeFilter()
@@ -2146,10 +2167,29 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return false;
         }
 
+        // Defer filter re-apply while Alt+Up/Down is held so visibility stays stable mid-move.
+        _deferTreeFilterDuringAltMove = true;
+
         // Up → place before the sibling above; Down → place after the sibling below.
-        return MoveBeside(SelectedNode, sibling, after: direction > 0);
+        var moved = MoveBeside(SelectedNode, sibling, after: direction > 0);
+        if (!moved)
+        {
+            _deferTreeFilterDuringAltMove = false;
+            return false;
+        }
+
+        if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0)
+        {
+            EndAltMoveFilterDeferral();
+        }
+
+        return true;
     }
 
+    /// <summary>
+    /// Finds the next/previous <see cref="TreeNodeViewModel.IsVisibleInFilter"/> sibling
+    /// (skipping nodes hidden by the active tree filter).
+    /// </summary>
     private bool TryGetSibling(
         TreeNodeViewModel node,
         int direction,
@@ -2159,17 +2199,29 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         sibling = null!;
         index = -1;
 
+        if (direction == 0)
+        {
+            return false;
+        }
+
         if (node is CollectionNodeViewModel collection && node.Parent is null)
         {
             index = Collections.IndexOf(collection);
-            var next = index + direction;
-            if (index < 0 || next < 0 || next >= Collections.Count)
+            if (index < 0)
             {
                 return false;
             }
 
-            sibling = Collections[next];
-            return true;
+            for (var i = index + direction; i >= 0 && i < Collections.Count; i += direction)
+            {
+                if (Collections[i].IsVisibleInFilter)
+                {
+                    sibling = Collections[i];
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         var parent = node.Parent;
@@ -2179,14 +2231,21 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         index = parent.Children.IndexOf(node);
-        var nextIndex = index + direction;
-        if (index < 0 || nextIndex < 0 || nextIndex >= parent.Children.Count)
+        if (index < 0)
         {
             return false;
         }
 
-        sibling = parent.Children[nextIndex];
-        return true;
+        for (var i = index + direction; i >= 0 && i < parent.Children.Count; i += direction)
+        {
+            if (parent.Children[i].IsVisibleInFilter)
+            {
+                sibling = parent.Children[i];
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool MoveInto(TreeNodeViewModel source, TreeNodeViewModel target)

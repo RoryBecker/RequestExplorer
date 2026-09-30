@@ -353,13 +353,13 @@
                 <Grid DockPanel.Dock="Top" Margin="8,0,8,6" MinHeight="28">
                     <TextBox x:Name="TreeFilterBox"
                              Text="{Binding TreeFilterText, UpdateSourceTrigger=PropertyChanged}"
-                             Padding="8,4,28,4"
+                             Padding="8,4,52,4"
                              VerticalContentAlignment="Center"
                              BorderBrush="{StaticResource App.BorderBrush}"
-                             ToolTip="Filter by path, name, or URL"
+                             ToolTip="{Binding TreeFilterPlaceholder}"
                              PreviewKeyDown="TreeFilterBox_OnPreviewKeyDown" />
-                    <TextBlock Text="Filter by path, name, or URL…"
-                               Margin="10,0,28,0"
+                    <TextBlock Text="{Binding TreeFilterPlaceholder}"
+                               Margin="10,0,52,0"
                                VerticalAlignment="Center"
                                Foreground="{StaticResource App.MutedBrush}"
                                IsHitTestVisible="False">
@@ -374,16 +374,42 @@
                             </Style>
                         </TextBlock.Style>
                     </TextBlock>
-                    <Button Content="✕"
-                            Width="22"
-                            Height="22"
-                            Margin="0,0,4,0"
-                            HorizontalAlignment="Right"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource TreeActionButton}"
-                            ToolTip="Clear filter"
-                            Command="{Binding ClearTreeFilterCommand}"
-                            Visibility="{Binding HasTreeFilter, Converter={StaticResource BoolToVis}}" />
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Margin="0,0,2,0">
+                        <Button Content="✕"
+                                Width="22"
+                                Height="22"
+                                Style="{StaticResource TreeActionButton}"
+                                ToolTip="Clear filter"
+                                Command="{Binding ClearTreeFilterCommand}"
+                                Visibility="{Binding HasTreeFilter, Converter={StaticResource BoolToVis}}" />
+                        <Button x:Name="TreeFilterOptionsButton"
+                                Content="…"
+                                Width="22"
+                                Height="22"
+                                Style="{StaticResource TreeActionButton}"
+                                ToolTip="Choose filter fields"
+                                Click="TreeFilterOptionsButton_OnClick">
+                            <Button.ContextMenu>
+                                <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                    <MenuItem Header="Ancestor path"
+                                              IsCheckable="True"
+                                              StaysOpenOnClick="True"
+                                              IsChecked="{Binding TreeFilterIncludeAncestors, Mode=TwoWay}" />
+                                    <MenuItem Header="Name"
+                                              IsCheckable="True"
+                                              StaysOpenOnClick="True"
+                                              IsChecked="{Binding TreeFilterIncludeName, Mode=TwoWay}" />
+                                    <MenuItem Header="URL"
+                                              IsCheckable="True"
+                                              StaysOpenOnClick="True"
+                                              IsChecked="{Binding TreeFilterIncludeUrl, Mode=TwoWay}" />
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                    </StackPanel>
                 </Grid>
 
                 <Grid>

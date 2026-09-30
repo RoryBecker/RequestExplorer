@@ -288,6 +288,20 @@ public partial class MainWindow : Window
         }
     }
 
+    private void TreeFilterOptionsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is not Button button || button.ContextMenu is null)
+        {
+            return;
+        }
+
+        button.ContextMenu.PlacementTarget = button;
+        button.ContextMenu.Placement = PlacementMode.Bottom;
+        button.ContextMenu.DataContext = DataContext;
+        button.ContextMenu.IsOpen = true;
+    }
+
     private void TreeFilterBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Down || Keyboard.Modifiers != ModifierKeys.None)

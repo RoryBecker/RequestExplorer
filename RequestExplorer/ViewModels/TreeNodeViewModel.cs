@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
+using RequestExplorer.Services;
 
 namespace RequestExplorer.ViewModels;
 
@@ -22,6 +24,9 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 {
     /// <summary>Raised when a node's name/URL (or similar) may change filter matching.</summary>
     public static event Action? SearchTextInvalidated;
+
+    /// <summary>Active scope used when building <see cref="SearchText"/>.</summary>
+    public static TreeSearchScope SearchScope { get; set; } = TreeSearchScope.All;
 
     protected TreeNodeViewModel(string name)
     {
@@ -90,16 +95,40 @@ public abstract partial class TreeNodeViewModel : ObservableObject
     public string DisplayName => ShowsDirtyMarker ? $"{Name} *" : Name;
 
     /// <summary>
-    /// Ancestor names (slash-separated), this node's name, and request URL when present.
-    /// Example: <c>Collection/Folder/Request https://example.com/api</c>
+    /// Filterable text built from the active <see cref="SearchScope"/> components
+    /// (ancestor path, name, and/or URL).
     /// </summary>
     public string SearchText
     {
         get
         {
-            var path = string.Join('/', EnumeratePathNames());
-            var url = GetSearchUrl();
-            return string.IsNullOrWhiteSpace(url) ? path : $"{path} {url}";
+            var scope = SearchScope;
+            var builder = new StringBuilder();
+
+            if (scope.IncludeAncestors || scope.IncludeName)
+            {
+                var path = BuildScopedPath(scope);
+                if (!string.IsNullOrEmpty(path))
+                {
+                    builder.Append(path);
+                }
+            }
+
+            if (scope.IncludeUrl)
+            {
+                var url = GetSearchUrl();
+                if (!string.IsNullOrWhiteSpace(url))
+                {
+                    if (builder.Length > 0)
+                    {
+                        builder.Append(' ');
+                    }
+
+                    builder.Append(url.Trim());
+                }
+            }
+
+            return builder.ToString();
         }
     }
 
@@ -127,7 +156,7 @@ public abstract partial class TreeNodeViewModel : ObservableObject
     /// <summary>Optional URL (or similar) appended to <see cref="SearchText"/>.</summary>
     protected virtual string? GetSearchUrl() => null;
 
-    protected void NotifySearchTextChanged()
+    public void NotifySearchTextChanged()
     {
         OnPropertyChanged(nameof(SearchText));
         foreach (var child in Children)
@@ -137,6 +166,34 @@ public abstract partial class TreeNodeViewModel : ObservableObject
     }
 
     protected static void RaiseSearchTextInvalidated() => SearchTextInvalidated?.Invoke();
+
+    private string BuildScopedPath(TreeSearchScope scope)
+    {
+        if (scope.IncludeAncestors && scope.IncludeName)
+        {
+            return string.Join('/', EnumeratePathNames());
+        }
+
+        if (scope.IncludeAncestors)
+        {
+            return string.Join('/', EnumerateAncestorNames());
+        }
+
+        return Name ?? string.Empty;
+    }
+
+    private IEnumerable<string> EnumerateAncestorNames()
+    {
+        if (Parent is null)
+        {
+            yield break;
+        }
+
+        foreach (var name in Parent.EnumeratePathNames())
+        {
+            yield return name;
+        }
+    }
 
     private IEnumerable<string> EnumeratePathNames()
     {

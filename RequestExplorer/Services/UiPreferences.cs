@@ -27,6 +27,12 @@ public sealed class UiPreferences
 
     public string WindowState { get; set; } = "Normal";
 
+    public bool TreeFilterIncludeAncestors { get; set; } = true;
+
+    public bool TreeFilterIncludeName { get; set; } = true;
+
+    public bool TreeFilterIncludeUrl { get; set; } = true;
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

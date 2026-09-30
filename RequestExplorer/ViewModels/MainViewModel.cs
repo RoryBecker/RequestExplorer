@@ -43,6 +43,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
         _selectedExportFormat = ResolveExportFormat(UiPreferences.SelectedExportFormat);
         _isQuickExportWrap = UiPreferences.GetQuickExportWrap(_selectedExportFormat.Format.ToString());
+        _treeFilterIncludeAncestors = UiPreferences.TreeFilterIncludeAncestors;
+        _treeFilterIncludeName = UiPreferences.TreeFilterIncludeName;
+        _treeFilterIncludeUrl = UiPreferences.TreeFilterIncludeUrl;
+        EnsureValidTreeSearchScope();
+        SyncTreeSearchScope();
 
         Collections.CollectionChanged += (_, _) =>
         {
@@ -80,6 +85,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     {
         UiPreferences.IsQuickExportVisible = IsQuickExportVisible;
         UiPreferences.SelectedExportFormat = SelectedExportFormat.Format.ToString();
+        UiPreferences.TreeFilterIncludeAncestors = TreeFilterIncludeAncestors;
+        UiPreferences.TreeFilterIncludeName = TreeFilterIncludeName;
+        UiPreferences.TreeFilterIncludeUrl = TreeFilterIncludeUrl;
         _uiPreferencesService.Save(UiPreferences);
     }
 
@@ -117,10 +125,51 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasTreeFilter))]
+    [NotifyPropertyChangedFor(nameof(TreeFilterPlaceholder))]
     [NotifyCanExecuteChangedFor(nameof(ClearTreeFilterCommand))]
     private string _treeFilterText = string.Empty;
 
     public bool HasTreeFilter => !string.IsNullOrWhiteSpace(TreeFilterText);
+
+    private bool _suppressTreeSearchScopeGuard;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TreeFilterPlaceholder))]
+    private bool _treeFilterIncludeAncestors = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TreeFilterPlaceholder))]
+    private bool _treeFilterIncludeName = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TreeFilterPlaceholder))]
+    private bool _treeFilterIncludeUrl = true;
+
+    public string TreeFilterPlaceholder
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (TreeFilterIncludeAncestors)
+            {
+                parts.Add("path");
+            }
+
+            if (TreeFilterIncludeName)
+            {
+                parts.Add("name");
+            }
+
+            if (TreeFilterIncludeUrl)
+            {
+                parts.Add("URL");
+            }
+
+            return parts.Count == 0
+                ? "Filter…"
+                : $"Filter by {string.Join(", ", parts)}…";
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectionSummary))]
@@ -830,6 +879,59 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     partial void OnTreeFilterTextChanged(string value) => ApplyTreeFilter();
+
+    partial void OnTreeFilterIncludeAncestorsChanged(bool value) => OnTreeSearchScopeFlagChanged();
+
+    partial void OnTreeFilterIncludeNameChanged(bool value) => OnTreeSearchScopeFlagChanged();
+
+    partial void OnTreeFilterIncludeUrlChanged(bool value) => OnTreeSearchScopeFlagChanged();
+
+    private void OnTreeSearchScopeFlagChanged()
+    {
+        if (_suppressTreeSearchScopeGuard)
+        {
+            return;
+        }
+
+        if (!TreeFilterIncludeAncestors && !TreeFilterIncludeName && !TreeFilterIncludeUrl)
+        {
+            // Keep at least one component enabled.
+            _suppressTreeSearchScopeGuard = true;
+            TreeFilterIncludeName = true;
+            _suppressTreeSearchScopeGuard = false;
+        }
+
+        SyncTreeSearchScope();
+        PersistUiPreferences();
+        ApplyTreeFilter();
+        NotifyAllSearchTextsChanged();
+    }
+
+    private void EnsureValidTreeSearchScope()
+    {
+        if (TreeFilterIncludeAncestors || TreeFilterIncludeName || TreeFilterIncludeUrl)
+        {
+            return;
+        }
+
+        _suppressTreeSearchScopeGuard = true;
+        TreeFilterIncludeName = true;
+        _suppressTreeSearchScopeGuard = false;
+    }
+
+    private void SyncTreeSearchScope() =>
+        TreeNodeViewModel.SearchScope = new TreeSearchScope(
+            TreeFilterIncludeAncestors,
+            TreeFilterIncludeName,
+            TreeFilterIncludeUrl);
+
+    private void NotifyAllSearchTextsChanged()
+    {
+        foreach (var collection in Collections)
+        {
+            collection.NotifySearchTextChanged();
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanClearTreeFilter))]
     private void ClearTreeFilter() => TreeFilterText = string.Empty;

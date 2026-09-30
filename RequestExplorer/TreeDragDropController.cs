@@ -19,6 +19,7 @@ internal sealed class TreeDragDropController
     private Point _dragStart;
     private TreeNodeViewModel? _dragSource;
     private bool _dragging;
+    private bool _didCompleteDrag;
     private TreeNodeViewModel? _hoverToggleTarget;
     private TreeNodeViewModel? _currentIndicatorNode;
     private TreeDropPlacement? _currentPlacement;
@@ -44,6 +45,11 @@ internal sealed class TreeDragDropController
 
     /// <summary>True while a drag is active or a drag gesture has been primed.</summary>
     public bool IsDragActive => _dragging || _dragSource is not null;
+
+    /// <summary>True if the last mouse gesture completed a DoDragDrop operation.</summary>
+    public bool DidCompleteDrag => _didCompleteDrag;
+
+    public void ResetDidCompleteDrag() => _didCompleteDrag = false;
 
     /// <summary>
     /// Cancels a pending (pre-DoDragDrop) drag gesture and clears indicators.
@@ -78,6 +84,7 @@ internal sealed class TreeDragDropController
 
     private void Tree_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        _didCompleteDrag = false;
         if (FindAncestor<ButtonBase>(e.OriginalSource as DependencyObject) is not null)
         {
             _dragSource = null;
@@ -120,10 +127,15 @@ internal sealed class TreeDragDropController
         }
 
         _dragging = true;
-        var source = _dragSource;
+        _didCompleteDrag = true;
+        var source = _dragSource!;
         try
         {
+            var vm = _getVm();
+            var batch = vm?.GetMoveBatch(source) ?? [source];
+            var payload = new TreeNodeDragPayload(batch, source);
             var data = new DataObject();
+            data.SetData(typeof(TreeNodeDragPayload), payload);
             data.SetData(typeof(TreeNodeViewModel), source);
             data.SetData(source.GetType(), source);
             DragDrop.DoDragDrop(_tree, data, DragDropEffects.Move);
@@ -145,7 +157,7 @@ internal sealed class TreeDragDropController
 
     private void Tree_OnDragOver(object sender, DragEventArgs e)
     {
-        if (!TryGetDragSource(e, out var source))
+        if (!TryGetDragPayload(e, out var payload))
         {
             e.Effects = DragDropEffects.None;
             e.Handled = true;
@@ -154,13 +166,14 @@ internal sealed class TreeDragDropController
             return;
         }
 
+        var source = payload.Primary;
         var targetItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
         var position = e.GetPosition(_tree);
 
         if (targetItem?.DataContext is TreeNodeViewModel target)
         {
             var placement = ResolvePlacement(source, target, targetItem, e.GetPosition(targetItem));
-            if (placement is null || !CanDrop(source, target, placement.Value))
+            if (placement is null || !CanDropBatch(payload, target, placement.Value))
             {
                 e.Effects = DragDropEffects.None;
                 e.Handled = true;
@@ -177,7 +190,7 @@ internal sealed class TreeDragDropController
         }
 
         // Empty area / top of tree → root drop
-        if (CanDropAtRoot(source) && position.Y < 28)
+        if (CanDropBatchAtRoot(payload) && position.Y < 28)
         {
             ShowRootIndicator();
             UpdateHoverToggle(null);
@@ -189,8 +202,8 @@ internal sealed class TreeDragDropController
         // Below last visible item: treat as after last root collection when over tree chrome
         if (_getVm()?.Collections is { Count: > 0 } collections)
         {
-            var last = collections[^1];
-            if (CanDrop(source, last, TreeDropPlacement.After))
+            var last = collections.LastOrDefault(c => c.IsVisibleInFilter) ?? collections[^1];
+            if (CanDropBatch(payload, last, TreeDropPlacement.After))
             {
                 ShowIndicator(last, TreeDropPlacement.After);
                 UpdateHoverToggle(null);
@@ -219,7 +232,7 @@ internal sealed class TreeDragDropController
 
     private void Tree_OnDrop(object sender, DragEventArgs e)
     {
-        if (_getVm() is not MainViewModel vm || !TryGetDragSource(e, out var source))
+        if (_getVm() is not MainViewModel vm || !TryGetDragPayload(e, out var payload))
         {
             e.Handled = true;
             ClearIndicators();
@@ -244,9 +257,45 @@ internal sealed class TreeDragDropController
             return;
         }
 
-        vm.TryMoveNode(source, target, placement.Value);
+        vm.TryMoveNodes(payload.Nodes, target, placement.Value);
         e.Handled = true;
     }
+
+    private static bool TryGetDragPayload(DragEventArgs e, out TreeNodeDragPayload payload)
+    {
+        payload = null!;
+        if (e.Data.GetDataPresent(typeof(TreeNodeDragPayload))
+            && e.Data.GetData(typeof(TreeNodeDragPayload)) is TreeNodeDragPayload typed
+            && typed.Nodes.Count > 0)
+        {
+            payload = typed;
+            return true;
+        }
+
+        if (TryGetDragSource(e, out var source))
+        {
+            payload = new TreeNodeDragPayload([source], source);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool CanDropBatch(TreeNodeDragPayload payload, TreeNodeViewModel target, TreeDropPlacement placement)
+    {
+        foreach (var source in payload.Nodes)
+        {
+            if (!CanDrop(source, target, placement))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool CanDropBatchAtRoot(TreeNodeDragPayload payload) =>
+        payload.Nodes.All(CanDropAtRoot);
 
     private static bool TryGetDragSource(DragEventArgs e, out TreeNodeViewModel source)
     {

@@ -200,6 +200,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private TreeClipboardPayload? _treeClipboard;
 
+    private readonly List<TreeNodeViewModel> _selectedNodes = [];
+    private TreeNodeViewModel? _selectionAnchor;
+    private bool _suppressMoveSideEffects;
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendRequestCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelSendCommand))]
@@ -270,6 +274,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     public bool IsNodeSelected => SelectedNode is not null;
 
+    public IReadOnlyList<TreeNodeViewModel> SelectedNodes => _selectedNodes;
+
     public string SelectionSummary
     {
         get
@@ -277,6 +283,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             if (SelectedNode is null)
             {
                 return "Nothing selected";
+            }
+
+            if (_selectedNodes.Count > 1)
+            {
+                return $"{_selectedNodes.Count} items selected";
             }
 
             return SelectedNode switch
@@ -320,6 +331,18 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         {
             newValue.IsSelected = true;
             newValue.PropertyChanged += OnSelectedNodePropertyChanged;
+            if (_selectedNodes.Count == 0 || !_selectedNodes.Contains(newValue))
+            {
+                ReplaceSelection([newValue], newValue);
+            }
+            else
+            {
+                SyncSelectionFlags();
+            }
+        }
+        else if (_selectedNodes.Count > 0)
+        {
+            ClearSelectionSet();
         }
 
         if (newValue is RequestNodeViewModel newRequest)
@@ -331,7 +354,236 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         PasteIntoNodeCommand.NotifyCanExecuteChanged();
         PasteAtRootCommand.NotifyCanExecuteChanged();
         SmartPasteCommand.NotifyCanExecuteChanged();
+        NotifyMoveAmongSiblingsCanExecuteChanged();
+        OnPropertyChanged(nameof(SelectionSummary));
         RefreshQuickExport();
+    }
+
+    public bool IsNodeInSelection(TreeNodeViewModel node) => _selectedNodes.Contains(node);
+
+    /// <summary>Raised after undo/redo restores tree nodes that should be scrolled into view.</summary>
+    public event Action<IReadOnlyList<TreeNodeViewModel>>? TreeRevealRequested;
+
+    public void SelectOnly(TreeNodeViewModel node)
+    {
+        ReplaceSelection([node], node);
+        if (!ReferenceEquals(SelectedNode, node))
+        {
+            SelectedNode = node;
+        }
+        else
+        {
+            SyncSelectionFlags();
+            OnPropertyChanged(nameof(SelectionSummary));
+        }
+
+        _selectionAnchor = node;
+    }
+
+    public void ToggleSelection(TreeNodeViewModel node)
+    {
+        if (_selectedNodes.Contains(node))
+        {
+            if (_selectedNodes.Count == 1)
+            {
+                return;
+            }
+
+            _selectedNodes.Remove(node);
+            node.IsInSelection = false;
+            if (ReferenceEquals(SelectedNode, node))
+            {
+                SelectedNode = _selectedNodes[^1];
+            }
+            else
+            {
+                SyncSelectionFlags();
+                OnPropertyChanged(nameof(SelectionSummary));
+                NotifyMoveAmongSiblingsCanExecuteChanged();
+            }
+        }
+        else
+        {
+            _selectedNodes.Add(node);
+            node.IsInSelection = true;
+
+            if (!ReferenceEquals(SelectedNode, node))
+            {
+                SelectedNode = node;
+            }
+            else
+            {
+                SyncSelectionFlags();
+                OnPropertyChanged(nameof(SelectionSummary));
+                NotifyMoveAmongSiblingsCanExecuteChanged();
+            }
+        }
+
+        _selectionAnchor = node;
+    }
+
+    public void SelectRange(TreeNodeViewModel toNode)
+    {
+        var anchor = _selectionAnchor ?? SelectedNode ?? toNode;
+        if (!SharesSelectionParent(anchor, toNode))
+        {
+            SelectOnly(toNode);
+            return;
+        }
+
+        var range = EnumerateSiblingRange(anchor, toNode)
+            .Where(n => n.IsVisibleInFilter)
+            .ToList();
+        if (range.Count == 0)
+        {
+            SelectOnly(toNode);
+            return;
+        }
+
+        ReplaceSelection(range, toNode);
+        if (!ReferenceEquals(SelectedNode, toNode))
+        {
+            SelectedNode = toNode;
+        }
+        else
+        {
+            SyncSelectionFlags();
+            OnPropertyChanged(nameof(SelectionSummary));
+            NotifyMoveAmongSiblingsCanExecuteChanged();
+        }
+    }
+
+    public IReadOnlyList<TreeNodeViewModel> GetMoveBatch(TreeNodeViewModel? dragSource = null)
+    {
+        IReadOnlyList<TreeNodeViewModel> batch;
+        if (dragSource is not null && _selectedNodes.Contains(dragSource) && _selectedNodes.Count > 1)
+        {
+            batch = _selectedNodes;
+        }
+        else if (dragSource is not null)
+        {
+            batch = [dragSource];
+        }
+        else if (_selectedNodes.Count > 0)
+        {
+            batch = _selectedNodes;
+        }
+        else
+        {
+            batch = SelectedNode is null ? [] : [SelectedNode];
+        }
+
+        // If a folder/collection and one of its descendants are both selected, only move the ancestor.
+        return PruneRedundantDescendants(batch);
+    }
+
+    private static List<TreeNodeViewModel> PruneRedundantDescendants(IReadOnlyList<TreeNodeViewModel> batch)
+    {
+        if (batch.Count <= 1)
+        {
+            return batch.ToList();
+        }
+
+        return batch
+            .Where(node => !batch.Any(other =>
+                !ReferenceEquals(other, node) && IsUnder(node, other)))
+            .ToList();
+    }
+
+    private void ReplaceSelection(IReadOnlyList<TreeNodeViewModel> nodes, TreeNodeViewModel primary)
+    {
+        foreach (var node in _selectedNodes)
+        {
+            node.IsInSelection = false;
+        }
+
+        _selectedNodes.Clear();
+        foreach (var node in nodes.Distinct())
+        {
+            _selectedNodes.Add(node);
+            node.IsInSelection = true;
+        }
+
+        if (!_selectedNodes.Contains(primary) && _selectedNodes.Count > 0)
+        {
+            primary = _selectedNodes[^1];
+        }
+
+        primary.IsInSelection = true;
+        SyncSelectionFlags();
+    }
+
+    private void ClearSelectionSet()
+    {
+        foreach (var node in _selectedNodes)
+        {
+            node.IsInSelection = false;
+        }
+
+        _selectedNodes.Clear();
+        _selectionAnchor = null;
+    }
+
+    private void SyncSelectionFlags()
+    {
+        foreach (var node in _selectedNodes)
+        {
+            node.IsInSelection = true;
+        }
+    }
+
+    private static bool SharesSelectionParent(TreeNodeViewModel a, TreeNodeViewModel b)
+    {
+        if (a is CollectionNodeViewModel && a.Parent is null
+            && b is CollectionNodeViewModel && b.Parent is null)
+        {
+            return true;
+        }
+
+        return a.Parent is not null && ReferenceEquals(a.Parent, b.Parent);
+    }
+
+    private IEnumerable<TreeNodeViewModel> EnumerateSiblingRange(TreeNodeViewModel a, TreeNodeViewModel b)
+    {
+        if (a is CollectionNodeViewModel && a.Parent is null
+            && b is CollectionNodeViewModel && b.Parent is null)
+        {
+            var i = Collections.IndexOf((CollectionNodeViewModel)a);
+            var j = Collections.IndexOf((CollectionNodeViewModel)b);
+            if (i < 0 || j < 0)
+            {
+                yield break;
+            }
+
+            var start = Math.Min(i, j);
+            var end = Math.Max(i, j);
+            for (var k = start; k <= end; k++)
+            {
+                yield return Collections[k];
+            }
+
+            yield break;
+        }
+
+        var parent = a.Parent;
+        if (parent is null || !ReferenceEquals(parent, b.Parent))
+        {
+            yield break;
+        }
+
+        var ai = parent.Children.IndexOf(a);
+        var bi = parent.Children.IndexOf(b);
+        if (ai < 0 || bi < 0)
+        {
+            yield break;
+        }
+
+        var from = Math.Min(ai, bi);
+        var to = Math.Max(ai, bi);
+        for (var k = from; k <= to; k++)
+        {
+            yield return parent.Children[k];
+        }
     }
 
     private void OnSelectedNodePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -756,6 +1008,48 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         InsertNodeCore(parent, node, index);
 
     void IUndoContext.Select(TreeNodeViewModel? node) => SelectedNode = node;
+
+    void IUndoContext.RevealAndSelect(IReadOnlyList<TreeNodeViewModel> nodes) =>
+        RevealAndSelectNodes(nodes);
+
+    private void RevealAndSelectNodes(IReadOnlyList<TreeNodeViewModel> nodes)
+    {
+        var batch = nodes.Where(n => n is not null).Distinct().ToList();
+        if (batch.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var node in batch)
+        {
+            for (var ancestor = node.Parent; ancestor is not null; ancestor = ancestor.Parent)
+            {
+                ancestor.IsExpanded = true;
+            }
+        }
+
+        // Refresh filter flags after structural undo; clear filter if it would hide restored nodes.
+        ApplyTreeFilter();
+        if (HasTreeFilter && batch.Any(n => !n.IsVisibleInFilter))
+        {
+            TreeFilterText = string.Empty;
+        }
+
+        var primary = batch[0];
+        ReplaceSelection(batch, primary);
+        _selectionAnchor = primary;
+        if (!ReferenceEquals(SelectedNode, primary))
+        {
+            SelectedNode = primary;
+        }
+        else
+        {
+            SyncSelectionFlags();
+            OnPropertyChanged(nameof(SelectionSummary));
+        }
+
+        TreeRevealRequested?.Invoke(batch);
+    }
 
     private static void SetName(TreeNodeViewModel node, string name)
     {
@@ -2095,7 +2389,145 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     /// <summary>Moves a node on drop. Returns true when the tree changed.</summary>
-    public bool TryMoveNode(TreeNodeViewModel source, TreeNodeViewModel? target, TreeDropPlacement placement)
+    public bool TryMoveNode(TreeNodeViewModel source, TreeNodeViewModel? target, TreeDropPlacement placement) =>
+        TryMoveNodes([source], target, placement);
+
+    /// <summary>Moves one or more nodes to the drop target.</summary>
+    public bool TryMoveNodes(
+        IReadOnlyList<TreeNodeViewModel> sources,
+        TreeNodeViewModel? target,
+        TreeDropPlacement placement)
+    {
+        var batch = PruneRedundantDescendants(sources.Where(s => s is not null).Distinct().ToList());
+        if (batch.Count == 0)
+        {
+            return false;
+        }
+
+        if (batch.Count == 1)
+        {
+            return TryMoveNodeCore(batch[0], target, placement);
+        }
+
+        foreach (var source in batch)
+        {
+            if (target is not null && (ReferenceEquals(source, target) || IsUnder(target, source)))
+            {
+                return false;
+            }
+        }
+
+        // Preserve relative order in the shared parent when possible; otherwise selection order.
+        batch = OrderBatchForMove(batch);
+
+        _suppressMoveSideEffects = true;
+        var undoSteps = new List<IUndoAction>();
+        var movedAny = false;
+        try
+        {
+            if (placement == TreeDropPlacement.Root || (target is null && placement == TreeDropPlacement.Root))
+            {
+                var insertAt = 0;
+                foreach (var source in batch)
+                {
+                    if (TryMoveIdentityCollectUndo(source, parent: null, insertAt, undoSteps))
+                    {
+                        movedAny = true;
+                        insertAt++;
+                    }
+                }
+            }
+            else if (target is null)
+            {
+                return false;
+            }
+            else if (placement == TreeDropPlacement.Into)
+            {
+                if (target is not (CollectionNodeViewModel or FolderNodeViewModel))
+                {
+                    return false;
+                }
+
+                if (batch.Any(s => s is CollectionNodeViewModel))
+                {
+                    return false;
+                }
+
+                foreach (var source in batch)
+                {
+                    if (TryMoveIdentityCollectUndo(source, target, target.Children.Count, undoSteps))
+                    {
+                        movedAny = true;
+                    }
+                }
+            }
+            else
+            {
+                var after = placement == TreeDropPlacement.After;
+                if (!TryResolveBesideInsert(target, after, out var parent, out var insertAt))
+                {
+                    return false;
+                }
+
+                // Multi-select convert of root collections into folders is not supported.
+                if (parent is not null && batch.Any(s => s is CollectionNodeViewModel))
+                {
+                    return false;
+                }
+
+                // Adjust insert index for selected nodes currently before the insertion point.
+                var beforeCount = batch.Count(n =>
+                {
+                    if (!TryGetSiblingIndex(n, out var p, out var idx))
+                    {
+                        return false;
+                    }
+
+                    return ReferenceEquals(p, parent) && idx < insertAt;
+                });
+                insertAt -= beforeCount;
+
+                foreach (var source in batch)
+                {
+                    if (TryMoveIdentityCollectUndo(source, parent, insertAt, undoSteps))
+                    {
+                        movedAny = true;
+                        insertAt++;
+                    }
+                }
+            }
+        }
+        finally
+        {
+            _suppressMoveSideEffects = false;
+        }
+
+        if (!movedAny)
+        {
+            return false;
+        }
+
+        if (undoSteps.Count > 0)
+        {
+            RecordUndo(new CompositeUndoAction(
+                $"Move {batch.Count} items",
+                undoSteps,
+                selectAfter: batch,
+                selectAfterInverse: batch));
+        }
+
+        ReplaceSelection(batch, batch[0]);
+        SelectedNode = batch[0];
+        foreach (var node in batch)
+        {
+            RefreshRowLayoutAfterMove(node);
+        }
+
+        StatusMessage = $"Moved {batch.Count} items (Ctrl+S to persist)";
+        return true;
+    }
+
+    private bool TryMoveNodeCore(TreeNodeViewModel source, TreeNodeViewModel? target, TreeDropPlacement placement)
     {
         if (placement == TreeDropPlacement.Root || (target is null && placement == TreeDropPlacement.Root))
         {
@@ -2151,27 +2583,50 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private bool CanMoveSelectedAmongSiblings(int direction)
     {
-        if (Keyboard.FocusedElement is TextBox || SelectedNode is null)
+        if (Keyboard.FocusedElement is TextBox)
         {
             return false;
         }
 
-        return TryGetSibling(SelectedNode, direction, out _, out _);
+        var batch = GetMoveBatch();
+        if (batch.Count == 0)
+        {
+            return false;
+        }
+
+        if (batch.Count == 1)
+        {
+            return TryGetSibling(batch[0], direction, out _, out _);
+        }
+
+        return TryGetBlockMoveAnchor(batch, direction, out _, out _);
     }
 
     private bool TryMoveSelectedAmongSiblings(int direction)
     {
-        if (SelectedNode is null
-            || !TryGetSibling(SelectedNode, direction, out var sibling, out _))
+        var batch = GetMoveBatch();
+        if (batch.Count == 0)
         {
             return false;
         }
 
-        // Defer filter re-apply while Alt+Up/Down is held so visibility stays stable mid-move.
         _deferTreeFilterDuringAltMove = true;
+        bool moved;
+        if (batch.Count == 1)
+        {
+            if (!TryGetSibling(batch[0], direction, out var sibling, out _))
+            {
+                _deferTreeFilterDuringAltMove = false;
+                return false;
+            }
 
-        // Up → place before the sibling above; Down → place after the sibling below.
-        var moved = MoveBeside(SelectedNode, sibling, after: direction > 0);
+            moved = MoveBeside(batch[0], sibling, after: direction > 0);
+        }
+        else
+        {
+            moved = TryMoveSelectionBlockAmongSiblings(batch, direction);
+        }
+
         if (!moved)
         {
             _deferTreeFilterDuringAltMove = false;
@@ -2183,6 +2638,257 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             EndAltMoveFilterDeferral();
         }
 
+        return true;
+    }
+
+    private bool TryMoveSelectionBlockAmongSiblings(IReadOnlyList<TreeNodeViewModel> batch, int direction)
+    {
+        if (!TryGetBlockMoveAnchor(batch, direction, out var parent, out var insertAt))
+        {
+            return false;
+        }
+
+        var ordered = OrderBatchForMove(batch);
+        var beforeCount = ordered.Count(n =>
+        {
+            if (!TryGetSiblingIndex(n, out var p, out var idx))
+            {
+                return false;
+            }
+
+            return ReferenceEquals(p, parent) && idx < insertAt;
+        });
+        insertAt -= beforeCount;
+
+        _suppressMoveSideEffects = true;
+        var undoSteps = new List<IUndoAction>();
+        var movedAny = false;
+        try
+        {
+            foreach (var source in ordered)
+            {
+                if (TryMoveIdentityCollectUndo(source, parent, insertAt, undoSteps))
+                {
+                    movedAny = true;
+                    insertAt++;
+                }
+            }
+        }
+        finally
+        {
+            _suppressMoveSideEffects = false;
+        }
+
+        if (!movedAny)
+        {
+            return false;
+        }
+
+        RecordUndo(new CompositeUndoAction(
+            $"Move {ordered.Count} items",
+            undoSteps,
+            selectAfter: ordered,
+            selectAfterInverse: ordered));
+        ReplaceSelection(ordered, ordered[0]);
+        SelectedNode = ordered[0];
+        foreach (var node in ordered)
+        {
+            RefreshRowLayoutAfterMove(node);
+        }
+
+        StatusMessage = $"Moved {ordered.Count} items (Ctrl+S to persist)";
+        return true;
+    }
+
+    private bool TryGetBlockMoveAnchor(
+        IReadOnlyList<TreeNodeViewModel> batch,
+        int direction,
+        out TreeNodeViewModel? parent,
+        out int insertAt)
+    {
+        parent = null;
+        insertAt = -1;
+        if (batch.Count == 0 || !batch.All(n => SharesSelectionParent(n, batch[0])))
+        {
+            return false;
+        }
+
+        var ordered = OrderBatchForMove(batch);
+        if (direction < 0)
+        {
+            if (!TryGetSibling(ordered[0], -1, out var sibling, out _))
+            {
+                return false;
+            }
+
+            // Skip siblings that are part of the selection.
+            while (batch.Contains(sibling))
+            {
+                if (!TryGetSibling(sibling, -1, out sibling, out _))
+                {
+                    return false;
+                }
+            }
+
+            return TryResolveBesideInsert(sibling, after: false, out parent, out insertAt);
+        }
+
+        if (!TryGetSibling(ordered[^1], 1, out var next, out _))
+        {
+            return false;
+        }
+
+        while (batch.Contains(next))
+        {
+            if (!TryGetSibling(next, 1, out next, out _))
+            {
+                return false;
+            }
+        }
+
+        return TryResolveBesideInsert(next, after: true, out parent, out insertAt);
+    }
+
+    private List<TreeNodeViewModel> OrderBatchForMove(IReadOnlyList<TreeNodeViewModel> batch)
+    {
+        if (batch.Count <= 1)
+        {
+            return batch.ToList();
+        }
+
+        if (batch.All(n => SharesSelectionParent(n, batch[0])))
+        {
+            return batch
+                .Select(n => (Node: n, Index: TryGetSiblingIndex(n, out _, out var idx) ? idx : int.MaxValue))
+                .OrderBy(t => t.Index)
+                .Select(t => t.Node)
+                .ToList();
+        }
+
+        return batch.ToList();
+    }
+
+    private bool TryResolveBesideInsert(
+        TreeNodeViewModel target,
+        bool after,
+        out TreeNodeViewModel? parent,
+        out int insertAt)
+    {
+        parent = null;
+        insertAt = -1;
+
+        if (target is CollectionNodeViewModel && target.Parent is null)
+        {
+            insertAt = Collections.IndexOf((CollectionNodeViewModel)target);
+            if (insertAt < 0)
+            {
+                return false;
+            }
+
+            if (after)
+            {
+                insertAt++;
+            }
+
+            return true;
+        }
+
+        parent = target.Parent;
+        if (parent is null)
+        {
+            return false;
+        }
+
+        insertAt = parent.Children.IndexOf(target);
+        if (insertAt < 0)
+        {
+            return false;
+        }
+
+        if (after)
+        {
+            insertAt++;
+        }
+
+        return true;
+    }
+
+    private bool TryGetSiblingIndex(TreeNodeViewModel node, out TreeNodeViewModel? parent, out int index)
+    {
+        if (node is CollectionNodeViewModel collection && node.Parent is null)
+        {
+            parent = null;
+            index = Collections.IndexOf(collection);
+            return index >= 0;
+        }
+
+        parent = node.Parent;
+        if (parent is null)
+        {
+            index = -1;
+            return false;
+        }
+
+        index = parent.Children.IndexOf(node);
+        return index >= 0;
+    }
+
+    private bool TryMoveIdentityCollectUndo(
+        TreeNodeViewModel source,
+        TreeNodeViewModel? parent,
+        int index,
+        List<IUndoAction> undoSteps)
+    {
+        var oldParent = source.Parent;
+        var oldIndex = oldParent is not null
+            ? oldParent.Children.IndexOf(source)
+            : Collections.IndexOf((CollectionNodeViewModel)source);
+
+        if (oldIndex < 0 && source is not CollectionNodeViewModel)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(oldParent, parent) && oldIndex >= 0 && oldIndex < index)
+        {
+            index--;
+        }
+
+        if (parent is null && source is CollectionNodeViewModel
+            && oldParent is null && oldIndex == index)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(oldParent, parent) && oldIndex == index)
+        {
+            return false;
+        }
+
+        RemoveNodeCore(source);
+
+        if (parent is null)
+        {
+            if (source is not CollectionNodeViewModel)
+            {
+                return false;
+            }
+
+            index = Math.Clamp(index, 0, Collections.Count);
+        }
+        else
+        {
+            index = Math.Clamp(index, 0, parent.Children.Count);
+        }
+
+        InsertNodeCore(parent, source, index);
+        if (parent is not null)
+        {
+            parent.IsExpanded = true;
+        }
+
+        undoSteps.Add(new RemoveNodeAction(source, parent, index, $"Move '{source.Name}'"));
+        undoSteps.Add(new InsertNodeAction(oldParent, source, oldIndex, $"Move '{source.Name}'"));
         return true;
     }
 
@@ -2380,7 +3086,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             [
                 new RemoveNodeAction(newNode, null, index, $"Move '{source.Name}' to top level"),
                 new InsertNodeAction(oldParent, source, oldIndex, $"Move '{source.Name}' to top level")
-            ]));
+            ],
+            selectAfter: [source],
+            selectAfterInverse: [newNode]));
 
         StatusMessage = $"Moved '{source.Name}' to top level (Ctrl+S to persist)";
         return true;
@@ -2419,7 +3127,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             [
                 new RemoveNodeAction(folderNode, parent, index, $"Move '{collection.Name}'"),
                 new InsertNodeAction(null, collection, oldIndex, $"Move '{collection.Name}'")
-            ]));
+            ],
+            selectAfter: [collection],
+            selectAfterInverse: [folderNode]));
 
         StatusMessage = $"Moved '{collection.Name}' into '{parent.Name}' as a folder (Ctrl+S to persist)";
         return true;
@@ -2478,18 +3188,21 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             parent.IsExpanded = true;
         }
 
-        SelectedNode = source;
+        if (!_suppressMoveSideEffects)
+        {
+            SelectedNode = source;
+            RefreshRowLayoutAfterMove(source);
+            RecordUndo(new CompositeUndoAction(
+                $"Move '{source.Name}'",
+                [
+                    new RemoveNodeAction(source, parent, index, $"Move '{source.Name}'"),
+                    new InsertNodeAction(oldParent, source, oldIndex, $"Move '{source.Name}'")
+                ],
+                selectAfter: [source],
+                selectAfterInverse: [source]));
+            StatusMessage = $"Moved '{source.Name}' (Ctrl+S to persist)";
+        }
 
-        RefreshRowLayoutAfterMove(source);
-
-        RecordUndo(new CompositeUndoAction(
-            $"Move '{source.Name}'",
-            [
-                new RemoveNodeAction(source, parent, index, $"Move '{source.Name}'"),
-                new InsertNodeAction(oldParent, source, oldIndex, $"Move '{source.Name}'")
-            ]));
-
-        StatusMessage = $"Moved '{source.Name}' (Ctrl+S to persist)";
         return true;
     }
 

@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private MainViewModel? _subscribedVm;
     private double _quickExportWidth = QuickExportDefaultWidth;
     private bool _uiPreferencesApplied;
+    private TreeNodeViewModel? _pendingMultiSelectClearNode;
 
     public MainWindow()
     {
@@ -47,6 +48,7 @@ public partial class MainWindow : Window
         if (_subscribedVm is not null)
         {
             _subscribedVm.PropertyChanged -= ViewModel_OnPropertyChanged;
+            _subscribedVm.TreeRevealRequested -= ViewModel_OnTreeRevealRequested;
             _subscribedVm = null;
         }
 
@@ -54,6 +56,7 @@ public partial class MainWindow : Window
         {
             _subscribedVm = vm;
             _subscribedVm.PropertyChanged += ViewModel_OnPropertyChanged;
+            _subscribedVm.TreeRevealRequested += ViewModel_OnTreeRevealRequested;
             _quickExportWidth = SanitizeQuickExportWidth(vm.UiPreferences.QuickExportWidth);
             if (IsLoaded)
             {
@@ -61,6 +64,29 @@ public partial class MainWindow : Window
                 SyncQuickExportColumns();
             }
         }
+    }
+
+    private void ViewModel_OnTreeRevealRequested(IReadOnlyList<TreeNodeViewModel> nodes)
+    {
+        if (nodes.Count == 0)
+        {
+            return;
+        }
+
+        // Wait for expand/filter layout before scrolling the restored selection into view.
+        Dispatcher.BeginInvoke(() =>
+        {
+            CollectionTree.UpdateLayout();
+            var primary = nodes[0];
+            if (TryFocusTreeNode(primary))
+            {
+                return;
+            }
+
+            // Containers for newly re-parented nodes may need a second layout pass.
+            Dispatcher.BeginInvoke(() => TryFocusTreeNode(primary),
+                System.Windows.Threading.DispatcherPriority.Loaded);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void ViewModel_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -296,10 +322,84 @@ public partial class MainWindow : Window
 
     private void CollectionTree_OnSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
-        if (DataContext is MainViewModel vm)
+        if (DataContext is not MainViewModel vm)
         {
-            vm.SelectedNode = e.NewValue as TreeNodeViewModel;
+            return;
         }
+
+        // Ctrl/Shift selection is handled in PreviewMouseLeftButtonDown.
+        if (Keyboard.Modifiers is ModifierKeys.Control or ModifierKeys.Shift
+            or (ModifierKeys.Control | ModifierKeys.Shift))
+        {
+            return;
+        }
+
+        if (e.NewValue is TreeNodeViewModel node)
+        {
+            vm.SelectedNode = node;
+        }
+    }
+
+    private void CollectionTree_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _pendingMultiSelectClearNode = null;
+        if (DataContext is not MainViewModel vm
+            || FindAncestor<ButtonBase>(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        var item = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
+        if (item?.DataContext is not TreeNodeViewModel node)
+        {
+            return;
+        }
+
+        var mods = Keyboard.Modifiers;
+        if (mods.HasFlag(ModifierKeys.Shift))
+        {
+            vm.SelectRange(node);
+            item.Focus();
+            e.Handled = true;
+            return;
+        }
+
+        if (mods.HasFlag(ModifierKeys.Control))
+        {
+            vm.ToggleSelection(node);
+            item.Focus();
+            e.Handled = true;
+            return;
+        }
+
+        if (vm.IsNodeInSelection(node) && vm.SelectedNodes.Count > 1)
+        {
+            // Defer collapsing multi-select until mouse up if this was not a drag.
+            _pendingMultiSelectClearNode = node;
+            return;
+        }
+
+        vm.SelectOnly(node);
+    }
+
+    private void CollectionTree_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_pendingMultiSelectClearNode is null
+            || DataContext is not MainViewModel vm
+            || _treeDragDrop.DidCompleteDrag)
+        {
+            _pendingMultiSelectClearNode = null;
+            _treeDragDrop.ResetDidCompleteDrag();
+            return;
+        }
+
+        if (!_treeDragDrop.IsDragActive)
+        {
+            vm.SelectOnly(_pendingMultiSelectClearNode);
+        }
+
+        _pendingMultiSelectClearNode = null;
+        _treeDragDrop.ResetDidCompleteDrag();
     }
 
     private void TreeFilterOptionsButton_OnClick(object sender, RoutedEventArgs e)

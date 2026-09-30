@@ -11,4 +11,10 @@ public interface IUndoContext
     void InsertNode(TreeNodeViewModel? parent, TreeNodeViewModel node, int index);
 
     void Select(TreeNodeViewModel? node);
+
+    /// <summary>
+    /// Expands ancestors, clears the tree filter if needed, selects the nodes,
+    /// and requests that they be scrolled into view.
+    /// </summary>
+    void RevealAndSelect(IReadOnlyList<TreeNodeViewModel> nodes);
 }

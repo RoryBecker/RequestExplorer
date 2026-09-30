@@ -69,6 +69,10 @@ public abstract partial class TreeNodeViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
+    /// <summary>True when this node is part of the multi-selection set (including the primary).</summary>
+    [ObservableProperty]
+    private bool _isInSelection;
+
     [ObservableProperty]
     private TreeDropIndicator _dropIndicator;
 

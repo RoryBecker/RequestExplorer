@@ -458,6 +458,8 @@
                               ScrollViewer.VerticalScrollBarVisibility="Auto"
                               ItemsSource="{Binding Collections}"
                               SelectedItemChanged="CollectionTree_OnSelectedItemChanged"
+                              PreviewMouseLeftButtonDown="CollectionTree_OnPreviewMouseLeftButtonDown"
+                              PreviewMouseLeftButtonUp="CollectionTree_OnPreviewMouseLeftButtonUp"
                               PreviewMouseRightButtonDown="CollectionTree_OnPreviewMouseRightButtonDown"
                               PreviewKeyDown="CollectionTree_OnPreviewKeyDown">
                         <TreeView.ItemContainerStyle>
@@ -516,6 +518,9 @@
                                                 <Trigger Property="IsExpanded" Value="False">
                                                     <Setter TargetName="ItemsHost" Property="Visibility" Value="Collapsed" />
                                                 </Trigger>
+                                                <DataTrigger Binding="{Binding IsInSelection}" Value="True">
+                                                    <Setter TargetName="Bd" Property="Background" Value="{StaticResource Tree.SelectionBrush}" />
+                                                </DataTrigger>
                                                 <Trigger Property="IsSelected" Value="True">
                                                     <Setter TargetName="Bd" Property="Background" Value="{StaticResource Tree.SelectionBrush}" />
                                                 </Trigger>

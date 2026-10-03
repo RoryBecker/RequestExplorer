@@ -33,6 +33,12 @@ public sealed class UiPreferences
 
     public bool TreeFilterIncludeUrl { get; set; } = true;
 
+    /// <summary>Global HTTP send timeout in seconds when <see cref="DevModeIgnoreTimeout"/> is false.</summary>
+    public int RequestTimeoutSeconds { get; set; } = 30;
+
+    /// <summary>When true, HTTP sends use an infinite timeout (cancel still works).</summary>
+    public bool DevModeIgnoreTimeout { get; set; }
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

@@ -6,7 +6,7 @@ using RequestExplorer.Services.Undo;
 namespace RequestExplorer.ViewModels;
 
 /// <summary>Collection or folder that can define scoped key/value variables.</summary>
-public abstract partial class ContainerNodeViewModel : TreeNodeViewModel
+public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyValueListSortHost
 {
     private bool _ensuringSpare;
     private bool _suppressFieldUndo;
@@ -200,28 +200,37 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel
             new InsertVariableRowAction(this, item, index, description));
     }
 
+    /// <summary>Ensures variables have a single trailing blank spare row.</summary>
+    public void NormalizeSpareRows() => EnsureVariableSpareRow();
+
+    public void OnKeyValueListReordered(ObservableCollection<KeyValueItemViewModel> list)
+    {
+        if (!ReferenceEquals(list, Variables))
+        {
+            return;
+        }
+
+        ModelVariables.Clear();
+        foreach (var vm in Variables)
+        {
+            ModelVariables.Add(vm.Model);
+        }
+
+        IsDirty = true;
+        EnsureVariableSpareRow();
+    }
+
     private void EnsureVariableSpareRow()
     {
-        if (_ensuringSpare)
+        if (!_ensuringSpare && KeyValueSpareRowHelper.HasValidTrailingSpare(Variables))
         {
             return;
         }
 
-        if (Variables.Count > 0 && string.IsNullOrWhiteSpace(Variables[^1].Key))
-        {
-            return;
-        }
-
-        _ensuringSpare = true;
-        try
-        {
-            var item = new KeyValueItem { IsEnabled = false };
-            ModelVariables.Add(item);
-            Variables.Add(CreateVariableVm(item));
-        }
-        finally
-        {
-            _ensuringSpare = false;
-        }
+        KeyValueSpareRowHelper.EnsureTrailingSpare(
+            Variables,
+            ModelVariables,
+            CreateVariableVm,
+            ref _ensuringSpare);
     }
 }

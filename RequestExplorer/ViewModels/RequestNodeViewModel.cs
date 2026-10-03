@@ -9,7 +9,7 @@ using RequestExplorer.Services.Undo;
 
 namespace RequestExplorer.ViewModels;
 
-public sealed partial class RequestNodeViewModel : TreeNodeViewModel
+public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueListSortHost
 {
     private bool _trackDirty = true;
     private bool _ensuringSpare;
@@ -75,6 +75,12 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
 
     public ObservableCollection<KeyValueItemViewModel> Params { get; } = [];
     public ObservableCollection<KeyValueItemViewModel> Headers { get; } = [];
+
+    /// <summary>
+    /// Most recent send/diagnosis result for this request in the current session only.
+    /// Not persisted to disk.
+    /// </summary>
+    public ResponseViewModel LastResponse { get; } = new();
 
     [ObservableProperty]
     private HttpVerb _verb;
@@ -714,54 +720,58 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel
         return true;
     }
 
+    /// <summary>Ensures params/headers each have a single trailing blank spare row.</summary>
+    public void NormalizeSpareRows()
+    {
+        EnsureParamSpareRow();
+        EnsureHeaderSpareRow();
+    }
+
+    public void OnKeyValueListReordered(ObservableCollection<KeyValueItemViewModel> list)
+    {
+        if (ReferenceEquals(list, Params))
+        {
+            SyncList(Model.Params, Params);
+            MarkDirty();
+            EnsureParamSpareRow();
+            SyncAddressFromParams();
+            return;
+        }
+
+        if (ReferenceEquals(list, Headers))
+        {
+            SyncList(Model.Headers, Headers);
+            MarkDirty();
+            EnsureHeaderSpareRow();
+        }
+    }
+
     private void EnsureParamSpareRow()
     {
-        if (_ensuringSpare)
+        if (!_ensuringSpare && KeyValueSpareRowHelper.HasValidTrailingSpare(Params))
         {
             return;
         }
 
-        if (Params.Count > 0 && string.IsNullOrWhiteSpace(Params[^1].Key))
-        {
-            return;
-        }
-
-        _ensuringSpare = true;
-        try
-        {
-            var item = new KeyValueItem { IsEnabled = false };
-            Model.Params.Add(item);
-            Params.Add(CreateParamVm(item));
-        }
-        finally
-        {
-            _ensuringSpare = false;
-        }
+        KeyValueSpareRowHelper.EnsureTrailingSpare(
+            Params,
+            Model.Params,
+            CreateParamVm,
+            ref _ensuringSpare);
     }
 
     private void EnsureHeaderSpareRow()
     {
-        if (_ensuringSpare)
+        if (!_ensuringSpare && KeyValueSpareRowHelper.HasValidTrailingSpare(Headers))
         {
             return;
         }
 
-        if (Headers.Count > 0 && string.IsNullOrWhiteSpace(Headers[^1].Key))
-        {
-            return;
-        }
-
-        _ensuringSpare = true;
-        try
-        {
-            var item = new KeyValueItem { IsEnabled = false };
-            Model.Headers.Add(item);
-            Headers.Add(CreateHeaderVm(item));
-        }
-        finally
-        {
-            _ensuringSpare = false;
-        }
+        KeyValueSpareRowHelper.EnsureTrailingSpare(
+            Headers,
+            Model.Headers,
+            CreateHeaderVm,
+            ref _ensuringSpare);
     }
 
     private void OnParamsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

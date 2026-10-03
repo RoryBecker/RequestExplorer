@@ -1,6 +1,60 @@
 <UserControl x:Class="RequestExplorer.Views.ResponsePanelView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             HorizontalAlignment="Stretch"
+             VerticalAlignment="Stretch"
+             DataContextChanged="ResponsePanelView_OnDataContextChanged">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="ResponseTabRadio" TargetType="RadioButton">
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Chrome"
+                                Background="Transparent"
+                                BorderBrush="#FFE5E7EB"
+                                BorderThickness="1,1,1,0"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="3,3,0,0">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="White" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#FF2563EB" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="#FFF3F4F6" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FloodRawTextBox" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="AcceptsReturn" Value="True" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#FFE5E7EB" />
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="Background" Value="White" />
+        </Style>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -8,138 +62,191 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,4">
+        <DockPanel Grid.Row="0"
+                   Margin="0,0,0,2"
+                   LastChildFill="False">
             <TextBlock DockPanel.Dock="Left"
-                       FontWeight="SemiBold"
-                       FontSize="14"
-                       Text="Response"
-                       VerticalAlignment="Center" />
-            <StackPanel DockPanel.Dock="Right"
-                        Orientation="Horizontal"
-                        VerticalAlignment="Center">
-                <TextBlock Margin="0,0,16,0">
-                    <Run Text="Status: " Foreground="#FF888888" />
-                    <Run Text="{Binding StatusDisplay, Mode=OneWay}" FontWeight="SemiBold" />
-                </TextBlock>
-                <TextBlock>
-                    <Run Text="Time: " Foreground="#FF888888" />
-                    <Run Text="{Binding ElapsedDisplay, Mode=OneWay}" FontWeight="SemiBold" />
-                </TextBlock>
-            </StackPanel>
-        </DockPanel>
-
-        <TextBlock Grid.Row="1"
-                   Margin="0,0,0,4"
-                   Foreground="#FFB45309"
-                   Text="{Binding SizeWarning}">
-            <TextBlock.Style>
-                <Style TargetType="TextBlock">
-                    <Setter Property="Visibility" Value="Visible" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding SizeWarning}" Value="">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </TextBlock.Style>
-        </TextBlock>
-
-        <Grid Grid.Row="2">
-            <TextBlock VerticalAlignment="Center"
-                       HorizontalAlignment="Center"
-                       Foreground="#FF999999"
-                       Text="No response yet. Press Send to run this request.">
+                       VerticalAlignment="Center"
+                       Margin="0,0,16,0">
+                <Run Text="Status " Foreground="#FF888888" />
+                <Run Text="{Binding StatusDisplay, Mode=OneWay}" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
+                       Margin="0,0,16,0">
+                <Run Text="Time " Foreground="#FF888888" />
+                <Run Text="{Binding ElapsedDisplay, Mode=OneWay}" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
+                       Margin="0,0,12,0"
+                       Foreground="#FFB45309"
+                       Text="{Binding SizeWarning}">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
-                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Setter Property="Visibility" Value="Visible" />
                         <Style.Triggers>
-                            <MultiDataTrigger>
-                                <MultiDataTrigger.Conditions>
-                                    <Condition Binding="{Binding HasResult}" Value="False" />
-                                    <Condition Binding="{Binding IsSending}" Value="False" />
-                                </MultiDataTrigger.Conditions>
-                                <Setter Property="Visibility" Value="Visible" />
-                            </MultiDataTrigger>
+                            <DataTrigger Binding="{Binding SizeWarning}" Value="">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
                 </TextBlock.Style>
             </TextBlock>
-
-            <TabControl>
-                <TabControl.Style>
-                    <Style TargetType="TabControl">
-                        <Setter Property="Visibility" Value="Visible" />
+            <Button DockPanel.Dock="Right"
+                    Padding="10,2"
+                    VerticalAlignment="Center"
+                    Content="Save body…"
+                    ToolTip="Save the response body to a file"
+                    Command="{Binding SaveBodyCommand}">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                        <Setter Property="Visibility" Value="Collapsed" />
                         <Style.Triggers>
-                            <MultiDataTrigger>
-                                <MultiDataTrigger.Conditions>
-                                    <Condition Binding="{Binding HasResult}" Value="False" />
-                                    <Condition Binding="{Binding IsSending}" Value="False" />
-                                </MultiDataTrigger.Conditions>
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </MultiDataTrigger>
+                            <DataTrigger Binding="{Binding CanSaveBody}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsDownloadable}" Value="True">
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </DataTrigger>
                         </Style.Triggers>
                     </Style>
-                </TabControl.Style>
+                </Button.Style>
+            </Button>
+        </DockPanel>
 
-                <TabItem Header="Body">
-                    <TextBox Margin="4"
-                             IsReadOnly="True"
-                             AcceptsReturn="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto"
-                             HorizontalScrollBarVisibility="Auto"
-                             FontFamily="Consolas"
-                             FontSize="12"
-                             Text="{Binding BodyText, Mode=OneWay}" />
-                </TabItem>
+        <StackPanel x:Name="TabStrip"
+                    Grid.Row="1"
+                    Orientation="Horizontal"
+                    Margin="0,0,0,4">
+            <RadioButton x:Name="TabBody"
+                         GroupName="ResponsePanelTabs"
+                         Content="Body"
+                         Style="{StaticResource ResponseTabRadio}"
+                         IsChecked="True"
+                         Checked="Tab_OnChecked" />
+            <RadioButton x:Name="TabHeaders"
+                         GroupName="ResponsePanelTabs"
+                         Content="Headers"
+                         Style="{StaticResource ResponseTabRadio}"
+                         Checked="Tab_OnChecked" />
+            <RadioButton x:Name="TabCookies"
+                         GroupName="ResponsePanelTabs"
+                         Content="Cookies"
+                         Style="{StaticResource ResponseTabRadio}"
+                         Checked="Tab_OnChecked" />
+            <RadioButton x:Name="TabRawResponse"
+                         GroupName="ResponsePanelTabs"
+                         Content="Raw Response"
+                         Style="{StaticResource ResponseTabRadio}"
+                         Checked="Tab_OnChecked" />
+            <RadioButton x:Name="TabTiming"
+                         GroupName="ResponsePanelTabs"
+                         Content="Timing"
+                         Style="{StaticResource ResponseTabRadio}"
+                         Checked="Tab_OnChecked" />
+        </StackPanel>
 
-                <TabItem Header="Headers">
-                    <ListView Margin="4"
-                              ItemsSource="{Binding Headers}"
-                              BorderThickness="0">
-                        <ListView.View>
-                            <GridView>
-                                <GridViewColumn Header="Name" Width="200" DisplayMemberBinding="{Binding Name}" />
-                                <GridViewColumn Header="Value" Width="480" DisplayMemberBinding="{Binding Value}" />
-                            </GridView>
-                        </ListView.View>
-                    </ListView>
-                </TabItem>
+        <!-- Star row: always consumes leftover height from the response grid row. -->
+        <Grid x:Name="ContentHost" Grid.Row="2">
+            <TextBlock x:Name="EmptyMessage"
+                       VerticalAlignment="Center"
+                       HorizontalAlignment="Center"
+                       Foreground="#FF999999"
+                       Text="No response yet. Press Send to run this request." />
 
-                <TabItem Header="Cookies">
-                    <ListView Margin="4"
-                              ItemsSource="{Binding Cookies}"
-                              BorderThickness="0">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}"
-                                           FontFamily="Consolas"
-                                           TextWrapping="Wrap"
-                                           Margin="0,2" />
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </TabItem>
-
-                <TabItem Header="Timing">
-                    <StackPanel Margin="12" Orientation="Vertical">
-                        <TextBlock Margin="0,0,0,8">
-                            <Run FontWeight="SemiBold" Text="Total: " />
-                            <Run Text="{Binding TotalTimingDisplay, Mode=OneWay}" />
-                        </TextBlock>
-                        <TextBlock Margin="0,0,0,8">
-                            <Run FontWeight="SemiBold" Text="Time to headers: " />
-                            <Run Text="{Binding TimeToHeadersDisplay, Mode=OneWay}" />
-                        </TextBlock>
-                        <TextBlock Margin="0,0,0,8">
-                            <Run FontWeight="SemiBold" Text="Body download: " />
-                            <Run Text="{Binding BodyReadDisplay, Mode=OneWay}" />
-                        </TextBlock>
-                        <TextBlock Foreground="#FF888888"
-                                   Text="DNS / connect / TLS timings are not available via HttpClient in this build." />
+            <DockPanel x:Name="BodyPanel" LastChildFill="True">
+                <DockPanel DockPanel.Dock="Top"
+                           Margin="0,0,0,4"
+                           LastChildFill="True">
+                    <TextBlock DockPanel.Dock="Left"
+                               Text="Find"
+                               VerticalAlignment="Center"
+                               Margin="0,0,6,0"
+                               Foreground="#FF888888" />
+                    <StackPanel DockPanel.Dock="Right"
+                                Orientation="Horizontal"
+                                Margin="4,0,0,0">
+                        <Button Padding="8,2"
+                                Margin="0,0,2,0"
+                                ToolTip="Previous match"
+                                Command="{Binding FindPreviousBodyMatchCommand}">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70E;" />
+                        </Button>
+                        <Button Padding="8,2"
+                                ToolTip="Next match"
+                                Command="{Binding FindNextBodyMatchCommand}">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70D;" />
+                        </Button>
                     </StackPanel>
-                </TabItem>
-            </TabControl>
+                    <TextBlock DockPanel.Dock="Right"
+                               MinWidth="72"
+                               Margin="8,0,0,0"
+                               VerticalAlignment="Center"
+                               Foreground="#FF888888"
+                               Text="{Binding BodySearchStatus, Mode=OneWay}" />
+                    <TextBox VerticalContentAlignment="Center"
+                             Text="{Binding BodySearchQuery, UpdateSourceTrigger=PropertyChanged}" />
+                </DockPanel>
+                <TextBox x:Name="BodyTextBox"
+                         Style="{StaticResource FloodRawTextBox}"
+                         Text="{Binding BodyText, Mode=OneWay}" />
+            </DockPanel>
+
+            <ListView x:Name="HeadersPanel"
+                      BorderThickness="0"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      ItemsSource="{Binding Headers}">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="Name" Width="200" DisplayMemberBinding="{Binding Name}" />
+                        <GridViewColumn Header="Value" Width="480" DisplayMemberBinding="{Binding Value}" />
+                    </GridView>
+                </ListView.View>
+            </ListView>
+
+            <ListView x:Name="CookiesPanel"
+                      BorderThickness="0"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      ItemsSource="{Binding Cookies}">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}"
+                                   FontFamily="Consolas"
+                                   TextWrapping="Wrap"
+                                   Margin="0,2" />
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <TextBox x:Name="RawResponseTextBox"
+                     Style="{StaticResource FloodRawTextBox}"
+                     Text="{Binding RawResponse, Mode=OneWay}" />
+
+            <ScrollViewer x:Name="TimingPanel"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch">
+                <StackPanel Margin="8,8,8,0" Orientation="Vertical">
+                    <TextBlock Margin="0,0,0,8">
+                        <Run FontWeight="SemiBold" Text="Total: " />
+                        <Run Text="{Binding TotalTimingDisplay, Mode=OneWay}" />
+                    </TextBlock>
+                    <TextBlock Margin="0,0,0,8">
+                        <Run FontWeight="SemiBold" Text="Time to headers: " />
+                        <Run Text="{Binding TimeToHeadersDisplay, Mode=OneWay}" />
+                    </TextBlock>
+                    <TextBlock Margin="0,0,0,8">
+                        <Run FontWeight="SemiBold" Text="Body download: " />
+                        <Run Text="{Binding BodyReadDisplay, Mode=OneWay}" />
+                    </TextBlock>
+                    <TextBlock Foreground="#FF888888"
+                               Text="DNS / connect / TLS timings are not available via HttpClient in this build." />
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
     </Grid>
 </UserControl>

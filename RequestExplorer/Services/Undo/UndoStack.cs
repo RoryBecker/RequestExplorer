@@ -32,6 +32,17 @@ public sealed class UndoStack : INotifyPropertyChanged
     public void Push(IUndoAction undoInstruction)
     {
         ArgumentNullException.ThrowIfNull(undoInstruction);
+
+        // Coalesce rapid consecutive edits (PropertyChanged typing) into one undo step.
+        if (_undo.TryPeek(out var top)
+            && top is ICoalescingUndoAction coalescing
+            && coalescing.CanCoalesceWith(undoInstruction))
+        {
+            _redo.Clear();
+            Notify();
+            return;
+        }
+
         _undo.Push(undoInstruction);
         _redo.Clear();
         Notify();

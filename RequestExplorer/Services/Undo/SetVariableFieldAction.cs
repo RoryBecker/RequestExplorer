@@ -2,7 +2,7 @@ using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Services.Undo;
 
-public sealed class SetVariableFieldAction : IUndoAction
+public sealed class SetVariableFieldAction : IUndoAction, ICoalescingUndoAction
 {
     private readonly ContainerNodeViewModel _container;
     private readonly KeyValueItemViewModel _item;
@@ -26,6 +26,13 @@ public sealed class SetVariableFieldAction : IUndoAction
     public string Description { get; }
 
     public UndoRevealTarget? RevealTarget => new(_container, EditorSurface.Variables);
+
+    public bool CanCoalesceWith(IUndoAction incoming) =>
+        incoming is SetVariableFieldAction other
+        && ReferenceEquals(_container, other._container)
+        && ReferenceEquals(_item, other._item)
+        && _field == other._field
+        && _field is not KeyValueField.IsEnabled;
 
     public IUndoAction Execute(IUndoContext context)
     {

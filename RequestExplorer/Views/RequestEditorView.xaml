@@ -1,7 +1,8 @@
 <UserControl x:Class="RequestExplorer.Views.RequestEditorView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:RequestExplorer.ViewModels">
+             xmlns:vm="clr-namespace:RequestExplorer.ViewModels"
+             xmlns:views="clr-namespace:RequestExplorer.Views">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
@@ -15,6 +16,7 @@
             <Setter Property="AutoGenerateColumns" Value="False" />
             <Setter Property="CanUserAddRows" Value="False" />
             <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="views:KeyValueGridSorting.SpareAwareSort" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="#FFEEEEEE" />
@@ -156,7 +158,9 @@
                           Margin="8"
                           ItemsSource="{Binding Params}">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="On" Width="44">
+                        <DataGridTemplateColumn Header="On"
+                                                Width="44"
+                                                SortMemberPath="IsEnabled">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
@@ -167,16 +171,18 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Key"
-                                            Binding="{Binding Key, UpdateSourceTrigger=LostFocus}"
+                                            Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
                                             Width="*"
                                             ElementStyle="{StaticResource KeyValueCellText}"
                                             EditingElementStyle="{StaticResource KeyValueCellEdit}" />
                         <DataGridTextColumn Header="Value"
-                                            Binding="{Binding Value, UpdateSourceTrigger=LostFocus}"
+                                            Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
                                             Width="2*"
                                             ElementStyle="{StaticResource KeyValueCellText}"
                                             EditingElementStyle="{StaticResource KeyValueCellEdit}" />
-                        <DataGridTemplateColumn Header="" Width="36">
+                        <DataGridTemplateColumn Header=""
+                                                Width="36"
+                                                CanUserSort="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Content="-"
@@ -202,7 +208,7 @@
                         <TextBox Width="220"
                                  HorizontalAlignment="Left"
                                  VerticalContentAlignment="Center"
-                                 Text="{Binding BodyContentType, UpdateSourceTrigger=LostFocus}" />
+                                 Text="{Binding BodyContentType, UpdateSourceTrigger=PropertyChanged}" />
                     </DockPanel>
                     <TextBox AcceptsReturn="True"
                              AcceptsTab="True"
@@ -211,7 +217,7 @@
                              HorizontalScrollBarVisibility="Auto"
                              FontFamily="Consolas"
                              FontSize="12"
-                             Text="{Binding BodyContent, UpdateSourceTrigger=LostFocus}" />
+                             Text="{Binding BodyContent, UpdateSourceTrigger=PropertyChanged}" />
                 </DockPanel>
             </TabItem>
 
@@ -220,7 +226,9 @@
                           Margin="8"
                           ItemsSource="{Binding Headers}">
                     <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="On" Width="44">
+                        <DataGridTemplateColumn Header="On"
+                                                Width="44"
+                                                SortMemberPath="IsEnabled">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
@@ -231,16 +239,18 @@
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
                         <DataGridTextColumn Header="Key"
-                                            Binding="{Binding Key, UpdateSourceTrigger=LostFocus}"
+                                            Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
                                             Width="*"
                                             ElementStyle="{StaticResource KeyValueCellText}"
                                             EditingElementStyle="{StaticResource KeyValueCellEdit}" />
                         <DataGridTextColumn Header="Value"
-                                            Binding="{Binding Value, UpdateSourceTrigger=LostFocus}"
+                                            Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
                                             Width="2*"
                                             ElementStyle="{StaticResource KeyValueCellText}"
                                             EditingElementStyle="{StaticResource KeyValueCellEdit}" />
-                        <DataGridTemplateColumn Header="" Width="36">
+                        <DataGridTemplateColumn Header=""
+                                                Width="36"
+                                                CanUserSort="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Button Content="-"
@@ -301,6 +311,18 @@
                                    Text="No authentication will be applied when sending." />
                     </StackPanel>
                 </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Raw Request">
+                <TextBox Margin="8"
+                         IsReadOnly="True"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Auto"
+                         FontFamily="Consolas"
+                         FontSize="12"
+                         Text="{Binding LastResponse.RawRequest, Mode=OneWay}" />
             </TabItem>
         </TabControl>
     </Grid>

@@ -12,6 +12,22 @@ public sealed class HttpExecutionResult
     public IReadOnlyList<HeaderEntry> Headers { get; init; } = [];
     public IReadOnlyList<string> Cookies { get; init; } = [];
     public TimingInfo Timing { get; init; } = new();
+
+    /// <summary>Raw body bytes for Save / binary handling (session-only).</summary>
+    public byte[]? BodyBytes { get; init; }
+
+    public string? ContentType { get; init; }
+
+    public string? SuggestedFileName { get; init; }
+
+    /// <summary>True when the response looks like a file download (attachment / binary).</summary>
+    public bool IsDownloadable { get; init; }
+
+    /// <summary>HttpClient-view request text captured at send time.</summary>
+    public string RawRequest { get; init; } = string.Empty;
+
+    /// <summary>Status + headers + body text captured at send time.</summary>
+    public string RawResponse { get; init; } = string.Empty;
 }
 
 public sealed class HeaderEntry

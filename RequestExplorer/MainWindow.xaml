@@ -152,6 +152,9 @@
                 <MenuItem Header="_Send" Command="{Binding SendRequestCommand}" InputGestureText="Ctrl+Enter" />
                 <MenuItem Header="_Cancel" Command="{Binding CancelSendCommand}" />
             </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Settings…" Command="{Binding OpenSettingsCommand}" />
+            </MenuItem>
             <MenuItem Header="_Help">
                 <MenuItem Header="_About RequestExplorer" Command="{Binding ShowAboutCommand}" />
             </MenuItem>
@@ -774,8 +777,10 @@
                                       DragCompleted="PanelSplitter_OnDragCompleted" />
 
                         <views:ResponsePanelView Grid.Row="2"
-                                                 Margin="12,4,12,12"
-                                                 DataContext="{Binding Response}" />
+                                                 Margin="4,0,4,4"
+                                                 HorizontalAlignment="Stretch"
+                                                 VerticalAlignment="Stretch"
+                                                 DataContext="{Binding SelectedRequest.LastResponse}" />
                     </Grid>
                 </Grid>
 

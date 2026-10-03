@@ -40,6 +40,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _httpExecutor = httpExecutor;
         _uiPreferencesService = uiPreferencesService ?? new UiPreferencesService();
         UiPreferences = _uiPreferencesService.Load();
+        if (UiPreferences.RequestTimeoutSeconds is < 1 or > 3600)
+        {
+            UiPreferences.RequestTimeoutSeconds = HttpRequestExecutor.DefaultTimeoutSeconds;
+        }
+
         _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
         _selectedExportFormat = ResolveExportFormat(UiPreferences.SelectedExportFormat);
         _isQuickExportWrap = UiPreferences.GetQuickExportWrap(_selectedExportFormat.Format.ToString());
@@ -48,6 +53,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _treeFilterIncludeUrl = UiPreferences.TreeFilterIncludeUrl;
         EnsureValidTreeSearchScope();
         SyncTreeSearchScope();
+        ApplyHttpTimeoutSettings();
 
         Collections.CollectionChanged += (_, _) =>
         {
@@ -78,6 +84,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         };
         LoadWorkspace();
     }
+
+    private void ApplyHttpTimeoutSettings() =>
+        _httpExecutor.ApplyTimeoutSettings(
+            UiPreferences.RequestTimeoutSeconds,
+            UiPreferences.DevModeIgnoreTimeout);
 
     public UiPreferences UiPreferences { get; }
 
@@ -112,7 +123,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     public ObservableCollection<HistoryMenuItem> RedoMenuItems { get; } = [];
 
-    public ResponseViewModel Response { get; } = new();
+    /// <summary>
+    /// Raised immediately before Save / Save All so the UI can commit in-progress edits.
+    /// </summary>
+    public event Action? PendingEditCommitRequested;
 
     public string StorageDirectory => _persistence.StorageDirectory;
 
@@ -1326,6 +1340,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [RelayCommand(CanExecute = nameof(CanSave))]
     private void Save()
     {
+        PendingEditCommitRequested?.Invoke();
+
         var collection = CollectionTreeMapper.FindRootCollection(SelectedNode);
         if (collection is null)
         {
@@ -1362,6 +1378,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [RelayCommand(CanExecute = nameof(CanSaveAll))]
     private void SaveAll()
     {
+        PendingEditCommitRequested?.Invoke();
+
         try
         {
             SaveAllCollections();
@@ -1391,10 +1409,30 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private void SaveCollection(CollectionNodeViewModel collection)
     {
+        // Normalize spare rows before persist so a blank mid-list cannot upset sync/save.
+        NormalizeKeyValueSpares(collection);
         CollectionTreeMapper.SyncModelFromView(collection);
         _persistence.Save(collection.Model);
         CollectionTreeMapper.ClearDirty(collection);
         OnPropertyChanged(nameof(HasAnyDirty));
+    }
+
+    private static void NormalizeKeyValueSpares(TreeNodeViewModel node)
+    {
+        switch (node)
+        {
+            case RequestNodeViewModel request:
+                request.NormalizeSpareRows();
+                break;
+            case ContainerNodeViewModel container:
+                container.NormalizeSpareRows();
+                break;
+        }
+
+        foreach (var child in node.Children)
+        {
+            NormalizeKeyValueSpares(child);
+        }
     }
 
     [RelayCommand(CanExecute = nameof(CanSendRequest))]
@@ -1405,12 +1443,16 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return;
         }
 
-        var diagnosis = VariableDiagnostics.DiagnoseRequest(SelectedRequest);
+        // Capture the request so a selection change mid-flight still updates the right slot.
+        var request = SelectedRequest;
+        var response = request.LastResponse;
+
+        var diagnosis = VariableDiagnostics.DiagnoseRequest(request);
         if (diagnosis.HasIssues)
         {
             var message = VariableDiagnostics.FormatRequestReport(diagnosis)
                           + "\n\nDefine missing variables on a parent folder or collection (and ensure they are enabled), then send again.";
-            Response.Apply(new HttpExecutionResult
+            response.Apply(new HttpExecutionResult
             {
                 Succeeded = false,
                 ErrorMessage = message
@@ -1424,22 +1466,22 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _sendCts = new CancellationTokenSource();
 
         IsSending = true;
-        Response.BeginSend();
-        var resolved = VariableResolver.Resolve(SelectedRequest.Model, SelectedRequest);
-        StatusMessage = $"Sending {SelectedRequest.Verb} {resolved.Address}…";
+        response.BeginSend();
+        var resolved = VariableResolver.Resolve(request.Model, request);
+        StatusMessage = $"Sending {request.Verb} {resolved.Address}…";
 
         try
         {
             var result = await _httpExecutor.SendAsync(resolved, _sendCts.Token);
-            Response.Apply(result);
+            response.Apply(result);
 
             StatusMessage = result.Succeeded
-                ? $"Response {result.StatusCode} in {Response.ElapsedDisplay}"
+                ? $"Response {result.StatusCode} in {response.ElapsedDisplay}"
                 : $"Send failed: {result.ErrorMessage}";
         }
         catch (Exception ex)
         {
-            Response.Apply(new HttpExecutionResult
+            response.Apply(new HttpExecutionResult
             {
                 Succeeded = false,
                 ErrorMessage = ex.Message
@@ -1449,7 +1491,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         finally
         {
             IsSending = false;
-            Response.IsSending = false;
+            response.IsSending = false;
             SendRequestCommand.NotifyCanExecuteChanged();
             CancelSendCommand.NotifyCanExecuteChanged();
         }
@@ -1904,6 +1946,29 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
+    }
+
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        var dialog = new Views.SettingsDialog(UiPreferences)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        UiPreferences.RequestTimeoutSeconds = dialog.RequestTimeoutSeconds;
+        UiPreferences.DevModeIgnoreTimeout = dialog.DevModeIgnoreTimeout;
+        ApplyHttpTimeoutSettings();
+        PersistUiPreferences();
+
+        StatusMessage = UiPreferences.DevModeIgnoreTimeout
+            ? "Settings saved — timeout ignored (dev mode)"
+            : $"Settings saved — timeout {UiPreferences.RequestTimeoutSeconds}s";
     }
 
     [RelayCommand]

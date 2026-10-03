@@ -15,7 +15,7 @@ public enum KeyValueListKind
     Headers
 }
 
-public sealed class SetKeyValueFieldAction : IUndoAction
+public sealed class SetKeyValueFieldAction : IUndoAction, ICoalescingUndoAction
 {
     private readonly RequestNodeViewModel _request;
     private readonly KeyValueListKind _listKind;
@@ -43,6 +43,14 @@ public sealed class SetKeyValueFieldAction : IUndoAction
 
     public UndoRevealTarget? RevealTarget =>
         new(_request, _listKind == KeyValueListKind.Params ? EditorSurface.Params : EditorSurface.Headers);
+
+    public bool CanCoalesceWith(IUndoAction incoming) =>
+        incoming is SetKeyValueFieldAction other
+        && ReferenceEquals(_request, other._request)
+        && _listKind == other._listKind
+        && ReferenceEquals(_item, other._item)
+        && _field == other._field
+        && _field is not KeyValueField.IsEnabled;
 
     public IUndoAction Execute(IUndoContext context)
     {

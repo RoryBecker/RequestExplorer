@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using RequestExplorer.Models;
 
 namespace RequestExplorer.Services;
@@ -11,16 +12,36 @@ namespace RequestExplorer.Services;
 public sealed class HttpRequestExecutor : IDisposable
 {
     public const long SoftBodyLimitBytes = 5L * 1024 * 1024;
-    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(100);
+    public const int DefaultTimeoutSeconds = 30;
 
     private readonly HttpClient _httpClient;
+    private TimeSpan _timeout = TimeSpan.FromSeconds(DefaultTimeoutSeconds);
+    private string _timeoutLabel = $"{DefaultTimeoutSeconds}s";
 
     public HttpRequestExecutor()
     {
         _httpClient = new HttpClient
         {
-            Timeout = DefaultTimeout
+            Timeout = _timeout
         };
+    }
+
+    /// <summary>Applies global timeout settings. Dev mode uses an infinite timeout.</summary>
+    public void ApplyTimeoutSettings(int timeoutSeconds, bool devModeIgnoreTimeout)
+    {
+        if (devModeIgnoreTimeout)
+        {
+            _timeout = Timeout.InfiniteTimeSpan;
+            _timeoutLabel = "∞ (dev mode)";
+        }
+        else
+        {
+            var seconds = Math.Clamp(timeoutSeconds, 1, 3600);
+            _timeout = TimeSpan.FromSeconds(seconds);
+            _timeoutLabel = $"{seconds}s";
+        }
+
+        _httpClient.Timeout = _timeout;
     }
 
     public async Task<HttpExecutionResult> SendAsync(RequestDefinition request, CancellationToken cancellationToken)
@@ -34,10 +55,13 @@ public sealed class HttpRequestExecutor : IDisposable
 
         HttpRequestMessage? message = null;
         var totalWatch = Stopwatch.StartNew();
+        var rawRequest = string.Empty;
 
         try
         {
             message = BuildRequestMessage(request);
+            rawRequest = FormatRawRequest(message, request.Body.Content);
+
             using var response = await _httpClient
                 .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
                 .ConfigureAwait(false);
@@ -61,6 +85,10 @@ public sealed class HttpRequestExecutor : IDisposable
                 cookies.AddRange(setCookies);
             }
 
+            var contentType = response.Content.Headers.ContentType?.ToString();
+            var contentDisposition = response.Content.Headers.ContentDisposition?.ToString()
+                ?? headers.FirstOrDefault(h => h.Name.Equals("Content-Disposition", StringComparison.OrdinalIgnoreCase))?.Value;
+
             var bodyWatch = Stopwatch.StartNew();
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken)
                 .ConfigureAwait(false);
@@ -70,7 +98,19 @@ public sealed class HttpRequestExecutor : IDisposable
             totalWatch.Stop();
 
             var bytes = memory.ToArray();
-            var bodyText = TryPrettyPrintJson(DecodeBody(bytes, response.Content.Headers.ContentType));
+            var isBinary = IsLikelyBinary(contentType, bytes);
+            var isDownloadable = IsDownloadable(contentDisposition, contentType, isBinary);
+            var suggestedName = SuggestFileName(contentDisposition, message.RequestUri, contentType, isBinary);
+            var bodyText = isBinary
+                ? $"[Binary content: {FormatBytes(bytes.LongLength)}"
+                  + (string.IsNullOrWhiteSpace(contentType) ? "]" : $", {contentType}]")
+                : TryPrettyPrintJson(DecodeBody(bytes, response.Content.Headers.ContentType));
+
+            var rawResponse = FormatRawResponse(
+                (int)response.StatusCode,
+                response.ReasonPhrase,
+                headers,
+                isBinary ? $"[Binary content: {bytes.LongLength} bytes]" : bodyText);
 
             return new HttpExecutionResult
             {
@@ -82,6 +122,12 @@ public sealed class HttpRequestExecutor : IDisposable
                 ExceededSoftSizeLimit = bytes.LongLength > SoftBodyLimitBytes,
                 Headers = headers,
                 Cookies = cookies,
+                BodyBytes = bytes,
+                ContentType = contentType,
+                SuggestedFileName = suggestedName,
+                IsDownloadable = isDownloadable,
+                RawRequest = rawRequest,
+                RawResponse = rawResponse,
                 Timing = new TimingInfo
                 {
                     TotalMilliseconds = totalWatch.Elapsed.TotalMilliseconds,
@@ -93,22 +139,22 @@ public sealed class HttpRequestExecutor : IDisposable
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             totalWatch.Stop();
-            return Failure("Request cancelled.", totalWatch.Elapsed.TotalMilliseconds);
+            return Failure("Request cancelled.", totalWatch.Elapsed.TotalMilliseconds, rawRequest);
         }
         catch (TaskCanceledException)
         {
             totalWatch.Stop();
-            return Failure($"Request timed out after {DefaultTimeout.TotalSeconds:0}s.", totalWatch.Elapsed.TotalMilliseconds);
+            return Failure($"Request timed out after {_timeoutLabel}.", totalWatch.Elapsed.TotalMilliseconds, rawRequest);
         }
         catch (OperationCanceledException)
         {
             totalWatch.Stop();
-            return Failure($"Request timed out after {DefaultTimeout.TotalSeconds:0}s.", totalWatch.Elapsed.TotalMilliseconds);
+            return Failure($"Request timed out after {_timeoutLabel}.", totalWatch.Elapsed.TotalMilliseconds, rawRequest);
         }
         catch (Exception ex)
         {
             totalWatch.Stop();
-            return Failure(ex.Message, totalWatch.Elapsed.TotalMilliseconds);
+            return Failure(ex.Message, totalWatch.Elapsed.TotalMilliseconds, rawRequest);
         }
         finally
         {
@@ -118,11 +164,13 @@ public sealed class HttpRequestExecutor : IDisposable
 
     public void Dispose() => _httpClient.Dispose();
 
-    private static HttpExecutionResult Failure(string message, double totalMs = 0) =>
+    private static HttpExecutionResult Failure(string message, double totalMs = 0, string rawRequest = "") =>
         new()
         {
             Succeeded = false,
             ErrorMessage = message,
+            RawRequest = rawRequest,
+            RawResponse = message,
             Timing = new TimingInfo { TotalMilliseconds = totalMs }
         };
 
@@ -160,6 +208,207 @@ public sealed class HttpRequestExecutor : IDisposable
         }
 
         return message;
+    }
+
+    private static string FormatRawRequest(HttpRequestMessage message, string? body)
+    {
+        var sb = new StringBuilder();
+        sb.Append(message.Method.Method)
+            .Append(' ')
+            .Append(message.RequestUri)
+            .Append(" HTTP/1.1")
+            .Append('\n');
+
+        foreach (var header in message.Headers)
+        {
+            foreach (var value in header.Value)
+            {
+                sb.Append(header.Key).Append(": ").Append(value).Append('\n');
+            }
+        }
+
+        if (message.Content is not null)
+        {
+            foreach (var header in message.Content.Headers)
+            {
+                foreach (var value in header.Value)
+                {
+                    sb.Append(header.Key).Append(": ").Append(value).Append('\n');
+                }
+            }
+        }
+
+        if (!string.IsNullOrEmpty(body))
+        {
+            sb.Append('\n').Append(body);
+        }
+
+        return sb.ToString();
+    }
+
+    private static string FormatRawResponse(
+        int statusCode,
+        string? reasonPhrase,
+        IReadOnlyList<HeaderEntry> headers,
+        string body)
+    {
+        var sb = new StringBuilder();
+        sb.Append("HTTP/1.1 ")
+            .Append(statusCode)
+            .Append(' ')
+            .Append(reasonPhrase ?? string.Empty)
+            .Append('\n');
+
+        foreach (var header in headers)
+        {
+            sb.Append(header.Name).Append(": ").Append(header.Value).Append('\n');
+        }
+
+        sb.Append('\n').Append(body);
+        return sb.ToString();
+    }
+
+    private static bool IsDownloadable(string? contentDisposition, string? contentType, bool isBinary)
+    {
+        if (!string.IsNullOrWhiteSpace(contentDisposition)
+            && contentDisposition.Contains("attachment", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return isBinary;
+    }
+
+    private static bool IsLikelyBinary(string? contentType, byte[] bytes)
+    {
+        if (bytes.Length == 0)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(contentType))
+        {
+            var media = contentType.Split(';')[0].Trim();
+            if (media.StartsWith("text/", StringComparison.OrdinalIgnoreCase)
+                || media.Equals("application/json", StringComparison.OrdinalIgnoreCase)
+                || media.EndsWith("+json", StringComparison.OrdinalIgnoreCase)
+                || media.Equals("application/xml", StringComparison.OrdinalIgnoreCase)
+                || media.EndsWith("+xml", StringComparison.OrdinalIgnoreCase)
+                || media.Equals("application/javascript", StringComparison.OrdinalIgnoreCase)
+                || media.Equals("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (media.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                || media.StartsWith("audio/", StringComparison.OrdinalIgnoreCase)
+                || media.StartsWith("video/", StringComparison.OrdinalIgnoreCase)
+                || media.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase)
+                || media.Equals("application/pdf", StringComparison.OrdinalIgnoreCase)
+                || media.Equals("application/zip", StringComparison.OrdinalIgnoreCase)
+                || media.Contains("msword", StringComparison.OrdinalIgnoreCase)
+                || media.Contains("officedocument", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        // NUL bytes in the first chunk ⇒ treat as binary.
+        var sample = Math.Min(bytes.Length, 512);
+        for (var i = 0; i < sample; i++)
+        {
+            if (bytes[i] == 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string SuggestFileName(
+        string? contentDisposition,
+        Uri? requestUri,
+        string? contentType,
+        bool isBinary)
+    {
+        var fromDisposition = TryParseContentDispositionFileName(contentDisposition);
+        if (!string.IsNullOrWhiteSpace(fromDisposition))
+        {
+            return fromDisposition;
+        }
+
+        if (requestUri is not null)
+        {
+            var segment = requestUri.Segments.LastOrDefault()?.Trim('/');
+            if (!string.IsNullOrWhiteSpace(segment) && segment.Contains('.', StringComparison.Ordinal))
+            {
+                return Uri.UnescapeDataString(segment);
+            }
+        }
+
+        var ext = GuessExtension(contentType, isBinary);
+        return "response" + ext;
+    }
+
+    private static string? TryParseContentDispositionFileName(string? contentDisposition)
+    {
+        if (string.IsNullOrWhiteSpace(contentDisposition))
+        {
+            return null;
+        }
+
+        var match = Regex.Match(
+            contentDisposition,
+            @"filename\*=UTF-8''(?<name>[^;]+)|filename=""(?<name>[^""]+)|filename=(?<name>[^;]+)",
+            RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var name = match.Groups["name"].Value.Trim().Trim('"');
+        return string.IsNullOrWhiteSpace(name) ? null : Uri.UnescapeDataString(name);
+    }
+
+    private static string GuessExtension(string? contentType, bool isBinary)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            return isBinary ? ".bin" : ".txt";
+        }
+
+        var media = contentType.Split(';')[0].Trim().ToLowerInvariant();
+        return media switch
+        {
+            "application/json" => ".json",
+            "application/xml" or "text/xml" => ".xml",
+            "text/html" => ".html",
+            "text/csv" => ".csv",
+            "application/pdf" => ".pdf",
+            "application/zip" => ".zip",
+            "image/png" => ".png",
+            "image/jpeg" => ".jpg",
+            "image/gif" => ".gif",
+            "image/webp" => ".webp",
+            _ when media.StartsWith("text/", StringComparison.Ordinal) => ".txt",
+            _ => ".bin"
+        };
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{bytes} B";
+        }
+
+        if (bytes < 1024 * 1024)
+        {
+            return $"{bytes / 1024.0:0.0} KB";
+        }
+
+        return $"{bytes / (1024.0 * 1024.0):0.00} MB";
     }
 
     private static void ApplyHeaderAuthentication(HttpRequestMessage message, AuthenticationSettings auth)
@@ -205,7 +454,6 @@ public sealed class HttpRequestExecutor : IDisposable
             throw new InvalidOperationException("Address is empty.");
         }
 
-        // Strip any query already present on the address; enabled Params are the source of truth.
         var baseAddress = StripQueryForSend(address);
         if (!Uri.TryCreate(baseAddress, UriKind.Absolute, out var baseUri))
         {

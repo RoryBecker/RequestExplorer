@@ -49,6 +49,7 @@ public partial class MainWindow : Window
         {
             _subscribedVm.PropertyChanged -= ViewModel_OnPropertyChanged;
             _subscribedVm.TreeRevealRequested -= ViewModel_OnTreeRevealRequested;
+            _subscribedVm.PendingEditCommitRequested -= ViewModel_OnPendingEditCommitRequested;
             _subscribedVm = null;
         }
 
@@ -57,6 +58,7 @@ public partial class MainWindow : Window
             _subscribedVm = vm;
             _subscribedVm.PropertyChanged += ViewModel_OnPropertyChanged;
             _subscribedVm.TreeRevealRequested += ViewModel_OnTreeRevealRequested;
+            _subscribedVm.PendingEditCommitRequested += ViewModel_OnPendingEditCommitRequested;
             _quickExportWidth = SanitizeQuickExportWidth(vm.UiPreferences.QuickExportWidth);
             if (IsLoaded)
             {
@@ -64,6 +66,14 @@ public partial class MainWindow : Window
                 SyncQuickExportColumns();
             }
         }
+    }
+
+    private void ViewModel_OnPendingEditCommitRequested()
+    {
+        EditorCommitHelper.CommitPendingEdits(
+            RequestEditor.NameTitleBox,
+            CollectionEditor.NameTitleBox,
+            FolderEditor.NameTitleBox);
     }
 
     private void ViewModel_OnTreeRevealRequested(IReadOnlyList<TreeNodeViewModel> nodes)
@@ -116,10 +126,13 @@ public partial class MainWindow : Window
 
         CollectionsColumn.Width = new GridLength(collectionsWidth);
 
+        // Restore as star ratios so the two panes always fill the RHS height.
+        // Absolute pixel heights leave a dead band when the window is taller than the sum.
         if (prefs.RequestPaneHeight >= 220 && prefs.ResponsePaneHeight >= 160)
         {
-            RequestRow.Height = new GridLength(prefs.RequestPaneHeight);
-            ResponseRow.Height = new GridLength(prefs.ResponsePaneHeight);
+            var total = prefs.RequestPaneHeight + prefs.ResponsePaneHeight;
+            RequestRow.Height = new GridLength(prefs.RequestPaneHeight / total, GridUnitType.Star);
+            ResponseRow.Height = new GridLength(prefs.ResponsePaneHeight / total, GridUnitType.Star);
         }
 
         if (!_uiPreferencesApplied)
@@ -256,10 +269,10 @@ public partial class MainWindow : Window
 
     private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        // Persist in-progress title edits before command keybindings (e.g. Ctrl+S) run.
+        // Commit in-progress title / grid / text edits before Save keybindings run.
         if (e.Key == Key.S && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
-            TitleEditHelper.CommitIfFocusedTitle(
+            EditorCommitHelper.CommitPendingEdits(
                 RequestEditor.NameTitleBox,
                 CollectionEditor.NameTitleBox,
                 FolderEditor.NameTitleBox);

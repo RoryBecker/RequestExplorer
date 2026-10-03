@@ -8,7 +8,7 @@ public enum RequestBodyField
     ContentType
 }
 
-public sealed class SetRequestBodyFieldAction : IUndoAction
+public sealed class SetRequestBodyFieldAction : IUndoAction, ICoalescingUndoAction
 {
     private readonly RequestNodeViewModel _request;
     private readonly RequestBodyField _field;
@@ -29,6 +29,11 @@ public sealed class SetRequestBodyFieldAction : IUndoAction
     public string Description { get; }
 
     public UndoRevealTarget? RevealTarget => new(_request, EditorSurface.Body);
+
+    public bool CanCoalesceWith(IUndoAction incoming) =>
+        incoming is SetRequestBodyFieldAction other
+        && ReferenceEquals(_request, other._request)
+        && _field == other._field;
 
     public IUndoAction Execute(IUndoContext context)
     {

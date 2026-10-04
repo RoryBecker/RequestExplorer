@@ -58,6 +58,7 @@
         <Style x:Key="KeyValueCellText" TargetType="TextBlock">
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Padding" Value="4,0" />
+            <Setter Property="views:VariableTokenToolTips.IsEnabled" Value="True" />
         </Style>
 
         <Style x:Key="KeyValueCellEdit" TargetType="TextBox">
@@ -65,6 +66,7 @@
             <Setter Property="Padding" Value="4,0" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="views:VariableTokenToolTips.IsEnabled" Value="True" />
         </Style>
     </UserControl.Resources>
 

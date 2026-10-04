@@ -63,6 +63,142 @@ public static partial class VariableResolver
         });
     }
 
+    /// <summary>
+    /// Scope starting at <paramref name="node"/> and walking ancestors (nearest wins).
+    /// Use for container editors; for requests prefer <see cref="BuildScope"/> (parents only).
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> BuildScopeFrom(TreeNodeViewModel? node)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        while (node is not null)
+        {
+            if (node is ContainerNodeViewModel container)
+            {
+                foreach (var item in container.Variables)
+                {
+                    if (!item.IsEnabled || string.IsNullOrWhiteSpace(item.Key))
+                    {
+                        continue;
+                    }
+
+                    var key = item.Key.Trim();
+                    if (!map.ContainsKey(key))
+                    {
+                        map[key] = item.Value ?? string.Empty;
+                    }
+                }
+            }
+
+            node = node.Parent;
+        }
+
+        return map;
+    }
+
+    public static bool TryFindTokenAt(string? text, int charIndex, out string name, out int start, out int length)
+    {
+        name = string.Empty;
+        start = 0;
+        length = 0;
+        if (string.IsNullOrEmpty(text) || charIndex < 0 || charIndex > text.Length)
+        {
+            return false;
+        }
+
+        foreach (Match match in TokenRegex().Matches(text))
+        {
+            var end = match.Index + match.Length;
+            // Allow hovering the character just after the token (caret-style).
+            if (charIndex >= match.Index && charIndex <= end)
+            {
+                name = match.Groups[1].Value.Trim();
+                if (name.Length == 0)
+                {
+                    return false;
+                }
+
+                start = match.Index;
+                length = match.Length;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static IReadOnlyList<string> FindTokenNames(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return [];
+        }
+
+        var names = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match match in TokenRegex().Matches(text))
+        {
+            var name = match.Groups[1].Value.Trim();
+            if (name.Length > 0 && seen.Add(name))
+            {
+                names.Add(name);
+            }
+        }
+
+        return names;
+    }
+
+    public static string FormatTokenTooltip(
+        string name,
+        IReadOnlyDictionary<string, string> scope,
+        int valueMaxChars = 64)
+    {
+        if (scope.TryGetValue(name, out var value))
+        {
+            return $"{name} = {Truncate(value, valueMaxChars)}";
+        }
+
+        return $"{name} (not defined)";
+    }
+
+    public static string FormatTokensTooltip(
+        IEnumerable<string> names,
+        IReadOnlyDictionary<string, string> scope,
+        int maxLines = 20,
+        int valueMaxChars = 64)
+    {
+        var sb = new StringBuilder();
+        var lines = 0;
+        foreach (var name in names)
+        {
+            if (lines >= maxLines)
+            {
+                sb.Append('…');
+                break;
+            }
+
+            if (lines > 0)
+            {
+                sb.AppendLine();
+            }
+
+            sb.Append(FormatTokenTooltip(name, scope, valueMaxChars));
+            lines++;
+        }
+
+        return sb.ToString();
+    }
+
+    public static string Truncate(string? value, int maxChars)
+    {
+        value ??= string.Empty;
+        if (maxChars < 1 || value.Length <= maxChars)
+        {
+            return value;
+        }
+
+        return value[..maxChars] + "…";
+    }
+
     public static IReadOnlyList<string> CollectReferencedNames(RequestDefinition request)
     {
         ArgumentNullException.ThrowIfNull(request);

@@ -1,8 +1,8 @@
 # RequestExplorer — Improvements Backlog Plan
 
-**Status:** Phases A0–F approved; G awaiting  
+**Status:** Phases A0–F approved; Phase G decisions recorded (fidelity only; move-lag deferred) — see PLAN_PHASE_G.md; H/Z awaiting  
 **Created:** 2026-10-02  
-**Updated:** 2026-10-05 (Phase F approved)  
+**Updated:** 2026-10-05 (Phase G decisions)  
 **Companion to:** [`PLAN_COMPLETED.md`](PLAN_COMPLETED.md), [`PLANNED_ARCHITECTURAL_REFACTOR.md`](PLANNED_ARCHITECTURAL_REFACTOR.md)
 
 **Repo policy:** Do **not** auto-commit. The human owns all commits and confirms code changes via commits. Implement only after explicit phase approval.  
@@ -46,7 +46,7 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 | D | Editor layout / grids ✅ | Body as first tab; copy/paste grid rows across areas; remove left/right splitter MaxWidth |
 | E | Data safety ✅ | Rolling backups + restore + settings dialog (N, timeout, dev mode) — see [`PLAN_PHASE_E.md`](PLAN_PHASE_E.md) |
 | F | Advanced tools ✅ | Modify-as-JSON (internal, selected subtree). **Replay excluded unless re-approved.** — see [`PLAN_PHASE_F.md`](PLAN_PHASE_F.md) |
-| G | Investigation deliverables | Fidelity gap analysis (save/load/export/import) — see explanation; window-move lag root-cause |
+| G | Investigation deliverables | Fidelity gap analysis (save/load/export/import) + window-move lag — see [`PLAN_PHASE_G.md`](PLAN_PHASE_G.md) |
 | H | Optional structural | Touch points that overlap [`PLANNED_ARCHITECTURAL_REFACTOR.md`](PLANNED_ARCHITECTURAL_REFACTOR.md) only if a feature forces it |
 | Z | Parked | Replay mode — backlog only |
 
@@ -289,7 +289,7 @@ Some fields may work in the editor but get dropped on save, or save locally but 
 
 **Then:** you choose which gaps to fix. Analysis alone changes no product behaviour.
 
-**Status:** Still available as Phase G when you want it; not blocking other phases.
+**Status:** Decisions recorded — see [`PLAN_PHASE_G.md`](PLAN_PHASE_G.md). Fidelity report only this phase; window-move lag deferred. Awaiting implement approval.
 
 ---
 

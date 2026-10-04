@@ -750,8 +750,16 @@ public partial class MainWindow : Window
 
         menu.Items.Add(new Separator());
 
+        menu.Items.Add(new MenuItem
+        {
+            Header = vm.FormatRunAllRequestsMenuHeader(node),
+            Command = vm.RunAllRequestsCommand,
+            CommandParameter = node
+        });
+
         if (node is CollectionNodeViewModel or FolderNodeViewModel)
         {
+            menu.Items.Add(new Separator());
             menu.Items.Add(new MenuItem
             {
                 Header = "Expand All Children",

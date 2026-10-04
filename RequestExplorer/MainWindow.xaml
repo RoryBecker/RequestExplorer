@@ -156,6 +156,7 @@
             </MenuItem>
             <MenuItem Header="_Request">
                 <MenuItem Header="_Send" Command="{Binding SendRequestCommand}" InputGestureText="Ctrl+Enter" />
+                <MenuItem Header="{Binding RunAllRequestsMenuHeader}" Command="{Binding RunAllRequestsCommand}" />
                 <MenuItem Header="_Cancel" Command="{Binding CancelSendCommand}" />
             </MenuItem>
             <MenuItem Header="_Tools">
@@ -565,6 +566,7 @@
                                 <MenuItem Header="Paste at Top Level" Command="{Binding PasteAtRootCommand}" />
                                 <Separator />
                                 <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" />
+                                <MenuItem Header="{Binding RunAllRequestsMenuHeader}" Command="{Binding RunAllRequestsCommand}" />
                                 <Separator />
                                 <MenuItem Header="Expand All Children" Command="{Binding ExpandChildrenCommand}" />
                                 <MenuItem Header="Collapse All Children" Command="{Binding CollapseChildrenCommand}" />

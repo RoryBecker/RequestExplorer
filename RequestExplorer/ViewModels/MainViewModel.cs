@@ -217,6 +217,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(PasteIntoNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(PasteAtRootCommand))]
     [NotifyCanExecuteChangedFor(nameof(DiagnoseVariablesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RunAllRequestsCommand))]
     [NotifyCanExecuteChangedFor(nameof(CollapseChildrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExpandChildrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveNodeUpCommand))]
@@ -233,6 +234,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendRequestCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelSendCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RunAllRequestsCommand))]
     private bool _isSending;
 
     /// <summary>0=Params, 1=Body, 2=Headers, 3=Auth</summary>
@@ -336,9 +338,23 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     public string RedoMenuHeader =>
         _history.CanRedo ? $"_Redo {_history.RedoDescription}" : "_Redo";
 
+    public string RunAllRequestsMenuHeader => FormatRunAllRequestsMenuHeader(SelectedNode, includeMnemonic: true);
+
     public bool HasUndoHistory => _history.CanUndo;
 
     public bool HasRedoHistory => _history.CanRedo;
+
+    public string FormatRunAllRequestsMenuHeader(TreeNodeViewModel? root, bool includeMnemonic = false)
+    {
+        var label = includeMnemonic ? "Run _All Requests" : "Run All Requests";
+        if (root is null)
+        {
+            return label;
+        }
+
+        var count = EnumerateRequestsInHierarchy(root).Count();
+        return count > 0 ? $"{label} ({count})" : label;
+    }
 
     partial void OnSelectedNodeChanged(TreeNodeViewModel? oldValue, TreeNodeViewModel? newValue)
     {
@@ -388,6 +404,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         EditAsJsonCommand.NotifyCanExecuteChanged();
         NotifyMoveAmongSiblingsCanExecuteChanged();
         OnPropertyChanged(nameof(SelectionSummary));
+        OnPropertyChanged(nameof(RunAllRequestsMenuHeader));
         RefreshQuickExport();
     }
 
@@ -1578,6 +1595,231 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     private bool CanDiagnoseVariables() => SelectedNode is not null;
+
+    [RelayCommand(CanExecute = nameof(CanRunAllRequests))]
+    private async Task RunAllRequestsAsync(TreeNodeViewModel? root = null)
+    {
+        root ??= SelectedNode;
+        if (root is null || IsSending)
+        {
+            return;
+        }
+
+        var requests = EnumerateRequestsInHierarchy(root).ToList();
+        if (requests.Count == 0)
+        {
+            StatusMessage = "No requests in selection";
+            return;
+        }
+
+        PendingEditCommitRequested?.Invoke();
+
+        _sendCts?.Cancel();
+        _sendCts?.Dispose();
+        _sendCts = new CancellationTokenSource();
+        var token = _sendCts.Token;
+
+        IsSending = true;
+        var rows = new ObservableCollection<Views.RunAllRequestResultRow>(
+            requests.Select(r => new Views.RunAllRequestResultRow { Name = r.Name }));
+        var ok = 0;
+        var failed = 0;
+        var completed = 0;
+        var cancelled = false;
+
+        var dialog = new Views.RunAllResultsDialog(
+            $"Run All — {root.Name}",
+            rows,
+            () => _sendCts?.Cancel())
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        var runStarted = false;
+        dialog.Loaded += async (_, _) =>
+        {
+            if (runStarted)
+            {
+                return;
+            }
+
+            runStarted = true;
+
+            try
+            {
+                for (var i = 0; i < requests.Count; i++)
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    var request = requests[i];
+                    var row = rows[i];
+                    var progress = $"Running {i + 1}/{requests.Count}: {request.Name}…";
+                    StatusMessage = progress;
+                    dialog.SetSummary(progress);
+                    row.StatusDisplay = "Running…";
+                    row.ElapsedDisplay = "—";
+
+                    var response = request.LastResponse;
+                    response.BeginSend();
+
+                    try
+                    {
+                        var diagnosis = VariableDiagnostics.DiagnoseRequest(request);
+                        if (diagnosis.HasIssues)
+                        {
+                            var message = VariableDiagnostics.FormatRequestReport(diagnosis);
+                            response.Apply(new HttpExecutionResult
+                            {
+                                Succeeded = false,
+                                ErrorMessage = message
+                            });
+                            row.StatusDisplay = message;
+                            row.ElapsedDisplay = "—";
+                            row.Succeeded = false;
+                            failed++;
+                            completed++;
+                            continue;
+                        }
+
+                        var resolved = VariableResolver.Resolve(request.Model, request);
+                        var result = await _httpExecutor.SendAsync(resolved, token);
+
+                        // Executor maps user cancel to a failed result; stop the batch either way.
+                        if (token.IsCancellationRequested)
+                        {
+                            response.Apply(new HttpExecutionResult
+                            {
+                                Succeeded = false,
+                                ErrorMessage = "Cancelled"
+                            });
+                            MarkRunAllCancelled(rows, i, row);
+                            completed++;
+                            cancelled = true;
+                            break;
+                        }
+
+                        response.Apply(result);
+
+                        row.StatusDisplay = result.Succeeded
+                            ? $"{result.StatusCode} {result.ReasonPhrase}".Trim()
+                            : (result.ErrorMessage ?? "Failed");
+                        row.ElapsedDisplay = response.ElapsedDisplay;
+                        row.Succeeded = result.Succeeded;
+
+                        if (result.Succeeded)
+                        {
+                            ok++;
+                        }
+                        else
+                        {
+                            failed++;
+                        }
+
+                        completed++;
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested)
+                    {
+                        response.Apply(new HttpExecutionResult
+                        {
+                            Succeeded = false,
+                            ErrorMessage = "Cancelled"
+                        });
+                        MarkRunAllCancelled(rows, i, row);
+                        completed++;
+                        cancelled = true;
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        response.Apply(new HttpExecutionResult
+                        {
+                            Succeeded = false,
+                            ErrorMessage = ex.Message
+                        });
+                        row.StatusDisplay = ex.Message;
+                        row.ElapsedDisplay = "—";
+                        row.Succeeded = false;
+                        failed++;
+                        completed++;
+                    }
+                    finally
+                    {
+                        response.IsSending = false;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                cancelled = true;
+                for (var j = completed; j < rows.Count; j++)
+                {
+                    if (rows[j].StatusDisplay is "Pending" or "Running…")
+                    {
+                        rows[j].StatusDisplay = "Skipped";
+                    }
+                }
+            }
+            finally
+            {
+                IsSending = false;
+                SendRequestCommand.NotifyCanExecuteChanged();
+                CancelSendCommand.NotifyCanExecuteChanged();
+                RunAllRequestsCommand.NotifyCanExecuteChanged();
+
+                var summary = cancelled
+                    ? $"Cancelled after {completed} of {requests.Count} — {ok} succeeded, {failed} failed"
+                    : $"Finished {completed} request(s) — {ok} succeeded, {failed} failed";
+                StatusMessage = summary;
+                dialog.SetSummary(summary);
+                dialog.MarkFinished();
+            }
+        };
+
+        dialog.ShowDialog();
+    }
+
+    private static void MarkRunAllCancelled(
+        IList<Views.RunAllRequestResultRow> rows,
+        int cancelledIndex,
+        Views.RunAllRequestResultRow cancelledRow)
+    {
+        cancelledRow.StatusDisplay = "Cancelled";
+        cancelledRow.ElapsedDisplay = "—";
+        cancelledRow.Succeeded = false;
+
+        for (var j = cancelledIndex + 1; j < rows.Count; j++)
+        {
+            rows[j].StatusDisplay = "Skipped";
+        }
+    }
+
+    private bool CanRunAllRequests(TreeNodeViewModel? root = null)
+    {
+        if (IsSending)
+        {
+            return false;
+        }
+
+        root ??= SelectedNode;
+        return root is not null && EnumerateRequestsInHierarchy(root).Any();
+    }
+
+    private static IEnumerable<RequestNodeViewModel> EnumerateRequestsInHierarchy(TreeNodeViewModel root)
+    {
+        if (root is RequestNodeViewModel request)
+        {
+            yield return request;
+            yield break;
+        }
+
+        foreach (var child in root.Children)
+        {
+            foreach (var nested in EnumerateRequestsInHierarchy(child))
+            {
+                yield return nested;
+            }
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(CanCancelSend))]
     private void CancelSend()

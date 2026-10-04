@@ -3,32 +3,41 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Variable Diagnosis"
         Height="420"
-        Width="560"
+        Width="620"
         MinHeight="280"
         MinWidth="420"
         WindowStartupLocation="CenterOwner"
-        ShowInTaskbar="False">
+        ShowInTaskbar="False"
+        Background="{StaticResource App.PanelBrush}">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBox x:Name="ReportBox"
-                 Grid.Row="0"
-                 IsReadOnly="True"
-                 AcceptsReturn="True"
-                 TextWrapping="Wrap"
-                 VerticalScrollBarVisibility="Auto"
-                 HorizontalScrollBarVisibility="Auto"
-                 FontFamily="Consolas"
-                 FontSize="12"
-                 Padding="8"
-                 BorderBrush="{StaticResource App.BorderBrush}"
-                 BorderThickness="1"
-                 Background="#FFF9FAFB" />
+        <RichTextBox x:Name="ReportBox"
+                     Grid.Row="0"
+                     IsReadOnly="True"
+                     IsDocumentEnabled="True"
+                     IsUndoEnabled="False"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"
+                     FontFamily="Consolas"
+                     FontSize="12"
+                     Padding="8"
+                     BorderBrush="{StaticResource App.BorderBrush}"
+                     BorderThickness="1"
+                     Background="#FFF9FAFB"
+                     Cursor="Arrow" />
 
-        <Button Grid.Row="1"
+        <TextBlock Grid.Row="1"
+                   Margin="0,8,0,0"
+                   FontSize="11"
+                   Foreground="{StaticResource App.MutedBrush}"
+                   Text="Click a node name to select it in the collection tree." />
+
+        <Button Grid.Row="2"
                 Content="Close"
                 Width="88"
                 Margin="0,12,0,0"

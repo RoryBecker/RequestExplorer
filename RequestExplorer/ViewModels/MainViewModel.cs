@@ -1579,7 +1579,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         var results = VariableDiagnostics.DiagnoseSubtree(SelectedNode);
-        var report = VariableDiagnostics.FormatSubtreeReport(SelectedNode, results);
+        var report = VariableDiagnostics.BuildSubtreeReport(SelectedNode, results);
         var failing = results.Count(r => r.HasIssues);
         StatusMessage = failing == 0
             ? $"Diagnosis OK — {results.Count} request(s)"
@@ -1590,6 +1590,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             Owner = Application.Current?.MainWindow
         };
         dialog.ShowDialog();
+
+        if (dialog.NavigatedNode is { } target)
+        {
+            RevealAndSelectNodes([target]);
+            StatusMessage = $"Selected {target.HierarchyPath}";
+        }
     }
 
     private bool CanDiagnoseVariables() => SelectedNode is not null;

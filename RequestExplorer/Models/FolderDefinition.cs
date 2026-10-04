@@ -7,4 +7,7 @@ public sealed class FolderDefinition
     public List<KeyValueItem> Variables { get; set; } = [];
     public List<FolderDefinition> Folders { get; set; } = [];
     public List<RequestDefinition> Requests { get; set; } = [];
+
+    /// <summary>Interleaved sibling order; empty means legacy folders-then-requests.</summary>
+    public List<ChildOrderEntry> ChildOrder { get; set; } = [];
 }

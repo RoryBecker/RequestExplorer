@@ -25,7 +25,7 @@ public static class PostmanCollectionMapper
                 Name = collection.Name
             },
             Variable = ToPostmanVariables(collection.Variables),
-            Item = ToItems(collection.Folders, collection.Requests)
+            Item = ToItems(collection.Folders, collection.Requests, collection.ChildOrder)
         };
 
     public static PostmanCollectionDocument ToCollectionDocument(FolderDefinition folder) =>
@@ -37,7 +37,7 @@ public static class PostmanCollectionMapper
                 Name = folder.Name
             },
             Variable = ToPostmanVariables(folder.Variables),
-            Item = ToItems(folder.Folders, folder.Requests)
+            Item = ToItems(folder.Folders, folder.Requests, folder.ChildOrder)
         };
 
     public static PostmanCollectionDocument ToCollectionDocument(RequestDefinition request) =>
@@ -63,7 +63,7 @@ public static class PostmanCollectionMapper
             collection.Id = id;
         }
 
-        ApplyItems(document.Item, collection.Folders, collection.Requests);
+        ApplyItems(document.Item, collection.Folders, collection.Requests, collection.ChildOrder);
         ApplyVariables(document.Variable, collection.Variables);
         return collection;
     }
@@ -80,7 +80,8 @@ public static class PostmanCollectionMapper
     {
         var folders = new List<FolderDefinition>();
         var requests = new List<RequestDefinition>();
-        ApplyItems(document.Item, folders, requests);
+        var childOrder = new List<ChildOrderEntry>();
+        ApplyItems(document.Item, folders, requests, childOrder);
 
         var collectionVariables = ToKeyValueItems(document.Variable).ToList();
 
@@ -98,7 +99,8 @@ public static class PostmanCollectionMapper
 
         var folder = new FolderDefinition
         {
-            Name = ResolveImportFolderName(document, fileNameHint)
+            Name = ResolveImportFolderName(document, fileNameHint),
+            ChildOrder = childOrder
         };
         folder.Folders.AddRange(folders);
         folder.Requests.AddRange(requests);
@@ -135,43 +137,95 @@ public static class PostmanCollectionMapper
         IEnumerable<PostmanItem> items,
         List<FolderDefinition> folders,
         List<RequestDefinition> requests)
+        => ApplyItems(items, folders, requests, childOrder: null);
+
+    public static void ApplyItems(
+        IEnumerable<PostmanItem> items,
+        List<FolderDefinition> folders,
+        List<RequestDefinition> requests,
+        List<ChildOrderEntry>? childOrder)
     {
         foreach (var item in items)
         {
             if (item.Item is not null)
             {
                 var folder = new FolderDefinition { Name = item.Name };
-                ApplyItems(item.Item, folder.Folders, folder.Requests);
+                if (Guid.TryParse(item.Id, out var folderId))
+                {
+                    folder.Id = folderId;
+                }
+
+                ApplyItems(item.Item, folder.Folders, folder.Requests, folder.ChildOrder);
                 ApplyVariables(item.Variable, folder.Variables);
                 folders.Add(folder);
+                childOrder?.Add(new ChildOrderEntry { Kind = TreeChildKind.Folder, Id = folder.Id });
             }
             else if (item.Request is not null)
             {
-                requests.Add(FromRequestItem(item));
+                var request = FromRequestItem(item);
+                requests.Add(request);
+                childOrder?.Add(new ChildOrderEntry { Kind = TreeChildKind.Request, Id = request.Id });
             }
         }
     }
 
-    private static List<PostmanItem> ToItems(IEnumerable<FolderDefinition> folders, IEnumerable<RequestDefinition> requests)
+    private static List<PostmanItem> ToItems(
+        List<FolderDefinition> folders,
+        List<RequestDefinition> requests,
+        List<ChildOrderEntry>? childOrder)
     {
         var items = new List<PostmanItem>();
+        var folderById = folders.ToDictionary(f => f.Id);
+        var requestById = requests.ToDictionary(r => r.Id);
+        var usedFolders = new HashSet<Guid>();
+        var usedRequests = new HashSet<Guid>();
+
+        if (childOrder is { Count: > 0 })
+        {
+            foreach (var entry in childOrder)
+            {
+                if (entry.Kind == TreeChildKind.Folder
+                    && folderById.TryGetValue(entry.Id, out var folder)
+                    && usedFolders.Add(folder.Id))
+                {
+                    items.Add(ToFolderItem(folder));
+                }
+                else if (entry.Kind == TreeChildKind.Request
+                         && requestById.TryGetValue(entry.Id, out var request)
+                         && usedRequests.Add(request.Id))
+                {
+                    items.Add(ToRequestItem(request));
+                }
+            }
+        }
+
         foreach (var folder in folders)
         {
-            items.Add(new PostmanItem
+            if (usedFolders.Add(folder.Id))
             {
-                Name = folder.Name,
-                Variable = ToPostmanVariables(folder.Variables),
-                Item = ToItems(folder.Folders, folder.Requests)
-            });
+                items.Add(ToFolderItem(folder));
+            }
         }
 
         foreach (var request in requests)
         {
-            items.Add(ToRequestItem(request));
+            if (usedRequests.Add(request.Id))
+            {
+                items.Add(ToRequestItem(request));
+            }
         }
 
         return items;
     }
+
+    private static PostmanItem ToFolderItem(FolderDefinition folder) =>
+        new()
+        {
+            Id = folder.Id.ToString(),
+            Name = folder.Name,
+            Variable = ToPostmanVariables(folder.Variables),
+            Item = ToItems(folder.Folders, folder.Requests, folder.ChildOrder)
+        };
 
     private static List<PostmanKeyValue>? ToPostmanVariables(IEnumerable<KeyValueItem> variables)
     {
@@ -240,6 +294,7 @@ public static class PostmanCollectionMapper
 
         return new PostmanItem
         {
+            Id = request.Id.ToString(),
             Name = request.Name,
             Request = JsonSerializer.SerializeToElement(requestObject, JsonOptions)
         };
@@ -251,6 +306,11 @@ public static class PostmanCollectionMapper
         {
             Name = item.Name
         };
+
+        if (Guid.TryParse(item.Id, out var requestId))
+        {
+            request.Id = requestId;
+        }
 
         if (item.Request is null)
         {
@@ -270,82 +330,153 @@ public static class PostmanCollectionMapper
             return request;
         }
 
-        var obj = JsonSerializer.Deserialize<PostmanRequestObject>(element.GetRawText(), JsonOptions)
-                  ?? new PostmanRequestObject();
-
-        if (Enum.TryParse<HttpVerb>(obj.Method, ignoreCase: true, out var verb))
+        // Parse field-by-field so "url" may be a string or an object (common Postman shapes).
+        if (element.TryGetProperty("method", out var methodEl)
+            && methodEl.ValueKind == JsonValueKind.String
+            && Enum.TryParse<HttpVerb>(methodEl.GetString(), ignoreCase: true, out var verb))
         {
             request.Verb = verb;
         }
 
-        request.Address = obj.Url?.Raw ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(request.Address) && obj.Url is not null)
+        ApplyUrl(request, element);
+        ApplyHeaders(request, element);
+        ApplyAuthFromElement(request, element);
+        ApplyBodyFromElement(request, element);
+
+        return request;
+    }
+
+    private static void ApplyUrl(RequestDefinition request, JsonElement requestElement)
+    {
+        if (!requestElement.TryGetProperty("url", out var urlEl))
         {
-            request.Address = ReconstructRawUrl(obj.Url);
+            return;
         }
 
-        foreach (var header in obj.Header)
+        PostmanUrl? url = null;
+        if (urlEl.ValueKind == JsonValueKind.String)
         {
-            if (string.IsNullOrWhiteSpace(header.Key))
+            request.Address = urlEl.GetString() ?? string.Empty;
+            return;
+        }
+
+        if (urlEl.ValueKind == JsonValueKind.Object)
+        {
+            url = urlEl.Deserialize<PostmanUrl>(JsonOptions);
+        }
+
+        if (url is null)
+        {
+            return;
+        }
+
+        request.Address = url.Raw ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(request.Address))
+        {
+            request.Address = ReconstructRawUrl(url);
+        }
+
+        if (url.Query is not { Count: > 0 })
+        {
+            return;
+        }
+
+        foreach (var query in url.Query)
+        {
+            if (string.IsNullOrWhiteSpace(query.Key))
+            {
+                continue;
+            }
+
+            request.Params.Add(new KeyValueItem
+            {
+                Key = query.Key ?? string.Empty,
+                Value = query.Value ?? string.Empty,
+                IsEnabled = query.Disabled != true
+            });
+        }
+
+        // Keep Address base without query when Params are populated; RequestNodeViewModel will sync.
+        if (!string.IsNullOrWhiteSpace(request.Address))
+        {
+            var q = request.Address.IndexOf('?', StringComparison.Ordinal);
+            if (q >= 0)
+            {
+                request.Address = request.Address[..q];
+            }
+        }
+    }
+
+    private static void ApplyHeaders(RequestDefinition request, JsonElement requestElement)
+    {
+        if (!requestElement.TryGetProperty("header", out var headerEl)
+            || headerEl.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        foreach (var header in headerEl.EnumerateArray())
+        {
+            var kv = header.Deserialize<PostmanKeyValue>(JsonOptions);
+            if (kv is null || string.IsNullOrWhiteSpace(kv.Key))
             {
                 continue;
             }
 
             request.Headers.Add(new KeyValueItem
             {
-                Key = header.Key ?? string.Empty,
-                Value = header.Value ?? string.Empty,
-                IsEnabled = header.Disabled != true
+                Key = kv.Key ?? string.Empty,
+                Value = kv.Value ?? string.Empty,
+                IsEnabled = kv.Disabled != true
             });
         }
+    }
 
-        if (obj.Url?.Query is { Count: > 0 })
+    private static void ApplyAuthFromElement(RequestDefinition request, JsonElement requestElement)
+    {
+        if (!requestElement.TryGetProperty("auth", out var authEl)
+            || authEl.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
         {
-            foreach (var query in obj.Url.Query)
-            {
-                if (string.IsNullOrWhiteSpace(query.Key))
-                {
-                    continue;
-                }
-
-                request.Params.Add(new KeyValueItem
-                {
-                    Key = query.Key ?? string.Empty,
-                    Value = query.Value ?? string.Empty,
-                    IsEnabled = query.Disabled != true
-                });
-            }
-
-            // Keep Address base without query when Params are populated; RequestNodeViewModel will sync.
-            if (!string.IsNullOrWhiteSpace(request.Address))
-            {
-                var q = request.Address.IndexOf('?', StringComparison.Ordinal);
-                if (q >= 0)
-                {
-                    request.Address = request.Address[..q];
-                }
-            }
+            return;
         }
 
-        ApplyAuth(request, obj.Auth);
+        var auth = authEl.Deserialize<PostmanAuth>(JsonOptions);
+        ApplyAuth(request, auth);
+    }
 
-        if (obj.Body is { Mode: "raw" })
+    private static void ApplyBodyFromElement(RequestDefinition request, JsonElement requestElement)
+    {
+        if (!requestElement.TryGetProperty("body", out var bodyEl)
+            || bodyEl.ValueKind != JsonValueKind.Object)
         {
-            request.Body.Content = obj.Body.Raw ?? string.Empty;
-            var language = obj.Body.Options?.Raw?.Language;
-            request.Body.ContentType = language?.Equals("json", StringComparison.OrdinalIgnoreCase) == true
-                ? "application/json"
-                : request.Body.ContentType;
+            return;
         }
 
-        return request;
+        var body = bodyEl.Deserialize<PostmanBody>(JsonOptions);
+        if (body is not { Mode: "raw" })
+        {
+            return;
+        }
+
+        request.Body.Content = body.Raw ?? string.Empty;
+        var language = body.Options?.Raw?.Language;
+        request.Body.ContentType = MapLanguageToContentType(language);
+
+        // Prefer an explicit Content-Type header when present (enabled).
+        var contentTypeHeader = request.Headers.FirstOrDefault(h =>
+            h.IsEnabled && h.Key.Equals("Content-Type", StringComparison.OrdinalIgnoreCase));
+        if (contentTypeHeader is not null && !string.IsNullOrWhiteSpace(contentTypeHeader.Value))
+        {
+            request.Body.ContentType = contentTypeHeader.Value;
+        }
     }
 
     private static PostmanUrl BuildUrl(RequestDefinition request)
     {
-        var enabledParams = request.Params
-            .Where(p => p.IsEnabled && !string.IsNullOrWhiteSpace(p.Key))
+        var allParams = request.Params
+            .Where(p => !string.IsNullOrWhiteSpace(p.Key))
             .ToList();
+        var enabledParams = allParams.Where(p => p.IsEnabled).ToList();
 
         var raw = request.Address?.Trim() ?? string.Empty;
         if (enabledParams.Count > 0)
@@ -359,14 +490,9 @@ public static class PostmanCollectionMapper
         var url = new PostmanUrl { Raw = raw };
         if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
         {
-            if (enabledParams.Count > 0)
+            if (allParams.Count > 0)
             {
-                url.Query = enabledParams.Select(p => new PostmanKeyValue
-                {
-                    Key = p.Key,
-                    Value = p.Value,
-                    Disabled = null
-                }).ToList();
+                url.Query = allParams.Select(ToQueryKeyValue).ToList();
             }
 
             return url;
@@ -375,13 +501,9 @@ public static class PostmanCollectionMapper
         url.Protocol = uri.Scheme;
         url.Host = uri.Host.Split('.', StringSplitOptions.RemoveEmptyEntries).ToList();
         url.Path = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries).ToList();
-        if (enabledParams.Count > 0)
+        if (allParams.Count > 0)
         {
-            url.Query = enabledParams.Select(p => new PostmanKeyValue
-            {
-                Key = p.Key,
-                Value = p.Value
-            }).ToList();
+            url.Query = allParams.Select(ToQueryKeyValue).ToList();
         }
         else if (!string.IsNullOrEmpty(uri.Query))
         {
@@ -390,6 +512,14 @@ public static class PostmanCollectionMapper
 
         return url;
     }
+
+    private static PostmanKeyValue ToQueryKeyValue(KeyValueItem p) =>
+        new()
+        {
+            Key = p.Key,
+            Value = p.Value,
+            Disabled = p.IsEnabled ? null : true
+        };
 
     private static List<PostmanKeyValue> ParseQuery(string query)
     {
@@ -528,7 +658,6 @@ public static class PostmanCollectionMapper
             return null;
         }
 
-        var isJson = request.Body.ContentType?.Contains("json", StringComparison.OrdinalIgnoreCase) == true;
         return new PostmanBody
         {
             Mode = "raw",
@@ -537,9 +666,58 @@ public static class PostmanCollectionMapper
             {
                 Raw = new PostmanRawBodyOptions
                 {
-                    Language = isJson ? "json" : "text"
+                    Language = MapContentTypeToLanguage(request.Body.ContentType)
                 }
             }
+        };
+    }
+
+    internal static string MapContentTypeToLanguage(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType))
+        {
+            return "text";
+        }
+
+        var ct = contentType.Trim();
+        if (ct.Contains("json", StringComparison.OrdinalIgnoreCase))
+        {
+            return "json";
+        }
+
+        if (ct.Contains("xml", StringComparison.OrdinalIgnoreCase))
+        {
+            return "xml";
+        }
+
+        if (ct.Contains("html", StringComparison.OrdinalIgnoreCase))
+        {
+            return "html";
+        }
+
+        if (ct.Contains("javascript", StringComparison.OrdinalIgnoreCase)
+            || ct.Equals("text/js", StringComparison.OrdinalIgnoreCase))
+        {
+            return "javascript";
+        }
+
+        return "text";
+    }
+
+    internal static string MapLanguageToContentType(string? language)
+    {
+        if (string.IsNullOrWhiteSpace(language))
+        {
+            return "text/plain";
+        }
+
+        return language.Trim().ToLowerInvariant() switch
+        {
+            "json" => "application/json",
+            "xml" => "application/xml",
+            "html" => "text/html",
+            "javascript" or "js" => "application/javascript",
+            _ => "text/plain"
         };
     }
 }

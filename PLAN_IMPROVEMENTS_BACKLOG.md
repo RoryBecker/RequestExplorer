@@ -1,8 +1,8 @@
 # RequestExplorer — Improvements Backlog Plan
 
-**Status:** Phases A0–F approved; Phase G decisions recorded (fidelity only; move-lag deferred) — see PLAN_PHASE_G.md; H/Z awaiting  
+**Status:** Phases A0–F approved; Phase G report + must-fix fidelity fixes applied (see FIDELITY.md / FIDELITY_GAPS.md); move-lag deferred; H/Z awaiting  
 **Created:** 2026-10-02  
-**Updated:** 2026-10-05 (Phase G decisions)  
+**Updated:** 2026-10-05 (Phase G must-fix applied)  
 **Companion to:** [`PLAN_COMPLETED.md`](PLAN_COMPLETED.md), [`PLANNED_ARCHITECTURAL_REFACTOR.md`](PLANNED_ARCHITECTURAL_REFACTOR.md)
 
 **Repo policy:** Do **not** auto-commit. The human owns all commits and confirms code changes via commits. Implement only after explicit phase approval.  
@@ -29,7 +29,7 @@ Turn the day’s improvement notes into an ordered, implementable plan: current-
 | 6 | Backups | **Both** rolling backup **and** restore UI; settings for retention N (and related prefs). |
 | 7 | Timeout | Global setting: default **30 seconds**; **dev mode** = infinite timeout. |
 | 8 | Replay mode | **Parked.** Remains in backlog; do **not** implement without express instruction. |
-| 9 | Fidelity analysis | Clarified below — optional investigation phase producing a gap report (not a product feature). |
+| 9 | Fidelity (Postman interchange) | **Standing definition:** [`FIDELITY.md`](FIDELITY.md). Primary bar = RE features exportable to and importable from Postman either direction. Re-check when RE gains features. Phase G snapshot: [`FIDELITY_GAPS.md`](FIDELITY_GAPS.md). |
 
 ---
 
@@ -46,7 +46,7 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 | D | Editor layout / grids ✅ | Body as first tab; copy/paste grid rows across areas; remove left/right splitter MaxWidth |
 | E | Data safety ✅ | Rolling backups + restore + settings dialog (N, timeout, dev mode) — see [`PLAN_PHASE_E.md`](PLAN_PHASE_E.md) |
 | F | Advanced tools ✅ | Modify-as-JSON (internal, selected subtree). **Replay excluded unless re-approved.** — see [`PLAN_PHASE_F.md`](PLAN_PHASE_F.md) |
-| G | Investigation deliverables | Fidelity gap analysis (save/load/export/import) + window-move lag — see [`PLAN_PHASE_G.md`](PLAN_PHASE_G.md) |
+| G | Investigation deliverables ✅ | Fidelity gap analysis — see [`FIDELITY_GAPS.md`](FIDELITY_GAPS.md) / [`PLAN_PHASE_G.md`](PLAN_PHASE_G.md); window-move lag deferred |
 | H | Optional structural | Touch points that overlap [`PLANNED_ARCHITECTURAL_REFACTOR.md`](PLANNED_ARCHITECTURAL_REFACTOR.md) only if a feature forces it |
 | Z | Parked | Replay mode — backlog only |
 
@@ -58,7 +58,7 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 2. **Dirty + persist:** Anything that changes collection data must mark dirty immediately enough that Ctrl+S works; session-only UI state (response search query, replay count) should not dirty collections unless you decide otherwise.
 3. **Filter / selection restore:** Tree mutations from JSON replace should reuse existing reveal/select patterns where practical.
 4. **No silent data loss:** Promote, demote, JSON replace, and backup restore need clear confirmation when destructive.
-5. **Postman fidelity:** New features that touch persistence should be checked against import/export round-trip (Phase G feeds this).
+5. **Postman fidelity (standing):** See [`FIDELITY.md`](FIDELITY.md). **Primary bar:** interchange of **RE features** with Postman in **either direction** — anything RE can cope with must be exportable to Postman and importable from Postman where that construct maps. As RE gains features, each new persisted capability must be checked (local save/load + Postman export + Postman import) and the gap notes kept current. Postman-only surfaces without an RE feature are product expansion, not interchange bugs, until RE supports them.
 
 ---
 
@@ -267,29 +267,18 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 
 ---
 
-### 14. Fidelity analysis (what “item 9” / Phase G means)
+### 14. Fidelity (standing definition + Phase G snapshot)
 
-**This is not a UI feature.** It is an investigation you originally asked for:
+**Standing policy (use for all future passes):** [`FIDELITY.md`](FIDELITY.md)
 
-> Ask specifically for an analysis of anything needed for a request which is not being saved and/or loaded or exported/imported.
+**Primary bar:** Interchange of **RequestExplorer features** with Postman in **either direction**:
 
-**Plain-language meaning:**  
-Walk every piece of data you can set on a request (URL, params, headers, body modes, auth types, etc.) and check whether each piece survives:
+- **RE → Postman:** anything RE can store/edit should export without dropping that data.  
+- **Postman → RE:** anything in Postman that maps to an RE-capable feature should import into that feature (no throw, no silent wipe).
 
-1. **Save to disk** and reload in RequestExplorer  
-2. **Export** to Postman JSON  
-3. **Import** back from Postman JSON  
+RE will keep gaining features; each new persisted capability should be checked for local save/load **and** Postman export/import, and the gap matrix updated.
 
-Some fields may work in the editor but get dropped on save, or save locally but vanish on Postman export/import (e.g. historically suspicious: form-data, oauth1, some body/auth variants).
-
-**Deliverable:** a report (e.g. `FIDELITY_GAPS.md`) with a table:
-
-| Field / surface | Local save/load | Postman export | Postman import | Notes |
-|-----------------|-----------------|----------------|----------------|-------|
-
-**Then:** you choose which gaps to fix. Analysis alone changes no product behaviour.
-
-**Status:** Decisions recorded — see [`PLAN_PHASE_G.md`](PLAN_PHASE_G.md). Fidelity report only this phase; window-move lag deferred. Awaiting implement approval.
+**Phase G** produced a point-in-time gap report (analysis only): [`FIDELITY_GAPS.md`](FIDELITY_GAPS.md). Window-move lag remains deferred. Future passes should reuse [`FIDELITY.md`](FIDELITY.md), not reinvent the bar.
 
 ---
 

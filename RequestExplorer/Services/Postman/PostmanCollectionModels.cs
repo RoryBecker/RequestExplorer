@@ -30,6 +30,10 @@ public sealed class PostmanInfo
 
 public sealed class PostmanItem
 {
+    [JsonPropertyName("id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Id { get; set; }
+
     [JsonPropertyName("name")]
     public string Name { get; set; } = "Item";
 

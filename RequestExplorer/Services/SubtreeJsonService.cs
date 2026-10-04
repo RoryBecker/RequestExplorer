@@ -144,6 +144,7 @@ public static class SubtreeJsonService
         collection.Variables ??= [];
         collection.Folders ??= [];
         collection.Requests ??= [];
+        collection.ChildOrder ??= [];
         foreach (var folder in collection.Folders)
         {
             Normalize(folder);
@@ -158,6 +159,8 @@ public static class SubtreeJsonService
         {
             Normalize(variable);
         }
+
+        CollectionTreeMapper.EnsureChildOrder(collection);
     }
 
     private static void Normalize(FolderDefinition folder)
@@ -166,6 +169,7 @@ public static class SubtreeJsonService
         folder.Variables ??= [];
         folder.Folders ??= [];
         folder.Requests ??= [];
+        folder.ChildOrder ??= [];
         foreach (var child in folder.Folders)
         {
             Normalize(child);
@@ -180,6 +184,8 @@ public static class SubtreeJsonService
         {
             Normalize(variable);
         }
+
+        CollectionTreeMapper.EnsureChildOrder(folder);
     }
 
     private static void Normalize(RequestDefinition request)

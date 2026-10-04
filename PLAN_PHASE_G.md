@@ -1,12 +1,14 @@
 # Phase G — Investigation: fidelity gaps (plan)
 
-**Status:** Decisions recorded (2026-10-05) — awaiting explicit **implement** instruction  
+**Status:** Implemented (2026-10-05) — report + must-fix code fixes; awaiting human approval / commit  
 **Created:** 2026-10-05  
-**Updated:** 2026-10-05 (user answers)  
+**Updated:** 2026-10-05 (must-fix fidelity fixes applied)  
 **Parent backlog:** [`PLAN_IMPROVEMENTS_BACKLOG.md`](PLAN_IMPROVEMENTS_BACKLOG.md)  
 **Repo policy:** Human owns all commits. Agent does not commit.
 
 **This phase is investigation-only (L1).** Deliverable is `FIDELITY_GAPS.md`. No product fidelity fixes in G.
+
+**Fidelity principle (standing):** [`FIDELITY.md`](FIDELITY.md) — interchange of RE features either direction with Postman; re-check when RE gains features. Phase G snapshot: [`FIDELITY_GAPS.md`](FIDELITY_GAPS.md).
 
 **Window-move lag (G2)** is **cancelled / deferred** for this phase (**F3** + **M2**). Item 17 remains in the backlog for a later pass.
 
@@ -34,7 +36,7 @@
 
 **Postman-only features with no RE UI (D1):** list as N/A — no UI / Dropped on import (auth variants, non-raw body, scripts, descriptions, etc.).
 
-**Out of scope:** implementing fidelity fixes, new auth/body modes, G2 instrumentation/fix, Replay (Z), Phase H refactors.
+**Originally out of scope for analysis-only G:** product fixes. **Later instruction:** apply must-fix items from [`FIDELITY_GAPS.md`](FIDELITY_GAPS.md) — done (ChildOrder, url string import, disabled params export, ContentType↔language, item ids). Still out of scope: new auth/body modes, G2, Replay (Z), Phase H.
 
 ---
 
@@ -142,12 +144,14 @@ Deferred per **F3** + **M2**. Backlog Item 17 / former Q28 remains available lat
 
 ## Acceptance criteria
 
-- [ ] `FIDELITY_GAPS.md` covers B1 surfaces with Local / Postman export / Postman import status.  
-- [ ] Postman-only drops listed (D1), including auth/body/scripts/descriptions at minimum.  
-- [ ] Quick Export notes and backup restore equivalence note included (C4).  
-- [ ] Brief Edit-as-JSON sanity (same internal model).  
-- [ ] Suggested fix priority section (K1).  
-- [ ] No product behaviour changes (L1); G2 not done; no agent commits; Replay not implemented.
+- [x] `FIDELITY_GAPS.md` covers B1 surfaces with Local / Postman export / Postman import status.  
+- [x] Postman-only drops listed (D1), including auth/body/scripts/descriptions at minimum.  
+- [x] Quick Export notes and backup restore equivalence note included (C4).  
+- [x] Brief Edit-as-JSON sanity (same internal model).  
+- [x] Suggested fix priority section (K1).  
+- [x] No product behaviour changes (L1); G2 not done; no agent commits; Replay not implemented.
+
+**Deliverable:** [`FIDELITY_GAPS.md`](FIDELITY_GAPS.md)
 
 ---
 
@@ -278,4 +282,4 @@ Deferred per **F3** + **M2**. Backlog Item 17 / former Q28 remains available lat
 
 ## Next step
 
-Decisions are recorded (including **L1**). Reply **implement Phase G** (or **approve Phase G** / start investigation) when you want the fidelity report written.
+Phase G investigation complete. Review [`FIDELITY_GAPS.md`](FIDELITY_GAPS.md), then **approve Phase G** when satisfied. Prioritise P0–P4 fixes as a later phase when ready.

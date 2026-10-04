@@ -1,8 +1,8 @@
 # Phase F — Advanced tools: Modify-as-JSON (plan)
 
-**Status:** Decisions recorded (2026-10-05) — awaiting explicit **implement** instruction  
+**Status:** Approved (2026-10-05)  
 **Created:** 2026-10-05  
-**Updated:** 2026-10-05 (user answers)  
+**Updated:** 2026-10-05 (approved)  
 **Parent backlog:** [`PLAN_IMPROVEMENTS_BACKLOG.md`](PLAN_IMPROVEMENTS_BACKLOG.md)  
 **Repo policy:** Human owns all commits. Agent does not commit.
 
@@ -53,76 +53,30 @@ Also locked from backlog:
 
 ---
 
-## Current state (code snapshot)
+## Implementation notes
 
-### Models (internal shape)
+| Piece | Location |
+|-------|----------|
+| Serialize / deserialize / format | `RequestExplorer/Services/SubtreeJsonService.cs` |
+| Modal editor (Format, Find, confirm, dirty close) | `RequestExplorer/Views/EditAsJsonDialog.xaml(.cs)` |
+| Command + Apply replace + undo | `MainViewModel.EditAsJson` / `TryApplySubtreeJson` |
+| Menus | Edit menu + tree context menu → **Edit as JSON…** |
 
-- `CollectionDefinition` / `FolderDefinition` / `RequestDefinition` (+ `KeyValueItem`, auth, body)
-- Persistence: `System.Text.Json`, camelCase (`CollectionPersistenceService` options)
-
-### Mapping
-
-- `CollectionTreeMapper` bridges models ↔ tree VMs
-- Commit pending edits + normalize spares before serialize; sync models before/after Apply
-
-### Related UI
-
-- Quick Export = export formats only (not this feature)
-- Tree context menu has no Edit as JSON yet
-- Undo / dirty / collection file rename helpers already exist
-
----
-
-## F1 — Serialize selected subtree
-
-### Behaviour (locked)
-
-- Enabled iff **exactly one** selected node (**A2**) and it is collection / folder / request.
-- Commit pending UI edits → normalize spares → sync model → pretty-print internal JSON (camelCase, indented).
-- Root type matches selection kind.
-
----
-
-## F2 — Apply JSON back
-
-### Pipeline (locked)
-
-1. **Confirm** always (**B1**).
-2. Deserialize to expected type; **C1** validation (basic structure / enums; ignore unknown props).
-3. On failure: **error UI, dialog stays open, buffer unchanged** — user keeps editing until success or Cancel (**C1 UX rule**).
-4. On success: replace subtree only; preserve **original root id** (**D1** provisional); child order from JSON (**I1**); new VMs (**J1**); undo composite; dirty; collection name → disk sync if needed (**E1**); **close dialog** (**K1**).
-
----
-
-## F3 — UX surface (locked)
-
-- **Modal dialog** (**F1**): large editor, **Apply**, **Cancel**, **Format**, **Find** (**G3**).
-- Tree context menu (+ optional Edit menu): **Edit as JSON…**
-- Cancel / close with dirty buffer → Discard / Keep editing (**H1**).
-- Successful Apply closes dialog (**K1**); failed Apply does not.
-
----
-
-## Delivery order within Phase F
-
-1. Serialize / deserialize helpers for collection / folder / request.  
-2. Apply replace + undo + dirty + id preserve + collection file sync.  
-3. Modal dialog: editor, Format, Find, confirm, error-without-close, discard prompt.  
-4. Menu / command wiring (`CanExecute` = single selection).
+Apply pipeline: confirm → deserialize (preserve root id) → build new VMs → `RemoveNodeCore` + `InsertNodeCore` → `CompositeUndoAction` → dirty / collection file sync → select new node → close dialog.
 
 ---
 
 ## Acceptance criteria
 
-- [ ] Edit as JSON enabled only for exactly one selected collection/folder/request.
-- [ ] Buffer is internal camelCase JSON for that subtree only.
-- [ ] Apply always confirms; success replaces subtree, one undo step, dirty, dialog closes.
-- [ ] Apply failure shows error and **leaves dialog open** with buffer intact for further edits.
-- [ ] Cancel/close with dirty buffer prompts Discard / Keep editing.
-- [ ] Format + Find available in the dialog.
-- [ ] Root id preserved on Apply (D1); collection rename syncs disk file (E1).
-- [ ] LastResponse not carried onto replaced request VMs.
-- [ ] Replay not implemented; no agent commits.
+- [x] Edit as JSON enabled only for exactly one selected collection/folder/request.
+- [x] Buffer is internal camelCase JSON for that subtree only.
+- [x] Apply always confirms; success replaces subtree, one undo step, dirty, dialog closes.
+- [x] Apply failure shows error and **leaves dialog open** with buffer intact for further edits.
+- [x] Cancel/close with dirty buffer prompts Discard / Keep editing.
+- [x] Format + Find available in the dialog.
+- [x] Root id preserved on Apply (D1); collection rename syncs disk file (E1).
+- [x] LastResponse not carried onto replaced request VMs.
+- [x] Replay not implemented; no agent commits.
 
 ---
 
@@ -146,12 +100,12 @@ Also locked from backlog:
 
 ---
 
-## Open follow-up (not blocking implement)
+## Open follow-up (not blocking)
 
-- **Q4 revisit:** D1 (keep root id) vs D2 (accept payload id). Implementing **D1** now; easy to switch later if you prefer D2.
+- **Q4 revisit:** D1 (keep root id) vs D2 (accept payload id).
 
 ---
 
 ## Next step
 
-Decisions are recorded. Reply **approve Phase F** / **implement Phase F** when you want coding to start.
+Phase F approved. Human owns the commit. Phase G (fidelity gap analysis) awaits approval.

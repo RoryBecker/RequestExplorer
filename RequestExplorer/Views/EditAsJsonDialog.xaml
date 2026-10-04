@@ -1,0 +1,105 @@
+<Window x:Class="RequestExplorer.Views.EditAsJsonDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Edit as JSON"
+        Height="640"
+        Width="820"
+        MinHeight="420"
+        MinWidth="560"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{StaticResource App.PanelBrush}"
+        Closing="Window_OnClosing">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="SubtitleText"
+                   Grid.Row="0"
+                   Margin="0,0,0,8"
+                   Foreground="{StaticResource App.MutedBrush}"
+                   TextWrapping="Wrap" />
+
+        <DockPanel Grid.Row="1"
+                   Margin="0,0,0,8"
+                   LastChildFill="True">
+            <TextBlock DockPanel.Dock="Left"
+                       Text="Find"
+                       VerticalAlignment="Center"
+                       Margin="0,0,6,0"
+                       Foreground="{StaticResource App.MutedBrush}" />
+            <StackPanel DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        Margin="4,0,0,0">
+                <Button Padding="8,2"
+                        Margin="0,0,2,0"
+                        ToolTip="Previous match"
+                        Click="FindPrevious_Click">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70E;" />
+                </Button>
+                <Button Padding="8,2"
+                        ToolTip="Next match"
+                        Click="FindNext_Click">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70D;" />
+                </Button>
+            </StackPanel>
+            <TextBlock x:Name="FindStatusText"
+                       DockPanel.Dock="Right"
+                       MinWidth="72"
+                       Margin="8,0,0,0"
+                       VerticalAlignment="Center"
+                       Foreground="{StaticResource App.MutedBrush}" />
+            <TextBox x:Name="FindBox"
+                     VerticalContentAlignment="Center"
+                     TextChanged="FindBox_OnTextChanged" />
+        </DockPanel>
+
+        <TextBox x:Name="EditorBox"
+                 Grid.Row="2"
+                 AcceptsReturn="True"
+                 AcceptsTab="True"
+                 TextWrapping="NoWrap"
+                 VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto"
+                 FontFamily="Consolas"
+                 FontSize="12"
+                 Padding="8"
+                 BorderBrush="{StaticResource App.BorderBrush}"
+                 BorderThickness="1"
+                 Background="#FFF9FAFB"
+                 VerticalAlignment="Stretch"
+                 HorizontalAlignment="Stretch" />
+
+        <TextBlock x:Name="ErrorText"
+                   Grid.Row="3"
+                   Margin="0,8,0,0"
+                   Foreground="{StaticResource App.DangerBrush}"
+                   TextWrapping="Wrap"
+                   Visibility="Collapsed" />
+
+        <DockPanel Grid.Row="4" Margin="0,12,0,0">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                <Button Content="Format"
+                        Width="88"
+                        Click="Format_Click" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Apply"
+                        Width="88"
+                        Margin="0,0,8,0"
+                        IsDefault="True"
+                        Style="{StaticResource PrimaryButton}"
+                        Click="Apply_Click" />
+                <Button Content="Cancel"
+                        Width="88"
+                        IsCancel="True"
+                        Click="Cancel_Click" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

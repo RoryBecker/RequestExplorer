@@ -221,6 +221,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(ExpandChildrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveNodeUpCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveNodeDownCommand))]
+    [NotifyCanExecuteChangedFor(nameof(EditAsJsonCommand))]
     private TreeNodeViewModel? _selectedNode;
 
     private TreeClipboardPayload? _treeClipboard;
@@ -384,6 +385,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         PasteIntoNodeCommand.NotifyCanExecuteChanged();
         PasteAtRootCommand.NotifyCanExecuteChanged();
         SmartPasteCommand.NotifyCanExecuteChanged();
+        EditAsJsonCommand.NotifyCanExecuteChanged();
         NotifyMoveAmongSiblingsCanExecuteChanged();
         OnPropertyChanged(nameof(SelectionSummary));
         RefreshQuickExport();
@@ -430,6 +432,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 SyncSelectionFlags();
                 OnPropertyChanged(nameof(SelectionSummary));
                 NotifyMoveAmongSiblingsCanExecuteChanged();
+                EditAsJsonCommand.NotifyCanExecuteChanged();
             }
         }
         else
@@ -446,6 +449,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 SyncSelectionFlags();
                 OnPropertyChanged(nameof(SelectionSummary));
                 NotifyMoveAmongSiblingsCanExecuteChanged();
+                EditAsJsonCommand.NotifyCanExecuteChanged();
             }
         }
 
@@ -480,6 +484,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             SyncSelectionFlags();
             OnPropertyChanged(nameof(SelectionSummary));
             NotifyMoveAmongSiblingsCanExecuteChanged();
+            EditAsJsonCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -1703,6 +1708,135 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     private bool CanCopyNode(TreeNodeViewModel? node) => (node ?? SelectedNode) is not null;
+
+    [RelayCommand(CanExecute = nameof(CanEditAsJson))]
+    private void EditAsJson()
+    {
+        if (!CanEditAsJson() || SelectedNode is null)
+        {
+            return;
+        }
+
+        var target = SelectedNode;
+        PendingEditCommitRequested?.Invoke();
+        NormalizeKeyValueSpares(target);
+        PrepareNodeForExport(target);
+
+        var json = SubtreeJsonService.Serialize(target);
+        var dialog = new Views.EditAsJsonDialog(target.Kind, target.Name, json)
+        {
+            Owner = Application.Current?.MainWindow,
+            TryApply = buffer => TryApplySubtreeJson(target, buffer)
+        };
+        dialog.ShowDialog();
+    }
+
+    private bool CanEditAsJson() =>
+        _selectedNodes.Count == 1
+        && SelectedNode is CollectionNodeViewModel or FolderNodeViewModel or RequestNodeViewModel;
+
+    private (bool ok, string? error) TryApplySubtreeJson(TreeNodeViewModel target, string json)
+    {
+        var rootId = target switch
+        {
+            CollectionNodeViewModel collection => collection.Model.Id,
+            FolderNodeViewModel folder => folder.Model.Id,
+            RequestNodeViewModel request => request.Model.Id,
+            _ => Guid.Empty
+        };
+
+        if (!SubtreeJsonService.TryDeserialize(target.Kind, json, rootId, out var model, out var error)
+            || model is null)
+        {
+            return (false, error ?? "Invalid JSON.");
+        }
+
+        TreeNodeViewModel newNode;
+        try
+        {
+            newNode = model switch
+            {
+                CollectionDefinition collection => CollectionTreeMapper.ToViewModel(collection),
+                FolderDefinition folder => CollectionTreeMapper.ToFolderViewModel(folder),
+                RequestDefinition request => new RequestNodeViewModel(request),
+                _ => throw new InvalidOperationException("Unexpected model type.")
+            };
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+
+        WireUndoRecorders(newNode);
+
+        var parent = target.Parent;
+        var index = parent is not null
+            ? parent.Children.IndexOf(target)
+            : Collections.IndexOf((CollectionNodeViewModel)target);
+        if (index < 0)
+        {
+            return (false, "Could not locate the selected node in the tree.");
+        }
+
+        var description = $"Edit as JSON '{target.Name}'";
+
+        // Avoid leaving selection on a node about to be removed.
+        if (ReferenceEquals(SelectedNode, target) || IsUnder(SelectedNode, target))
+        {
+            SelectedNode = parent;
+        }
+
+        RemoveNodeCore(target);
+        InsertNodeCore(parent, newNode, index);
+
+        if (parent is not null)
+        {
+            parent.IsExpanded = true;
+        }
+
+        RecordUndo(new CompositeUndoAction(
+            description,
+            [
+                new RemoveNodeAction(newNode, parent, index, description),
+                new InsertNodeAction(parent, target, index, description)
+            ],
+            selectAfter: [newNode],
+            selectAfterInverse: [target]));
+
+        if (newNode is CollectionNodeViewModel appliedCollection)
+        {
+            // InsertNodeCore already persisted; keep dirty marker so the workspace reflects the edit.
+            appliedCollection.IsDirty = true;
+            try
+            {
+                _persistence.SyncFileNameToCollectionName(appliedCollection.Model.Id, appliedCollection.Name);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"The collection was updated, but the on-disk file could not be renamed.\n\n{ex.Message}",
+                    "Rename Warning",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+        }
+        else
+        {
+            MarkSubtreeDirty(newNode);
+            var owning = CollectionTreeMapper.FindRootCollection(newNode);
+            if (owning is not null)
+            {
+                owning.IsDirty = true;
+            }
+        }
+
+        SelectOnly(newNode);
+        OnPropertyChanged(nameof(HasAnyDirty));
+        StatusMessage = newNode is CollectionNodeViewModel
+            ? $"Applied JSON to '{newNode.Name}'"
+            : $"Applied JSON to '{newNode.Name}' (Ctrl+S to persist)";
+        return (true, null);
+    }
 
     [RelayCommand(CanExecute = nameof(CanPasteIntoNode))]
     private void PasteIntoNode(TreeNodeViewModel? target)

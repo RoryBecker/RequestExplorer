@@ -151,6 +151,8 @@
                 <MenuItem Header="Move _Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
                 <MenuItem Header="Move _Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />
                 <MenuItem Header="_Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
+                <Separator />
+                <MenuItem Header="Edit as _JSON…" Command="{Binding EditAsJsonCommand}" />
             </MenuItem>
             <MenuItem Header="_Request">
                 <MenuItem Header="_Send" Command="{Binding SendRequestCommand}" InputGestureText="Ctrl+Enter" />
@@ -572,6 +574,8 @@
                                 <Separator />
                                 <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
                                 <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
+                                <Separator />
+                                <MenuItem Header="Edit as JSON…" Command="{Binding EditAsJsonCommand}" />
                             </ContextMenu>
                         </TreeView.ContextMenu>
 

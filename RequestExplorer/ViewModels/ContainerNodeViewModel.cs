@@ -1,4 +1,8 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Text;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
 using RequestExplorer.Services;
@@ -9,6 +13,9 @@ namespace RequestExplorer.ViewModels;
 /// <summary>Collection or folder that can define scoped key/value variables.</summary>
 public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyValueListSortHost
 {
+    private const int TooltipMaxLines = 20;
+    private const int TooltipValueMaxChars = 64;
+
     private bool _ensuringSpare;
     private bool _suppressFieldUndo;
     private IUndoRecorder? _undoRecorder;
@@ -23,13 +30,31 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         }
 
         EnsureVariableSpareRow();
+        Variables.CollectionChanged += Variables_OnCollectionChanged;
+        foreach (var item in Variables)
+        {
+            item.PropertyChanged += VariableItem_OnPropertyChanged;
+        }
+
+        PropertyChanged += Self_OnPropertyChanged;
+        RefreshVariablePresentation();
     }
 
     protected List<KeyValueItem> ModelVariables { get; }
 
     public ObservableCollection<KeyValueItemViewModel> Variables { get; } = [];
 
+    public ObservableCollection<InheritedVariableRow> InheritedVariables { get; } = [];
+
+    [ObservableProperty]
+    private bool _hasDefinedVariables;
+
+    [ObservableProperty]
+    private string _variablesTooltip = string.Empty;
+
     public void AttachUndoRecorder(IUndoRecorder recorder) => _undoRecorder = recorder;
+
+    public IUndoRecorder? UndoRecorder => _undoRecorder;
 
     [RelayCommand]
     private void RemoveVariable(KeyValueItemViewModel? item)
@@ -51,6 +76,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         IsDirty = true;
         EnsureVariableSpareRow();
         RecordRowRemoveUndo(item, index, $"Remove variable '{item.Key}'");
+        RefreshVariablePresentation();
     }
 
     public void ApplyVariableField(
@@ -69,6 +95,8 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         {
             _suppressFieldUndo = false;
         }
+
+        RefreshVariablePresentation();
     }
 
     public void RemoveVariableRow(KeyValueItemViewModel item)
@@ -85,6 +113,8 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         {
             _suppressFieldUndo = false;
         }
+
+        RefreshVariablePresentation();
     }
 
     public void InsertVariableRow(KeyValueItemViewModel item, int index)
@@ -112,9 +142,34 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         {
             _suppressFieldUndo = false;
         }
+
+        RefreshVariablePresentation();
     }
 
     public int IndexOfVariable(KeyValueItemViewModel item) => Variables.IndexOf(item);
+
+    public KeyValueItemViewModel? FindVariableByKey(string key) =>
+        Variables.FirstOrDefault(v =>
+            v.HasKey && string.Equals(v.Key.Trim(), key.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Inserts a new variable before the spare row. Returns the created VM and index.</summary>
+    public KeyValueItemViewModel InsertVariableSnapshot(
+        string key,
+        string value,
+        bool enabled,
+        out int index)
+    {
+        var model = new KeyValueItem
+        {
+            Key = key,
+            Value = value,
+            IsEnabled = enabled && !string.IsNullOrWhiteSpace(key)
+        };
+        var vm = CreateVariableVm(model);
+        index = GetInsertBeforeSpareIndex(Variables);
+        InsertVariableRow(vm, index);
+        return vm;
+    }
 
     /// <summary>Pastes rows before the spare row. Returns how many rows were inserted.</summary>
     public int PasteVariableRows(IReadOnlyList<KeyValueClipboardRow> rows)
@@ -178,7 +233,6 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
                 continue;
             }
 
-            // Insert before trailing spare row when present.
             var insertAt = Variables.Count > 0 && string.IsNullOrWhiteSpace(Variables[^1].Key)
                 ? Variables.Count - 1
                 : Variables.Count;
@@ -192,7 +246,97 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         {
             IsDirty = true;
             EnsureVariableSpareRow();
+            RefreshVariablePresentation();
         }
+    }
+
+    public void RefreshVariablePresentation()
+    {
+        RefreshDefinedVariablesGlyph();
+        RefreshInheritedVariables();
+    }
+
+    public void RefreshInheritedVariables()
+    {
+        InheritedVariables.Clear();
+
+        var localKeys = new HashSet<string>(
+            Variables.Where(v => v.HasKey).Select(v => v.Key.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        // Farthest ancestor first: collect chain then reverse.
+        var ancestors = new List<ContainerNodeViewModel>();
+        for (var node = Parent; node is not null; node = node.Parent)
+        {
+            if (node is ContainerNodeViewModel container)
+            {
+                ancestors.Add(container);
+            }
+        }
+
+        ancestors.Reverse();
+
+        foreach (var ancestor in ancestors)
+        {
+            var rows = ancestor.Variables
+                .Where(v => v.IsEnabled && v.HasKey)
+                .OrderBy(v => v.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(v =>
+                {
+                    var key = v.Key.Trim();
+                    return new InheritedVariableRow(
+                        key,
+                        v.Value ?? string.Empty,
+                        ancestor.Name,
+                        localKeys.Contains(key));
+                });
+
+            foreach (var row in rows)
+            {
+                InheritedVariables.Add(row);
+            }
+        }
+    }
+
+    private void RefreshDefinedVariablesGlyph()
+    {
+        var defined = Variables
+            .Where(v => v.IsEnabled && v.HasKey)
+            .OrderBy(v => v.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        HasDefinedVariables = defined.Count > 0;
+
+        if (defined.Count == 0)
+        {
+            VariablesTooltip = string.Empty;
+            return;
+        }
+
+        var sb = new StringBuilder();
+        var lines = 0;
+        foreach (var item in defined)
+        {
+            if (lines >= TooltipMaxLines)
+            {
+                sb.AppendLine("…");
+                break;
+            }
+
+            var value = item.Value ?? string.Empty;
+            if (value.Length > TooltipValueMaxChars)
+            {
+                value = value[..TooltipValueMaxChars] + "…";
+            }
+
+            sb.Append(item.Key.Trim());
+            sb.Append('=');
+            sb.Append(value);
+            sb.AppendLine();
+            lines++;
+        }
+
+        VariablesTooltip = sb.ToString().TrimEnd();
     }
 
     private KeyValueItemViewModel CreateVariableVm(KeyValueItem item) =>
@@ -207,6 +351,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         IsDirty = true;
         EnsureVariableSpareRow();
         RecordFieldUndo(item, field, oldValue, newValue);
+        RefreshVariablePresentation();
     }
 
     private void RecordFieldUndo(
@@ -270,6 +415,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
 
         IsDirty = true;
         EnsureVariableSpareRow();
+        RefreshVariablePresentation();
     }
 
     private void EnsureVariableSpareRow()
@@ -284,5 +430,48 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             ModelVariables,
             CreateVariableVm,
             ref _ensuringSpare);
+    }
+
+    private void Variables_OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems is not null)
+        {
+            foreach (KeyValueItemViewModel item in e.OldItems)
+            {
+                item.PropertyChanged -= VariableItem_OnPropertyChanged;
+            }
+        }
+
+        if (e.NewItems is not null)
+        {
+            foreach (KeyValueItemViewModel item in e.NewItems)
+            {
+                item.PropertyChanged += VariableItem_OnPropertyChanged;
+            }
+        }
+
+        if (e.Action != NotifyCollectionChangedAction.Move)
+        {
+            RefreshVariablePresentation();
+        }
+    }
+
+    private void VariableItem_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(KeyValueItemViewModel.Key)
+            or nameof(KeyValueItemViewModel.Value)
+            or nameof(KeyValueItemViewModel.IsEnabled)
+            or nameof(KeyValueItemViewModel.HasKey))
+        {
+            RefreshVariablePresentation();
+        }
+    }
+
+    private void Self_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(Parent) or nameof(Name))
+        {
+            RefreshInheritedVariables();
+        }
     }
 }

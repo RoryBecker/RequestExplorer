@@ -364,6 +364,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             AttachRequestExportWatchers(newRequest);
         }
 
+        if (newValue is ContainerNodeViewModel container)
+        {
+            container.RefreshInheritedVariables();
+        }
+
         CopyNodeCommand.NotifyCanExecuteChanged();
         PasteIntoNodeCommand.NotifyCanExecuteChanged();
         PasteAtRootCommand.NotifyCanExecuteChanged();

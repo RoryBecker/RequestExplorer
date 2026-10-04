@@ -1,8 +1,8 @@
 # Phase C — Variables workflow (plan)
 
-**Status:** Decisions recorded — awaiting explicit **approve Phase C** before code  
+**Status:** Approved (2026-10-05)  
 **Created:** 2026-10-05  
-**Updated:** 2026-10-05 (user answers Q1–Q13)  
+**Updated:** 2026-10-05 (approved)  
 **Parent backlog:** [`PLAN_IMPROVEMENTS_BACKLOG.md`](PLAN_IMPROVEMENTS_BACKLOG.md)  
 **Repo policy:** Human owns all commits. Agent does not commit.
 
@@ -165,13 +165,13 @@ Default: **C3 → C2 → C1** (Q14 unanswered). Override if you prefer actions f
 
 ## Acceptance criteria
 
-- [ ] Param/header/variable row can be **moved** to a named legal target; Key/Value/Enabled unchanged; source row gone from origin.
-- [ ] Collision shows confirm with **value comparison**; Cancel leaves both sides unchanged.
-- [ ] Empty Value allowed; blank-key rows cannot move.
-- [ ] Move down lists direct child folders only; no request targets; no `{{…}}` rewrite.
-- [ ] Inherited section **above** Local; farthest-first; overridden rows muted + badge; not saved as local.
-- [ ] Tree glyph when enabled keyed vars exist; tooltip limits per Q12–Q13.
-- [ ] All moves undoable; dirty marked; no agent commits.
+- [x] Param/header/variable row can be **moved** to a named legal target; Key/Value/Enabled unchanged; source row gone from origin.
+- [x] Collision shows confirm with **value comparison**; Cancel leaves both sides unchanged.
+- [x] Empty Value allowed; blank-key rows cannot move.
+- [x] Move down lists direct child folders only; no request targets; no `{{…}}` rewrite.
+- [x] Inherited section **above** Local; farthest-first; overridden rows muted + badge; not saved as local.
+- [x] Tree glyph when enabled keyed vars exist; tooltip limits per Q12–Q13.
+- [x] All moves undoable; dirty marked; no agent commits.
 
 ---
 
@@ -197,8 +197,10 @@ Still optional: **Q10b**, **Q14**, **Q15** (defaults above).
 
 ---
 
-## Approval
+## Shipped (2026-10-05)
 
-Answers are recorded. Reply **approve Phase C** when ready to implement.
+- **C3:** Tree glyph (`E81E`) + tooltip on collection/folder when ≥1 enabled keyed variable.
+- **C2:** Inherited grid above Local on collection/folder editors; overridden rows muted + “Overridden”; farthest-ancestor-first.
+- **C1:** Context menus Move to variable on… / Move up to… / Move down to…; overwrite confirm with value comparison; undoable composites via `VariableScopeMove`.
 
-No source code will be changed for Phase C until that approval.
+Human owns commits.

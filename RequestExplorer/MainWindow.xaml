@@ -590,6 +590,14 @@
                                                            Margin="0,0,6,0"
                                                            Foreground="{StaticResource App.AccentBrush}"
                                                            VerticalAlignment="Center" />
+                                                <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                           Text="&#xE81E;"
+                                                           Margin="0,0,4,0"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource App.MutedBrush}"
+                                                           VerticalAlignment="Center"
+                                                           ToolTip="{Binding VariablesTooltip}"
+                                                           Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
                                                 <TextBlock Text="{Binding DisplayName}"
                                                            FontWeight="SemiBold"
                                                            VerticalAlignment="Center"
@@ -633,6 +641,14 @@
                                                            Margin="0,0,6,0"
                                                            Foreground="{StaticResource App.MutedBrush}"
                                                            VerticalAlignment="Center" />
+                                                <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                           Text="&#xE81E;"
+                                                           Margin="0,0,4,0"
+                                                           FontSize="11"
+                                                           Foreground="{StaticResource App.MutedBrush}"
+                                                           VerticalAlignment="Center"
+                                                           ToolTip="{Binding VariablesTooltip}"
+                                                           Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
                                                 <TextBlock Text="{Binding DisplayName}"
                                                            VerticalAlignment="Center"
                                                            TextTrimming="CharacterEllipsis" />

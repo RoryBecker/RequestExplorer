@@ -17,6 +17,7 @@
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="views:KeyValueGridSorting.SpareAwareSort" Value="True" />
             <Setter Property="views:KeyValueGridClipboard.EnableRowClipboard" Value="True" />
+            <Setter Property="views:KeyValueGridVariableMenus.EnableMoveMenus" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="#FFEEEEEE" />
@@ -123,47 +124,117 @@
                        FontWeight="SemiBold"
                        Foreground="{StaticResource App.MutedBrush}"
                        Text="VARIABLES" />
-            <DataGrid Style="{StaticResource KeyValueGrid}"
-                      ItemsSource="{Binding Variables}">
-                <DataGrid.Columns>
-                    <DataGridTemplateColumn Header="On"
-                                            Width="44"
-                                            SortMemberPath="IsEnabled">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
-                                          IsEnabled="{Binding HasKey}"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Key"
-                                        Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
-                                        Width="*"
-                                        ElementStyle="{StaticResource KeyValueCellText}"
-                                        EditingElementStyle="{StaticResource KeyValueCellEdit}" />
-                    <DataGridTextColumn Header="Value"
-                                        Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
-                                        Width="2*"
-                                        ElementStyle="{StaticResource KeyValueCellText}"
-                                        EditingElementStyle="{StaticResource KeyValueCellEdit}" />
-                    <DataGridTemplateColumn Header=""
-                                            Width="36"
-                                            CanUserSort="False">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Button Content="-"
-                                        Style="{StaticResource TreeActionButton}"
-                                        ToolTip="Remove row"
-                                        Visibility="{Binding HasContent, Converter={StaticResource BoolToVis}}"
-                                        Command="{Binding DataContext.RemoveVariableCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                        CommandParameter="{Binding}" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" MinHeight="120" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0" Margin="0,0,0,10">
+                    <TextBlock DockPanel.Dock="Top"
+                               Margin="0,0,0,4"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource App.MutedBrush}"
+                               Text="INHERITED" />
+                    <DataGrid ItemsSource="{Binding InheritedVariables}"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserSortColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="#FFEEEEEE"
+                              BorderThickness="1"
+                              BorderBrush="#FFE5E7EB"
+                              RowHeight="28"
+                              ColumnHeaderHeight="26"
+                              MaxHeight="160"
+                              MinHeight="56"
+                              Background="#FFF9FAFB"
+                              Foreground="#FF6B7280">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Key"
+                                                Binding="{Binding Key}"
+                                                Width="*"
+                                                ElementStyle="{StaticResource KeyValueCellText}" />
+                            <DataGridTextColumn Header="Value"
+                                                Binding="{Binding Value}"
+                                                Width="2*"
+                                                ElementStyle="{StaticResource KeyValueCellText}" />
+                            <DataGridTextColumn Header="Source"
+                                                Binding="{Binding SourceName}"
+                                                Width="120"
+                                                ElementStyle="{StaticResource KeyValueCellText}" />
+                            <DataGridTextColumn Header=""
+                                                Binding="{Binding StatusDisplay}"
+                                                Width="90"
+                                                ElementStyle="{StaticResource KeyValueCellText}" />
+                        </DataGrid.Columns>
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsShadowed}" Value="True">
+                                        <Setter Property="Opacity" Value="0.55" />
+                                        <Setter Property="FontStyle" Value="Italic" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                    </DataGrid>
+                </DockPanel>
+
+                <DockPanel Grid.Row="1">
+                    <TextBlock DockPanel.Dock="Top"
+                               Margin="0,0,0,4"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource App.MutedBrush}"
+                               Text="LOCAL" />
+                    <DataGrid Style="{StaticResource KeyValueGrid}"
+                              ItemsSource="{Binding Variables}">
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="On"
+                                                    Width="44"
+                                                    SortMemberPath="IsEnabled">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsEnabled, UpdateSourceTrigger=PropertyChanged}"
+                                                  IsEnabled="{Binding HasKey}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Key"
+                                                Binding="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                                Width="*"
+                                                ElementStyle="{StaticResource KeyValueCellText}"
+                                                EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                            <DataGridTextColumn Header="Value"
+                                                Binding="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                Width="2*"
+                                                ElementStyle="{StaticResource KeyValueCellText}"
+                                                EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                            <DataGridTemplateColumn Header=""
+                                                    Width="36"
+                                                    CanUserSort="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="-"
+                                                Style="{StaticResource TreeActionButton}"
+                                                ToolTip="Remove row"
+                                                Visibility="{Binding HasContent, Converter={StaticResource BoolToVis}}"
+                                                Command="{Binding DataContext.RemoveVariableCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Grid>
         </DockPanel>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" VerticalAlignment="Top">

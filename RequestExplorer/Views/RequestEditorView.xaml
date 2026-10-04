@@ -18,6 +18,7 @@
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="views:KeyValueGridSorting.SpareAwareSort" Value="True" />
             <Setter Property="views:KeyValueGridClipboard.EnableRowClipboard" Value="True" />
+            <Setter Property="views:KeyValueGridVariableMenus.EnableMoveMenus" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="#FFEEEEEE" />

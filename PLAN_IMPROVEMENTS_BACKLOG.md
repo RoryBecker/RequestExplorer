@@ -1,8 +1,8 @@
 # RequestExplorer — Improvements Backlog Plan
 
-**Status:** Phases A0–B and D approved; C / E–G awaiting approval  
+**Status:** Phases A0–D approved; E–G awaiting approval  
 **Created:** 2026-10-02  
-**Updated:** 2026-10-05 (Phase D approved)  
+**Updated:** 2026-10-05 (Phase C approved)  
 **Companion to:** [`PLAN_COMPLETED.md`](PLAN_COMPLETED.md), [`PLANNED_ARCHITECTURAL_REFACTOR.md`](PLANNED_ARCHITECTURAL_REFACTOR.md)
 
 **Repo policy:** Do **not** auto-commit. The human owns all commits and confirms code changes via commits. Implement only after explicit phase approval.  
@@ -42,7 +42,7 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 | A0 | Hotfix ✅ | Grid sort + blank spare row → save crash |
 | A | Correctness / save reliability ✅ | Dirty-while-typing; Ctrl+S commits focused grid; per-request response retention (session-only) |
 | B | Send / response UX ✅ | Global timeout 30s + dev-mode infinite; response tabs flood panel; response body search; download when document available; raw request/response tabs |
-| C | Variables workflow | Right-click move up/down to named targets; read-only inherited variables; variable glyph + hover — see [`PLAN_PHASE_C.md`](PLAN_PHASE_C.md) |
+| C | Variables workflow ✅ | Right-click move up/down to named targets; read-only inherited variables; variable glyph + hover — see [`PLAN_PHASE_C.md`](PLAN_PHASE_C.md) |
 | D | Editor layout / grids ✅ | Body as first tab; copy/paste grid rows across areas; remove left/right splitter MaxWidth |
 | E | Data safety | Rolling backups + restore + settings dialog (N, timeout, dev mode) |
 | F | Advanced tools | Modify-as-JSON (internal, selected subtree). **Replay excluded unless re-approved.** |

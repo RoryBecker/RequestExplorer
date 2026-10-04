@@ -36,6 +36,9 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 
     public abstract TreeNodeKind Kind { get; }
 
+    /// <summary>Ancestor chain including this node, e.g. <c>Collection / Folder / Request</c>.</summary>
+    public string HierarchyPath => string.Join(" / ", EnumeratePathNames());
+
     public TreeNodeViewModel? Parent
     {
         get => _parent;
@@ -48,6 +51,7 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 
             _parent = value;
             OnPropertyChanged(nameof(Parent));
+            OnPropertyChanged(nameof(HierarchyPath));
             // Indent / row width depends on parent chain; force row layout refresh.
             OnPropertyChanged(nameof(RowLayoutToken));
             OnPropertyChanged(nameof(SearchText));

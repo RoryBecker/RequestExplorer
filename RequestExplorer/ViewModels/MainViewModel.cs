@@ -779,7 +779,6 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             var diagnosis = VariableDiagnostics.DiagnoseRequest(SelectedRequest);
             QuickExportDiagnosis = diagnosis.HasIssues
                 ? VariableDiagnostics.FormatRequestReport(diagnosis)
-                  + "\n\nDefine missing variables on a parent folder or collection (and ensure they are enabled)."
                 : string.Empty;
 
             var resolved = VariableResolver.Resolve(SelectedRequest.Model, SelectedRequest);
@@ -1523,14 +1522,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         var diagnosis = VariableDiagnostics.DiagnoseRequest(request);
         if (diagnosis.HasIssues)
         {
-            var message = VariableDiagnostics.FormatRequestReport(diagnosis)
-                          + "\n\nDefine missing variables on a parent folder or collection (and ensure they are enabled), then send again.";
+            var message = VariableDiagnostics.FormatRequestReport(diagnosis);
             response.Apply(new HttpExecutionResult
             {
                 Succeeded = false,
                 ErrorMessage = message
             });
-            StatusMessage = VariableDiagnostics.FormatRequestReport(diagnosis);
+            StatusMessage = message;
             return;
         }
 

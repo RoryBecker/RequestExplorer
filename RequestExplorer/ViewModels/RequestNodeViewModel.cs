@@ -428,6 +428,71 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     public int IndexOfKeyValue(KeyValueListKind listKind, KeyValueItemViewModel item) =>
         listKind == KeyValueListKind.Params ? Params.IndexOf(item) : Headers.IndexOf(item);
 
+    /// <summary>Pastes rows before the spare row. Returns how many rows were inserted.</summary>
+    public int PasteKeyValueRows(KeyValueListKind listKind, IReadOnlyList<KeyValueClipboardRow> rows)
+    {
+        if (rows.Count == 0)
+        {
+            return 0;
+        }
+
+        var list = listKind == KeyValueListKind.Params ? Params : Headers;
+        var label = listKind == KeyValueListKind.Params ? "param" : "header";
+        var undoRemoves = new List<IUndoAction>();
+        var inserted = 0;
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.Key) && string.IsNullOrWhiteSpace(row.Value))
+            {
+                continue;
+            }
+
+            var model = new KeyValueItem
+            {
+                Key = row.Key ?? string.Empty,
+                Value = row.Value ?? string.Empty,
+                IsEnabled = row.IsEnabled && !string.IsNullOrWhiteSpace(row.Key)
+            };
+            var vm = listKind == KeyValueListKind.Params
+                ? CreateParamVm(model)
+                : CreateHeaderVm(model);
+
+            var index = GetInsertBeforeSpareIndex(list);
+            InsertKeyValueRow(listKind, vm, index);
+            undoRemoves.Add(
+                new RemoveKeyValueRowAction(
+                    this,
+                    listKind,
+                    vm,
+                    index,
+                    $"Paste {label} '{vm.Key}'"));
+            inserted++;
+        }
+
+        if (inserted == 0)
+        {
+            return 0;
+        }
+
+        // Undo must remove last-inserted first so indices stay valid.
+        undoRemoves.Reverse();
+        var description = inserted == 1
+            ? $"Paste {label} row"
+            : $"Paste {inserted} {label} rows";
+        if (_undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
+        {
+            _undoRecorder.Record(new CompositeUndoAction(description, undoRemoves));
+        }
+
+        return inserted;
+    }
+
+    private static int GetInsertBeforeSpareIndex(ObservableCollection<KeyValueItemViewModel> list) =>
+        list.Count > 0 && string.IsNullOrWhiteSpace(list[^1].Key)
+            ? list.Count - 1
+            : list.Count;
+
     private KeyValueItemViewModel CreateParamVm(KeyValueItem item) =>
         new(item, OnParamFieldChanged);
 

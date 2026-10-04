@@ -980,8 +980,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private static int ToTabIndex(EditorSurface surface) =>
         surface switch
         {
-            EditorSurface.Params => 0,
-            EditorSurface.Body => 1,
+            EditorSurface.Body => 0,
+            EditorSurface.Params => 1,
             EditorSurface.Headers => 2,
             EditorSurface.Auth => 3,
             _ => 0

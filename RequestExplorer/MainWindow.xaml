@@ -340,7 +340,7 @@
 
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="CollectionsColumn" Width="360" MinWidth="220" MaxWidth="520" />
+                <ColumnDefinition x:Name="CollectionsColumn" Width="360" MinWidth="220" />
                 <ColumnDefinition Width="6" />
                 <ColumnDefinition Width="*" MinWidth="360" />
             </Grid.ColumnDefinitions>

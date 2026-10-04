@@ -17,6 +17,7 @@
             <Setter Property="CanUserAddRows" Value="False" />
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="views:KeyValueGridSorting.SpareAwareSort" Value="True" />
+            <Setter Property="views:KeyValueGridClipboard.EnableRowClipboard" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="#FFEEEEEE" />
@@ -24,6 +25,7 @@
             <Setter Property="BorderBrush" Value="#FFE5E7EB" />
             <Setter Property="RowHeight" Value="30" />
             <Setter Property="ColumnHeaderHeight" Value="28" />
+            <Setter Property="SelectionMode" Value="Extended" />
             <Setter Property="SelectionUnit" Value="FullRow" />
             <Setter Property="RowStyle">
                 <Setter.Value>
@@ -153,6 +155,29 @@
 
         <TabControl Grid.Row="3"
                     SelectedIndex="{Binding DataContext.SelectedRequestTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}">
+            <TabItem Header="Body">
+                <DockPanel Margin="8">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock DockPanel.Dock="Left"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,8,0"
+                                   Text="Content-Type" />
+                        <TextBox Width="220"
+                                 HorizontalAlignment="Left"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding BodyContentType, UpdateSourceTrigger=PropertyChanged}" />
+                    </DockPanel>
+                    <TextBox AcceptsReturn="True"
+                             AcceptsTab="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto"
+                             FontFamily="Consolas"
+                             FontSize="12"
+                             Text="{Binding BodyContent, UpdateSourceTrigger=PropertyChanged}" />
+                </DockPanel>
+            </TabItem>
+
             <TabItem Header="Params">
                 <DataGrid Style="{StaticResource KeyValueGrid}"
                           Margin="8"
@@ -196,29 +221,6 @@
                         </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
-            </TabItem>
-
-            <TabItem Header="Body">
-                <DockPanel Margin="8">
-                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
-                        <TextBlock DockPanel.Dock="Left"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0"
-                                   Text="Content-Type" />
-                        <TextBox Width="220"
-                                 HorizontalAlignment="Left"
-                                 VerticalContentAlignment="Center"
-                                 Text="{Binding BodyContentType, UpdateSourceTrigger=PropertyChanged}" />
-                    </DockPanel>
-                    <TextBox AcceptsReturn="True"
-                             AcceptsTab="True"
-                             TextWrapping="Wrap"
-                             VerticalScrollBarVisibility="Auto"
-                             HorizontalScrollBarVisibility="Auto"
-                             FontFamily="Consolas"
-                             FontSize="12"
-                             Text="{Binding BodyContent, UpdateSourceTrigger=PropertyChanged}" />
-                </DockPanel>
             </TabItem>
 
             <TabItem Header="Headers">

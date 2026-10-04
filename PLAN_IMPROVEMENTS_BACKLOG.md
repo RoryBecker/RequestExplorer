@@ -1,11 +1,11 @@
 # RequestExplorer — Improvements Backlog Plan
 
-**Status:** Decisions recorded — awaiting phase approval (no code changes yet)  
+**Status:** Phases A0–B and D approved; C / E–G awaiting approval  
 **Created:** 2026-10-02  
-**Updated:** 2026-10-02 (user answers)  
+**Updated:** 2026-10-05 (Phase D approved)  
 **Companion to:** [`PLAN_COMPLETED.md`](PLAN_COMPLETED.md), [`PLANNED_ARCHITECTURAL_REFACTOR.md`](PLANNED_ARCHITECTURAL_REFACTOR.md)
 
-**Repo policy:** Do **not** auto-commit. Implement only after explicit phase approval.  
+**Repo policy:** Do **not** auto-commit. The human owns all commits and confirms code changes via commits. Implement only after explicit phase approval.  
 **This document:** Planning only — source code must not change until a phase is approved.
 
 ---
@@ -43,7 +43,7 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 | A | Correctness / save reliability ✅ | Dirty-while-typing; Ctrl+S commits focused grid; per-request response retention (session-only) |
 | B | Send / response UX ✅ | Global timeout 30s + dev-mode infinite; response tabs flood panel; response body search; download when document available; raw request/response tabs |
 | C | Variables workflow | Right-click move up/down to named targets; read-only inherited variables; variable glyph + hover |
-| D | Editor layout / grids | Body as first tab; copy/paste grid rows across areas; remove left/right splitter MaxWidth |
+| D | Editor layout / grids ✅ | Body as first tab; copy/paste grid rows across areas; remove left/right splitter MaxWidth |
 | E | Data safety | Rolling backups + restore + settings dialog (N, timeout, dev mode) |
 | F | Advanced tools | Modify-as-JSON (internal, selected subtree). **Replay excluded unless re-approved.** |
 | G | Investigation deliverables | Fidelity gap analysis (save/load/export/import) — see explanation; window-move lag root-cause |
@@ -95,19 +95,12 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 
 **Intent:** Copy rows between Params, Headers, and Variables grids (and possibly Auth-related key/value UI if applicable).
 
-**Current state:** Tree node copy/paste exists; grid rows do not have a shared clipboard format.
+**Status:** Implemented (Phase D, 2026-10-03).
 
-**Proposed approach:**
-- Internal clipboard payload: list of `{ Key, Value, IsEnabled }` + source kind.
-- Ctrl+C / Ctrl+V when focus is in a grid; context menu Copy/Paste rows.
-- Paste appends (or inserts above selection); marks dirty; undoable as batch insert.
-
-**Gaps / risks:**
-- Multi-select in DataGrid may be incomplete today.
-- Variables vs params semantics (enabled flag, spare row).
-- Paste into Variables on a folder while copying from request Params — confirm allowed.
-
-**Questions:** Q4–Q5.
+**Fix shipped:**
+- Shared `KeyValueClipboardPayload` (internal JSON + TSV fallback).
+- Ctrl+C / Ctrl+V on Params/Headers/Variables grids (skips when editing a cell); context menu Copy/Paste rows.
+- Paste appends before the spare row; cross-area paste allowed; undoable as a composite batch.
 
 ---
 
@@ -135,18 +128,11 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 
 **Intent:** Reorder request editor tabs so Body comes before Params (or becomes the default selected tab).
 
-**Current state:** Tabs order in `RequestEditorView.xaml`: Params, Body, Headers, Auth (approx.). `SelectedRequestTabIndex` + undo `EditorSurface` mapping assume current indices.
+**Status:** Implemented (Phase D, 2026-10-03).
 
-**Proposed approach:**
-- Reorder XAML tab items: Body first (or Body after a slim URL-only header — TBD).
-- Update `ToTabIndex` / `EditorSurface` mapping and any hardcoded tab indices.
-- Persist last-selected tab? (optional; not requested).
-
-**Gaps / risks:**
-- Undo reveal targets use tab indices — must stay consistent.
-- Muscle memory / screenshots in docs.
-
-**Questions:** Q7.
+**Fix shipped:**
+- Tab order: Body, Params, Headers, Auth, Raw Request.
+- `ToTabIndex` / undo reveal mapping updated; default selected tab is Body (index 0).
 
 ---
 
@@ -340,13 +326,10 @@ Some fields may work in the editor but get dropped on save, or save locally but 
 
 **Intent:** Allow the collections tree column to grow/shrink beyond the current cap.
 
-**Current state:** `CollectionsColumn` has `MaxWidth="520"` (and code clamps preferences to 220–520).
+**Status:** Implemented (Phase D, 2026-10-03).
 
-**Proposed approach:**
-- Remove or greatly raise `MaxWidth`; update `MainWindow.xaml.cs` sanitize/clamp constants; keep a sensible `MinWidth`.
-- Migrate stored widths > old max seamlessly.
-
-**Questions:** Q27.
+**Fix shipped:**
+- Removed `CollectionsColumn` `MaxWidth` and the 520 clamp in prefs restore; `MinWidth` 220 kept.
 
 ---
 

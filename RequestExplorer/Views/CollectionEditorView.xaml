@@ -16,6 +16,7 @@
             <Setter Property="CanUserAddRows" Value="False" />
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="views:KeyValueGridSorting.SpareAwareSort" Value="True" />
+            <Setter Property="views:KeyValueGridClipboard.EnableRowClipboard" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="#FFEEEEEE" />
@@ -23,6 +24,7 @@
             <Setter Property="BorderBrush" Value="#FFE5E7EB" />
             <Setter Property="RowHeight" Value="30" />
             <Setter Property="ColumnHeaderHeight" Value="28" />
+            <Setter Property="SelectionMode" Value="Extended" />
             <Setter Property="SelectionUnit" Value="FullRow" />
             <Setter Property="RowStyle">
                 <Setter.Value>

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
+using RequestExplorer.Services;
 using RequestExplorer.Services.Undo;
 
 namespace RequestExplorer.ViewModels;
@@ -114,6 +115,57 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     }
 
     public int IndexOfVariable(KeyValueItemViewModel item) => Variables.IndexOf(item);
+
+    /// <summary>Pastes rows before the spare row. Returns how many rows were inserted.</summary>
+    public int PasteVariableRows(IReadOnlyList<KeyValueClipboardRow> rows)
+    {
+        if (rows.Count == 0)
+        {
+            return 0;
+        }
+
+        var undoRemoves = new List<IUndoAction>();
+        var inserted = 0;
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row.Key) && string.IsNullOrWhiteSpace(row.Value))
+            {
+                continue;
+            }
+
+            var model = new KeyValueItem
+            {
+                Key = row.Key ?? string.Empty,
+                Value = row.Value ?? string.Empty,
+                IsEnabled = row.IsEnabled && !string.IsNullOrWhiteSpace(row.Key)
+            };
+            var vm = CreateVariableVm(model);
+            var index = GetInsertBeforeSpareIndex(Variables);
+            InsertVariableRow(vm, index);
+            undoRemoves.Add(new RemoveVariableRowAction(this, vm, index, $"Paste variable '{vm.Key}'"));
+            inserted++;
+        }
+
+        if (inserted == 0)
+        {
+            return 0;
+        }
+
+        undoRemoves.Reverse();
+        var description = inserted == 1 ? "Paste variable row" : $"Paste {inserted} variable rows";
+        if (_undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
+        {
+            _undoRecorder.Record(new CompositeUndoAction(description, undoRemoves));
+        }
+
+        return inserted;
+    }
+
+    private static int GetInsertBeforeSpareIndex(ObservableCollection<KeyValueItemViewModel> list) =>
+        list.Count > 0 && string.IsNullOrWhiteSpace(list[^1].Key)
+            ? list.Count - 1
+            : list.Count;
 
     /// <summary>Appends imported variables before the spare row and marks dirty.</summary>
     public void AppendVariables(IEnumerable<KeyValueItem> items)

@@ -15,7 +15,6 @@ public partial class MainWindow : Window
     private const double QuickExportMinWidth = 220;
     private const double CollectionsDefaultWidth = 360;
     private const double CollectionsMinWidth = 220;
-    private const double CollectionsMaxWidth = 520;
 
     private readonly TreeDragDropController _treeDragDrop;
     private MainViewModel? _subscribedVm;
@@ -119,7 +118,7 @@ public partial class MainWindow : Window
         _quickExportWidth = SanitizeQuickExportWidth(prefs.QuickExportWidth);
 
         var collectionsWidth = prefs.CollectionsWidth;
-        if (collectionsWidth < CollectionsMinWidth || collectionsWidth > CollectionsMaxWidth)
+        if (collectionsWidth < CollectionsMinWidth)
         {
             collectionsWidth = CollectionsDefaultWidth;
         }

@@ -1,8 +1,8 @@
 # RequestExplorer — Improvements Backlog Plan
 
-**Status:** Phases A0–E approved; F–G awaiting approval  
+**Status:** Phases A0–E approved; Phase F decisions recorded (see PLAN_PHASE_F.md); G awaiting  
 **Created:** 2026-10-02  
-**Updated:** 2026-10-05 (Phase E approved)  
+**Updated:** 2026-10-05 (Phase F decisions)  
 **Companion to:** [`PLAN_COMPLETED.md`](PLAN_COMPLETED.md), [`PLANNED_ARCHITECTURAL_REFACTOR.md`](PLANNED_ARCHITECTURAL_REFACTOR.md)
 
 **Repo policy:** Do **not** auto-commit. The human owns all commits and confirms code changes via commits. Implement only after explicit phase approval.  
@@ -45,7 +45,7 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 | C | Variables workflow ✅ | Right-click move up/down to named targets; read-only inherited variables; variable glyph + hover — see [`PLAN_PHASE_C.md`](PLAN_PHASE_C.md) |
 | D | Editor layout / grids ✅ | Body as first tab; copy/paste grid rows across areas; remove left/right splitter MaxWidth |
 | E | Data safety ✅ | Rolling backups + restore + settings dialog (N, timeout, dev mode) — see [`PLAN_PHASE_E.md`](PLAN_PHASE_E.md) |
-| F | Advanced tools | Modify-as-JSON (internal, selected subtree). **Replay excluded unless re-approved.** |
+| F | Advanced tools | Modify-as-JSON (internal, selected subtree). **Replay excluded unless re-approved.** — see [`PLAN_PHASE_F.md`](PLAN_PHASE_F.md) |
 | G | Investigation deliverables | Fidelity gap analysis (save/load/export/import) — see explanation; window-move lag root-cause |
 | H | Optional structural | Touch points that overlap [`PLANNED_ARCHITECTURAL_REFACTOR.md`](PLANNED_ARCHITECTURAL_REFACTOR.md) only if a feature forces it |
 | Z | Parked | Replay mode — backlog only |
@@ -422,7 +422,7 @@ Answered items removed. Still useful before the related phase:
 - **Q8–Q9.** Download offer rules; large-response memory vs temp file.
 - **Q11.** LRU cap for session responses, or keep all until restart?
 - **Q12–Q13.** Response chrome reduction; search v1 = plain next/prev?
-- **Q16.** Confirm dialog on JSON Apply?
+- **Q16.** ~~Confirm dialog on JSON Apply?~~ → **B1** always confirm; errors keep editor open (see Phase F).
 - **Q27.** Splitter: remove MaxWidth entirely vs raise high?
 - **Q28–Q31.** Move-lag instrumentation OK?; raw = last-send snapshot?; glyph on any keyed var vs enabled-only?; mask secret-looking tooltip values?
 

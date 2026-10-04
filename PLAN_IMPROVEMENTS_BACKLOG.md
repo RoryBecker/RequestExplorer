@@ -42,7 +42,7 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 | A0 | Hotfix ✅ | Grid sort + blank spare row → save crash |
 | A | Correctness / save reliability ✅ | Dirty-while-typing; Ctrl+S commits focused grid; per-request response retention (session-only) |
 | B | Send / response UX ✅ | Global timeout 30s + dev-mode infinite; response tabs flood panel; response body search; download when document available; raw request/response tabs |
-| C | Variables workflow | Right-click move up/down to named targets; read-only inherited variables; variable glyph + hover |
+| C | Variables workflow | Right-click move up/down to named targets; read-only inherited variables; variable glyph + hover — see [`PLAN_PHASE_C.md`](PLAN_PHASE_C.md) |
 | D | Editor layout / grids ✅ | Body as first tab; copy/paste grid rows across areas; remove left/right splitter MaxWidth |
 | E | Data safety | Rolling backups + restore + settings dialog (N, timeout, dev mode) |
 | F | Advanced tools | Modify-as-JSON (internal, selected subtree). **Replay excluded unless re-approved.** |
@@ -87,7 +87,7 @@ Phases are ordered by **user pain / correctness first**, then **editor power fea
 - “Move down” target list can be large under big folders — may need submenu by child.
 - Request-level variables may not exist; promote targets are containers unless we add request vars later.
 
-**Still open (minor):** After promote, always replace cell with `{{name}}`? Assumed **yes** unless you say otherwise.
+**Decision (Phase C plan, 2026-10-05):** Promote/move is a **relocation** only — Key/Value/Enabled unchanged; no `{{name}}` rewrite. See [`PLAN_PHASE_C.md`](PLAN_PHASE_C.md).
 
 ---
 
@@ -415,7 +415,7 @@ Some fields may work in the editor but get dropped on save, or save locally but 
 
 Answered items removed. Still useful before the related phase:
 
-- **Q2.** After promote to a named target, always replace the grid cell with `{{varName}}`? *(Assumed yes.)*
+- **Q2.** ~~Replace cell with `{{varName}}`?~~ → **Move only** (see Phase C decisions).
 - **Q3.** Move-to-variable menus on Auth fields / Body, or only Params/Headers/Variables for v1?
 - **Q4–Q5.** Grid copy/paste matrices and insert vs append.
 - **Q7.** Body first tab = also default selected tab when opening a request?

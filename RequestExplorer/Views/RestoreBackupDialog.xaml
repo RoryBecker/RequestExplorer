@@ -1,0 +1,71 @@
+<Window x:Class="RequestExplorer.Views.RestoreBackupDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Restore backup"
+        Width="640"
+        Height="420"
+        MinWidth="520"
+        MinHeight="320"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource App.PanelBrush}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Margin="0,0,0,10"
+                   TextWrapping="Wrap"
+                   Foreground="{StaticResource App.MutedBrush}"
+                   Text="Restoring replaces collection files on disk. Preferences and window layout are left unchanged. A safety backup is created first." />
+
+        <ListView x:Name="BackupList"
+                  Grid.Row="1"
+                  SelectionMode="Single"
+                  MouseDoubleClick="BackupList_OnMouseDoubleClick">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Backup" Width="160" DisplayMemberBinding="{Binding DisplayName}" />
+                    <GridViewColumn Header="Reason" Width="90" DisplayMemberBinding="{Binding ReasonDisplay}" />
+                    <GridViewColumn Header="Version" Width="80" DisplayMemberBinding="{Binding AppVersion}" />
+                    <GridViewColumn Header="Collections" Width="80" DisplayMemberBinding="{Binding CollectionCount}" />
+                    <GridViewColumn Header="Size" Width="80" DisplayMemberBinding="{Binding SizeDisplay}" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+
+        <TextBlock x:Name="EmptyMessage"
+                   Grid.Row="1"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Foreground="{StaticResource App.MutedBrush}"
+                   Text="No backups found."
+                   Visibility="Collapsed" />
+
+        <TextBlock Grid.Row="2"
+                   Margin="0,10,0,0"
+                   TextWrapping="Wrap"
+                   Foreground="#FFB45309"
+                   Text="This cannot be undone except by restoring another backup." />
+
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,16,0,0">
+            <Button Content="Cancel"
+                    Width="88"
+                    Margin="0,0,8,0"
+                    IsCancel="True"
+                    Click="Cancel_OnClick" />
+            <Button x:Name="RestoreButton"
+                    Content="Restore"
+                    Width="88"
+                    IsDefault="True"
+                    Style="{StaticResource PrimaryButton}"
+                    Click="Restore_OnClick" />
+        </StackPanel>
+    </Grid>
+</Window>

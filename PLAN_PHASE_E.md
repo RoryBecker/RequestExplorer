@@ -1,8 +1,8 @@
 # Phase E — Data safety (plan)
 
-**Status:** Decisions recorded + Phase E approved (2026-10-05) — awaiting **implement** instruction  
+**Status:** Approved (2026-10-05)  
 **Created:** 2026-10-05  
-**Updated:** 2026-10-05 (answers + approval)  
+**Updated:** 2026-10-05 (approved)  
 **Parent backlog:** [`PLAN_IMPROVEMENTS_BACKLOG.md`](PLAN_IMPROVEMENTS_BACKLOG.md)  
 **Repo policy:** Human owns all commits. Agent does not commit.
 
@@ -192,14 +192,14 @@ Widen dialog for the Backups section. OK persists via existing prefs path.
 
 ## Acceptance criteria
 
-- [ ] **Backup now** creates `backups\yyyyMMdd-HHmmss.zip` containing collections + preferences + meta (app version).
-- [ ] Unsaved dirty → warn that backup is on-disk only (**D1**).
-- [ ] Startup backup runs after UI show when enabled; status updates; prune ≤ **N** zips (**C2**, **A1**, **B1**).
-- [ ] **Restore…** lists size + collection count; confirms; pre-restore zip; replaces collections only; prefs/window placement unchanged; undo cleared (**J2**, **H1**, **G2**, **K2**, **F1**).
-- [ ] Settings: startup toggle + retention; timeout/dev mode unchanged.
-- [ ] **Open backups folder** works; failures surface clearly.
-- [ ] Menu under **File** (**I1**).
-- [ ] No agent commits.
+- [x] **Backup now** creates `backups\yyyyMMdd-HHmmss.zip` containing collections + preferences + meta (app version).
+- [x] Unsaved dirty → warn that backup is on-disk only (**D1**).
+- [x] Startup backup runs after UI show when enabled; status updates; prune ≤ **N** zips (**C2**, **A1**, **B1**).
+- [x] **Restore…** lists size + collection count; confirms; pre-restore zip; replaces collections only; prefs/window placement unchanged; undo cleared (**J2**, **H1**, **G2**, **K2**, **F1**).
+- [x] Settings: startup toggle + retention; timeout/dev mode unchanged.
+- [x] **Open backups folder** works; failures surface clearly.
+- [x] Menu under **File** (**I1**).
+- [x] No agent commits.
 
 ---
 
@@ -223,6 +223,11 @@ Widen dialog for the Backups section. OK persists via existing prefs path.
 
 ---
 
-## Next step
+## Shipped (2026-10-05)
 
-Phase E is **approved** with the decisions above. Reply **implement Phase E** (or similar) when you want coding to start.
+- `WorkspaceBackupService` — zip create/list/prune/restore-collections; meta with app version.
+- **File → Backup now / Restore… / Open backups folder**; startup backup after UI idle when enabled.
+- **Tools → Settings…** — Backup on startup + retention N (1–100).
+- Restore: dirty confirm, pre-restore zip, collections-only replace, reload + clear undo; prefs/window untouched.
+
+Human owns commits.

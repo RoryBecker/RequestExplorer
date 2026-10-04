@@ -40,6 +40,13 @@ public partial class MainWindow : Window
     {
         ApplyUiPreferences();
         SyncQuickExportColumns();
+        if (DataContext is MainViewModel vm)
+        {
+            // Phase E (C2): backup after UI is shown, not before first paint.
+            Dispatcher.BeginInvoke(
+                vm.StartStartupBackupIfNeeded,
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
     }
 
     private void MainWindow_OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)

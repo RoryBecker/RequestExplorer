@@ -39,6 +39,12 @@ public sealed class UiPreferences
     /// <summary>When true, HTTP sends use an infinite timeout (cancel still works).</summary>
     public bool DevModeIgnoreTimeout { get; set; }
 
+    /// <summary>When true, create a workspace zip backup after the main window is shown.</summary>
+    public bool BackupOnStartup { get; set; } = true;
+
+    /// <summary>How many backup zips to retain (clamped 1–100 when applied).</summary>
+    public int BackupRetentionCount { get; set; } = 15;
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

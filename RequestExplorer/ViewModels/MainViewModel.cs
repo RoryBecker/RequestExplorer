@@ -22,9 +22,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private readonly CollectionPersistenceService _persistence;
     private readonly HttpRequestExecutor _httpExecutor;
     private readonly UiPreferencesService _uiPreferencesService;
+    private readonly WorkspaceBackupService _backups;
     private readonly UndoStack _history = new();
     private CancellationTokenSource? _sendCts;
     private bool _isApplyingHistory;
+    private int _backupBusy;
 
     public MainViewModel()
         : this(new CollectionPersistenceService(), new HttpRequestExecutor(), new UiPreferencesService())
@@ -34,16 +36,23 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     public MainViewModel(
         CollectionPersistenceService persistence,
         HttpRequestExecutor httpExecutor,
-        UiPreferencesService? uiPreferencesService = null)
+        UiPreferencesService? uiPreferencesService = null,
+        WorkspaceBackupService? backupService = null)
     {
         _persistence = persistence;
         _httpExecutor = httpExecutor;
         _uiPreferencesService = uiPreferencesService ?? new UiPreferencesService();
+        _backups = backupService ?? new WorkspaceBackupService(
+            persistence.StorageDirectory,
+            _uiPreferencesService.FilePath);
         UiPreferences = _uiPreferencesService.Load();
         if (UiPreferences.RequestTimeoutSeconds is < 1 or > 3600)
         {
             UiPreferences.RequestTimeoutSeconds = HttpRequestExecutor.DefaultTimeoutSeconds;
         }
+
+        UiPreferences.BackupRetentionCount =
+            WorkspaceBackupService.ClampRetention(UiPreferences.BackupRetentionCount);
 
         _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
         _selectedExportFormat = ResolveExportFormat(UiPreferences.SelectedExportFormat);
@@ -129,6 +138,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     public event Action? PendingEditCommitRequested;
 
     public string StorageDirectory => _persistence.StorageDirectory;
+
+    public string BackupsDirectory => _backups.BackupsDirectory;
 
     public bool HasCollections => Collections.Count > 0;
 
@@ -1016,10 +1027,45 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         SetName(node, newName);
         RecordUndo(new SetNameAction(node, previous, $"Rename '{newName}'"));
         OnPropertyChanged(nameof(SelectionSummary));
-        StatusMessage = $"Renamed to '{newName}' (Ctrl+S to persist)";
+        StatusMessage = SyncCollectionFileName(node, newName)
+            ? $"Renamed to '{newName}' (file updated on disk)"
+            : $"Renamed to '{newName}' (Ctrl+S to persist)";
     }
 
-    void IUndoContext.SetName(TreeNodeViewModel node, string name) => SetName(node, name);
+    void IUndoContext.SetName(TreeNodeViewModel node, string name)
+    {
+        SetName(node, name);
+        SyncCollectionFileName(node, name);
+    }
+
+    /// <summary>
+    /// When a collection already has a disk file, rename/move that file to match the tree name.
+    /// </summary>
+    private bool SyncCollectionFileName(TreeNodeViewModel node, string newName)
+    {
+        if (node is not CollectionNodeViewModel collection)
+        {
+            return false;
+        }
+
+        try
+        {
+            return _persistence.SyncFileNameToCollectionName(collection.Model.Id, newName);
+        }
+        catch (Exception ex)
+        {
+            if (!_isApplyingHistory)
+            {
+                MessageBox.Show(
+                    $"The collection was renamed in the tree, but the on-disk file could not be renamed.\n\n{ex.Message}",
+                    "Rename Warning",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
+            return false;
+        }
+    }
 
     void IUndoContext.RemoveNode(TreeNodeViewModel node) => RemoveNodeCore(node);
 
@@ -1954,9 +2000,213 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     [RelayCommand]
+    private void OpenBackupsFolder()
+    {
+        try
+        {
+            _backups.EnsureBackupsDirectory();
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{_backups.BackupsDirectory}\"",
+                UseShellExecute = true
+            });
+            StatusMessage = "Opened backups folder";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                ex.Message,
+                "Open Folder Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void BackupNow()
+    {
+        if (HasAnyDirty)
+        {
+            MessageBox.Show(
+                Application.Current?.MainWindow,
+                "You have unsaved changes. Backup uses on-disk files only, so those edits will not be included until you save.",
+                "Backup",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+
+        try
+        {
+            StatusMessage = "Backing up…";
+            var path = RunBackup(BackupReason.Manual);
+            StatusMessage = $"Backup created — {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Backup failed";
+            MessageBox.Show(
+                Application.Current?.MainWindow,
+                ex.Message,
+                "Backup Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void RestoreBackup()
+    {
+        if (!ConfirmSaveIfDirty("You have unsaved changes. Save all before restoring a backup?"))
+        {
+            return;
+        }
+
+        IReadOnlyList<BackupListItem> backups;
+        try
+        {
+            backups = _backups.ListBackups();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                Application.Current?.MainWindow,
+                ex.Message,
+                "Restore Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
+        }
+
+        var picker = new Views.RestoreBackupDialog(backups)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (picker.ShowDialog() != true || picker.SelectedBackup is null)
+        {
+            return;
+        }
+
+        var selected = picker.SelectedBackup;
+        var confirmed = Views.ConfirmDialog.Confirm(
+            Application.Current?.MainWindow,
+            "Restore backup",
+            $"Replace all collection files on disk with backup '{selected.DisplayName}'?\n\n"
+            + "Preferences and window layout will not change.\n"
+            + "A safety backup of the current collections will be created first.\n\n"
+            + "This cannot be undone except by restoring another backup.",
+            yesText: "Restore",
+            noText: "Cancel");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _backupBusy, 1, 0) != 0)
+        {
+            MessageBox.Show(
+                Application.Current?.MainWindow,
+                "A backup or restore is already in progress.",
+                "Restore",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            StatusMessage = "Creating safety backup…";
+            PersistUiPreferences();
+            _backups.CreateBackup(
+                BackupReason.PreRestore,
+                WorkspaceBackupService.ClampRetention(UiPreferences.BackupRetentionCount));
+
+            StatusMessage = "Restoring collections…";
+            _backups.RestoreCollections(selected.ZipPath);
+            ReloadWorkspaceFromDisk($"Restored from {selected.DisplayName}");
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Restore failed";
+            MessageBox.Show(
+                Application.Current?.MainWindow,
+                ex.Message,
+                "Restore Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _backupBusy, 0);
+        }
+    }
+
+    /// <summary>Called after the main window is shown — runs startup backup off the UI thread when enabled.</summary>
+    public void StartStartupBackupIfNeeded()
+    {
+        if (!UiPreferences.BackupOnStartup)
+        {
+            return;
+        }
+
+        StatusMessage = "Backing up…";
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var path = RunBackup(BackupReason.Startup);
+                var name = Path.GetFileName(path);
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    if (StatusMessage.StartsWith("Backing up", StringComparison.OrdinalIgnoreCase)
+                        || StatusMessage is "Ready"
+                        || StatusMessage.Contains("collection", StringComparison.OrdinalIgnoreCase))
+                    {
+                        StatusMessage = $"Startup backup created — {name}";
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    StatusMessage = "Startup backup failed";
+                    MessageBox.Show(
+                        Application.Current?.MainWindow,
+                        ex.Message,
+                        "Backup Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                });
+            }
+        });
+    }
+
+    private string RunBackup(BackupReason reason)
+    {
+        if (Interlocked.CompareExchange(ref _backupBusy, 1, 0) != 0)
+        {
+            throw new InvalidOperationException("A backup or restore is already in progress.");
+        }
+
+        try
+        {
+            // Flush current prefs to disk so the zip includes latest settings (restore still skips prefs).
+            PersistUiPreferences();
+            return _backups.CreateBackup(
+                reason,
+                WorkspaceBackupService.ClampRetention(UiPreferences.BackupRetentionCount));
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _backupBusy, 0);
+        }
+    }
+
+    [RelayCommand]
     private void OpenSettings()
     {
-        var dialog = new Views.SettingsDialog(UiPreferences)
+        var dialog = new Views.SettingsDialog(UiPreferences, _backups.BackupsDirectory)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -1968,12 +2218,15 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         UiPreferences.RequestTimeoutSeconds = dialog.RequestTimeoutSeconds;
         UiPreferences.DevModeIgnoreTimeout = dialog.DevModeIgnoreTimeout;
+        UiPreferences.BackupOnStartup = dialog.BackupOnStartup;
+        UiPreferences.BackupRetentionCount =
+            WorkspaceBackupService.ClampRetention(dialog.BackupRetentionCount);
         ApplyHttpTimeoutSettings();
         PersistUiPreferences();
 
         StatusMessage = UiPreferences.DevModeIgnoreTimeout
             ? "Settings saved — timeout ignored (dev mode)"
-            : $"Settings saved — timeout {UiPreferences.RequestTimeoutSeconds}s";
+            : $"Settings saved — timeout {UiPreferences.RequestTimeoutSeconds}s, keep {UiPreferences.BackupRetentionCount} backup(s)";
     }
 
     [RelayCommand]
@@ -3490,6 +3743,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return;
         }
 
+        ReloadWorkspaceFromDisk("Reloaded");
+    }
+
+    private void ReloadWorkspaceFromDisk(string statusPrefix)
+    {
         var priorOrder = Collections.Select(c => c.Model.Id).ToList();
 
         SelectedNode = null;
@@ -3502,7 +3760,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         LoadWorkspace(priorOrder);
         ApplyTreeFilter();
         OnPropertyChanged(nameof(HasAnyDirty));
-        StatusMessage = $"Reloaded {Collections.Count} collection(s) from disk";
+        StatusMessage = $"{statusPrefix} — {Collections.Count} collection(s) from disk";
     }
 
     private static bool TryPromptName(string title, string prompt, string initial, out string name)

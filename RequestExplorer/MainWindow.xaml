@@ -126,6 +126,10 @@
                 <MenuItem Header="Save _All" Command="{Binding SaveAllCommand}" InputGestureText="Ctrl+Shift+S" />
                 <MenuItem Header="_Reload from Disk" Command="{Binding ReloadFromDiskCommand}" />
                 <Separator />
+                <MenuItem Header="_Backup now" Command="{Binding BackupNowCommand}" />
+                <MenuItem Header="R_estore…" Command="{Binding RestoreBackupCommand}" />
+                <MenuItem Header="Open _backups folder" Command="{Binding OpenBackupsFolderCommand}" />
+                <Separator />
                 <MenuItem Header="Open collections _folder" Command="{Binding OpenStorageFolderCommand}" />
                 <Separator />
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />

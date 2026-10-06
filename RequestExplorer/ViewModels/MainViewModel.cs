@@ -26,6 +26,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private readonly UndoStack _history = new();
     private CancellationTokenSource? _sendCts;
     private bool _isApplyingHistory;
+    /// <summary>Blocks incidental undo records (e.g. binding writes while selecting imported nodes).</summary>
+    private bool _suppressUndoRecording;
     private int _backupBusy;
 
     public MainViewModel()
@@ -1027,13 +1029,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    bool IUndoRecorder.IsApplyingHistory => _isApplyingHistory;
+    bool IUndoRecorder.IsApplyingHistory => _isApplyingHistory || _suppressUndoRecording;
 
     void IUndoRecorder.Record(IUndoAction action) => RecordUndo(action);
 
     private void RecordUndo(IUndoAction undoInstruction)
     {
-        if (_isApplyingHistory)
+        if (_isApplyingHistory || _suppressUndoRecording)
         {
             return;
         }
@@ -1511,6 +1513,67 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             _persistence.Save(definition);
             Collections.Add(CollectionTreeMapper.ToViewModel(definition));
         }
+    }
+
+    /// <summary>
+    /// Adds the same demo collections created on first launch (httpbin.org Demo + Sandbox).
+    /// </summary>
+    [RelayCommand]
+    private void RecreateDemoCollections()
+    {
+        var definitions = SampleDataFactory.CreateDemoDefinitions();
+        if (definitions.Count == 0)
+        {
+            return;
+        }
+
+        var previousSelection = _selectedNodes.Count > 0
+            ? _selectedNodes.ToList()
+            : SelectedNode is null ? [] : new List<TreeNodeViewModel> { SelectedNode };
+
+        var added = new List<CollectionNodeViewModel>();
+        _suppressUndoRecording = true;
+        _suppressCollectionOrderPersist = true;
+        try
+        {
+            foreach (var definition in definitions)
+            {
+                var node = CollectionTreeMapper.ToViewModel(definition);
+                WireUndoRecorders(node);
+                Collections.Add(node);
+                CollapseSubtree(node);
+                node.IsExpanded = true;
+                MarkSubtreeDirty(node);
+                added.Add(node);
+            }
+
+            ReplaceSelection(added, added[^1]);
+            SelectedNode = added[^1];
+        }
+        finally
+        {
+            _suppressCollectionOrderPersist = false;
+            _suppressUndoRecording = false;
+            PersistCollectionOrder();
+        }
+
+        var undoSteps = added
+            .AsEnumerable()
+            .Reverse()
+            .Select(n => CreateRemoveAction(n, $"Add demo '{n.Name}'"))
+            .ToList();
+        RecordUndo(new CompositeUndoAction(
+            added.Count == 1
+                ? $"Add demo collection '{added[0].Name}'"
+                : $"Add {added.Count} demo collections",
+            undoSteps,
+            selectAfter: added,
+            selectAfterInverse: previousSelection));
+
+        OnPropertyChanged(nameof(HasAnyDirty));
+        StatusMessage = added.Count == 1
+            ? $"Added demo collection '{added[0].Name}' (Ctrl+S to persist)"
+            : $"Added {added.Count} demo collections (Ctrl+S to persist)";
     }
 
     [RelayCommand(CanExecute = nameof(CanSave))]
@@ -3172,47 +3235,68 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         var importedNodes = new List<CollectionNodeViewModel>();
         var errors = new List<string>();
+        var previousSelection = _selectedNodes.Count > 0
+            ? _selectedNodes.ToList()
+            : SelectedNode is null ? [] : new List<TreeNodeViewModel> { SelectedNode };
 
-        foreach (var filePath in jsonFiles)
+        // Suppress incidental undo from binding/selection while building and selecting imports.
+        _suppressUndoRecording = true;
+        _suppressCollectionOrderPersist = true;
+        try
         {
-            try
+            foreach (var filePath in jsonFiles)
             {
-                var json = File.ReadAllText(filePath);
-                var document = JsonSerializer.Deserialize<PostmanCollectionDocument>(
-                                   json,
-                                   PostmanCollectionMapper.JsonOptions)
-                               ?? throw new InvalidOperationException("File is not a valid Postman collection.");
-
-                var model = PostmanCollectionMapper.FromCollectionDocument(document);
-                // Always assign a fresh id so a re-import never clashes with an existing collection.
-                model.Id = Guid.NewGuid();
-
-                var fileHint = PostmanCollectionMapper.ResolveImportNameFromFilePath(filePath);
-                if (string.IsNullOrWhiteSpace(model.Name))
+                try
                 {
-                    model.Name = string.IsNullOrWhiteSpace(fileHint) ? "Imported Collection" : fileHint;
-                }
+                    var json = File.ReadAllText(filePath);
+                    var document = JsonSerializer.Deserialize<PostmanCollectionDocument>(
+                                       json,
+                                       PostmanCollectionMapper.JsonOptions)
+                                   ?? throw new InvalidOperationException("File is not a valid Postman collection.");
 
-                if (model.Folders.Count == 0
-                    && model.Requests.Count == 0
-                    && model.Variables.Count == 0)
+                    var model = PostmanCollectionMapper.FromCollectionDocument(document);
+                    // Always assign a fresh id so a re-import never clashes with an existing collection.
+                    model.Id = Guid.NewGuid();
+
+                    var fileHint = PostmanCollectionMapper.ResolveImportNameFromFilePath(filePath);
+                    if (string.IsNullOrWhiteSpace(model.Name))
+                    {
+                        model.Name = string.IsNullOrWhiteSpace(fileHint) ? "Imported Collection" : fileHint;
+                    }
+
+                    if (model.Folders.Count == 0
+                        && model.Requests.Count == 0
+                        && model.Variables.Count == 0)
+                    {
+                        errors.Add($"{Path.GetFileName(filePath)}: no items or variables to import.");
+                        continue;
+                    }
+
+                    var node = CollectionTreeMapper.ToViewModel(model);
+                    WireUndoRecorders(node);
+                    Collections.Add(node);
+                    CollapseSubtree(node);
+                    node.IsExpanded = true;
+                    MarkSubtreeDirty(node);
+                    importedNodes.Add(node);
+                }
+                catch (Exception ex)
                 {
-                    errors.Add($"{Path.GetFileName(filePath)}: no items or variables to import.");
-                    continue;
+                    errors.Add($"{Path.GetFileName(filePath)}: {ex.Message}");
                 }
-
-                var node = CollectionTreeMapper.ToViewModel(model);
-                WireUndoRecorders(node);
-                Collections.Add(node);
-                CollapseSubtree(node);
-                node.IsExpanded = true;
-                MarkSubtreeDirty(node);
-                importedNodes.Add(node);
             }
-            catch (Exception ex)
+
+            if (importedNodes.Count > 0)
             {
-                errors.Add($"{Path.GetFileName(filePath)}: {ex.Message}");
+                ReplaceSelection(importedNodes, importedNodes[^1]);
+                SelectedNode = importedNodes[^1];
             }
+        }
+        finally
+        {
+            _suppressCollectionOrderPersist = false;
+            _suppressUndoRecording = false;
+            PersistCollectionOrder();
         }
 
         if (importedNodes.Count == 0)
@@ -3236,9 +3320,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             importedNodes.Count == 1
                 ? $"Import '{importedNodes[0].Name}'"
                 : $"Import {importedNodes.Count} collections",
-            undoSteps));
+            undoSteps,
+            selectAfter: importedNodes,
+            selectAfterInverse: previousSelection));
 
-        SelectedNode = importedNodes[^1];
         OnPropertyChanged(nameof(HasAnyDirty));
         StatusMessage = importedNodes.Count == 1
             ? $"Imported '{importedNodes[0].Name}' (Ctrl+S to persist)"

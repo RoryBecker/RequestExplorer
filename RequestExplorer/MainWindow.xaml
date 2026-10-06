@@ -135,6 +135,8 @@
                 <MenuItem Header="Open _backups folder" Command="{Binding OpenBackupsFolderCommand}" />
                 <Separator />
                 <MenuItem Header="Open collections _folder" Command="{Binding OpenStorageFolderCommand}" />
+                <MenuItem Header="Add _Demo Collections" Command="{Binding RecreateDemoCollectionsCommand}"
+                          ToolTip="Adds the same sample collections created when the workspace is empty" />
                 <Separator />
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
             </MenuItem>
@@ -569,6 +571,7 @@
                                 <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" />
                                 <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" />
                                 <MenuItem Header="Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" />
+                                <MenuItem Header="Add Demo Collections" Command="{Binding RecreateDemoCollectionsCommand}" />
                                 <Separator />
                                 <MenuItem Header="Expand All Children" Command="{Binding ExpandChildrenCommand}" />
                                 <MenuItem Header="Collapse All Children" Command="{Binding CollapseChildrenCommand}" />

@@ -10,7 +10,9 @@ public sealed class UiPreferencesService
     {
         WriteIndented = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        // Window Left/Top use NaN for “unset / center”; allow that in JSON.
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
     };
 
     public UiPreferencesService(string? filePath = null)

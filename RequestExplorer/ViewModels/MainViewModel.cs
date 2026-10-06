@@ -2065,7 +2065,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             () => _sendCts?.Cancel(),
             ExecutePassAsync,
             ExecuteRowAsync,
-            initialMaxThreads: UiPreferences.RunAllMaxThreads)
+            initialMaxThreads: UiPreferences.RunAllMaxThreads,
+            initialCheckTiming: UiPreferences.RunAllCheckTiming,
+            initialWidth: UiPreferences.RunAllWindowWidth,
+            initialHeight: UiPreferences.RunAllWindowHeight,
+            initialLeft: UiPreferences.RunAllWindowLeft,
+            initialTop: UiPreferences.RunAllWindowTop)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -2085,6 +2090,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         dialog.ShowDialog();
 
         UiPreferences.RunAllMaxThreads = dialog.MaxThreads;
+        UiPreferences.RunAllCheckTiming = dialog.CheckTiming;
+        dialog.CaptureWindowBounds(out var width, out var height, out var left, out var top);
+        UiPreferences.RunAllWindowWidth = width;
+        UiPreferences.RunAllWindowHeight = height;
+        UiPreferences.RunAllWindowLeft = left;
+        UiPreferences.RunAllWindowTop = top;
         PersistUiPreferences();
 
         if (dialog.NavigatedNode is { } target)

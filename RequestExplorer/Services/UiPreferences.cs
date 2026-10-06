@@ -51,6 +51,18 @@ public sealed class UiPreferences
     /// <summary>Max concurrent requests for Run All (clamped 1–10 when applied).</summary>
     public int RunAllMaxThreads { get; set; } = 1;
 
+    /// <summary>When true, Run All includes timing expectations in Met.</summary>
+    public bool RunAllCheckTiming { get; set; } = true;
+
+    /// <summary>Run All dialog size/position (NaN left/top = center on owner).</summary>
+    public double RunAllWindowWidth { get; set; } = 860;
+
+    public double RunAllWindowHeight { get; set; } = 480;
+
+    public double RunAllWindowLeft { get; set; } = double.NaN;
+
+    public double RunAllWindowTop { get; set; } = double.NaN;
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

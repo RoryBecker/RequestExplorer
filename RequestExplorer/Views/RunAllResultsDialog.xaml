@@ -140,14 +140,14 @@
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Hierarchy"
-                                    Binding="{Binding HierarchyDisplay}"
-                                    SortMemberPath="HierarchyDisplay"
-                                    Width="2*" />
                 <DataGridTextColumn Header="Request"
                                     Binding="{Binding Name}"
                                     SortMemberPath="Name"
                                     Width="1.4*" />
+                <DataGridTextColumn Header="Hierarchy"
+                                    Binding="{Binding HierarchyDisplay}"
+                                    SortMemberPath="HierarchyDisplay"
+                                    Width="2*" />
                 <DataGridTextColumn Header="Response"
                                     Binding="{Binding StatusDisplay}"
                                     SortMemberPath="StatusDisplay"

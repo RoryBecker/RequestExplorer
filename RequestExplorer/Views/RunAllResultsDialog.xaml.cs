@@ -231,7 +231,12 @@ public partial class RunAllResultsDialog : Window
         Action? cancelRequested = null,
         Func<Task>? rerunRequested = null,
         Func<RunAllRequestResultRow, Task>? rerunRowRequested = null,
-        int initialMaxThreads = 1)
+        int initialMaxThreads = 1,
+        bool initialCheckTiming = true,
+        double initialWidth = double.NaN,
+        double initialHeight = double.NaN,
+        double initialLeft = double.NaN,
+        double initialTop = double.NaN)
     {
         InitializeComponent();
         Title = title;
@@ -245,6 +250,8 @@ public partial class RunAllResultsDialog : Window
         }
 
         MaxThreadsBox.SelectedItem = Math.Clamp(initialMaxThreads, 1, 10);
+        CheckTimingBox.IsChecked = initialCheckTiming;
+        ApplyWindowBounds(initialWidth, initialHeight, initialLeft, initialTop);
         _view = (ListCollectionView)CollectionViewSource.GetDefaultView(rows);
         _view.CustomSort = _comparer;
         ResultsGrid.ItemsSource = _view;
@@ -252,6 +259,66 @@ public partial class RunAllResultsDialog : Window
         Closing += OnClosing;
         ApplySortIndicators();
         MarkRunning();
+    }
+
+    /// <summary>Captures the current normal-state size and position for persistence.</summary>
+    public void CaptureWindowBounds(out double width, out double height, out double left, out double top)
+    {
+        if (WindowState == WindowState.Normal)
+        {
+            width = Width;
+            height = Height;
+            left = Left;
+            top = Top;
+            return;
+        }
+
+        if (RestoreBounds is { Width: > 0, Height: > 0 } bounds)
+        {
+            width = bounds.Width;
+            height = bounds.Height;
+            left = bounds.Left;
+            top = bounds.Top;
+            return;
+        }
+
+        width = Width;
+        height = Height;
+        left = Left;
+        top = Top;
+    }
+
+    private void ApplyWindowBounds(double width, double height, double left, double top)
+    {
+        if (width >= MinWidth)
+        {
+            Width = width;
+        }
+
+        if (height >= MinHeight)
+        {
+            Height = height;
+        }
+
+        if (!double.IsNaN(left)
+            && !double.IsNaN(top)
+            && IsWindowOnScreen(left, top, Width, Height))
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual;
+            Left = left;
+            Top = top;
+        }
+    }
+
+    private static bool IsWindowOnScreen(double left, double top, double width, double height)
+    {
+        var work = SystemParameters.WorkArea;
+        var right = left + Math.Max(width, 100);
+        var bottom = top + Math.Max(height, 100);
+        return right > work.Left + 40
+               && left < work.Right - 40
+               && bottom > work.Top + 40
+               && top < work.Bottom - 40;
     }
 
     /// <summary>Request chosen via double-click; set before the dialog closes.</summary>

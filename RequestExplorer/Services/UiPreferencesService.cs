@@ -36,6 +36,7 @@ public sealed class UiPreferencesService
             var json = File.ReadAllText(FilePath);
             var prefs = JsonSerializer.Deserialize<UiPreferences>(json, JsonOptions) ?? new UiPreferences();
             prefs.QuickExportWrapByFormat ??= new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            prefs.ExpandedTreeNodeIds ??= [];
             return prefs;
         }
         catch

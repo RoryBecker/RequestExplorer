@@ -45,6 +45,9 @@ public sealed class UiPreferences
     /// <summary>How many backup zips to retain (clamped 1–100 when applied).</summary>
     public int BackupRetentionCount { get; set; } = 15;
 
+    /// <summary>Tree node ids (collections/folders/requests) that were expanded when preferences were last saved.</summary>
+    public List<Guid> ExpandedTreeNodeIds { get; set; } = [];
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

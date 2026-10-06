@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Run All Requests"
         Height="480"
-        Width="720"
+        Width="860"
         MinHeight="320"
-        MinWidth="520"
+        MinWidth="640"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         Background="{StaticResource App.PanelBrush}">
@@ -43,6 +43,7 @@
                   IsReadOnly="True"
                   CanUserAddRows="False"
                   CanUserDeleteRows="False"
+                  CanUserSortColumns="True"
                   HeadersVisibility="Column"
                   GridLinesVisibility="Horizontal"
                   HorizontalGridLinesBrush="#FFEEEEEE"
@@ -59,22 +60,36 @@
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
+                <DataGridTextColumn Header="Hierarchy"
+                                    Binding="{Binding HierarchyDisplay}"
+                                    SortMemberPath="HierarchyDisplay"
+                                    Width="2*" />
                 <DataGridTextColumn Header="Request"
                                     Binding="{Binding Name}"
-                                    Width="2*" />
+                                    SortMemberPath="Name"
+                                    Width="1.4*" />
                 <DataGridTextColumn Header="Response"
                                     Binding="{Binding StatusDisplay}"
+                                    SortMemberPath="StatusDisplay"
                                     Width="*" />
                 <DataGridTextColumn Header="Time"
                                     Binding="{Binding ElapsedDisplay}"
-                                    Width="80" />
+                                    SortMemberPath="ElapsedMilliseconds"
+                                    Width="80">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Click to cycle: tree order → largest first → smallest first" />
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
                 <DataGridTextColumn Header="Met"
                                     Binding="{Binding MetDisplay}"
+                                    SortMemberPath="MetDisplay"
                                     Width="48"
                                     ElementStyle="{StaticResource MetCellStyle}">
                     <DataGridTextColumn.HeaderStyle>
                         <Style TargetType="DataGridColumnHeader">
-                            <Setter Property="ToolTip" Value="Expectation met — response status matches the expected status code" />
+                            <Setter Property="ToolTip" Value="Expectation met — click to sort (tree order → unmet first → met first)" />
                             <Setter Property="HorizontalContentAlignment" Value="Center" />
                         </Style>
                     </DataGridTextColumn.HeaderStyle>
@@ -86,7 +101,7 @@
                    Margin="0,8,0,0"
                    FontSize="11"
                    Foreground="{StaticResource App.MutedBrush}"
-                   Text="Hover a row for its path. Double-click to select it in the collection tree." />
+                   Text="Hover a row for its full path. Double-click to select it. Click a column header to cycle sort (tree order → A–Z / largest → Z–A / smallest)." />
 
         <StackPanel Grid.Row="3"
                     Orientation="Horizontal"

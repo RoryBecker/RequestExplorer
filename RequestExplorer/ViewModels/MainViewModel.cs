@@ -108,7 +108,77 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.TreeFilterIncludeAncestors = TreeFilterIncludeAncestors;
         UiPreferences.TreeFilterIncludeName = TreeFilterIncludeName;
         UiPreferences.TreeFilterIncludeUrl = TreeFilterIncludeUrl;
+        CaptureExpandedTreeNodes();
         _uiPreferencesService.Save(UiPreferences);
+    }
+
+    private void CaptureExpandedTreeNodes()
+    {
+        var ids = new List<Guid>();
+        foreach (var collection in Collections)
+        {
+            CollectExpandedNodeIds(collection, ids);
+        }
+
+        UiPreferences.ExpandedTreeNodeIds = ids;
+    }
+
+    private static void CollectExpandedNodeIds(TreeNodeViewModel node, List<Guid> ids)
+    {
+        if (node.IsExpanded && TryGetNodeId(node, out var id))
+        {
+            ids.Add(id);
+        }
+
+        foreach (var child in node.Children)
+        {
+            CollectExpandedNodeIds(child, ids);
+        }
+    }
+
+    private void RestoreTreeExpandedState()
+    {
+        var expanded = new HashSet<Guid>(UiPreferences.ExpandedTreeNodeIds ?? []);
+        foreach (var collection in Collections)
+        {
+            ApplyExpandedState(collection, expanded);
+        }
+    }
+
+    private static void ApplyExpandedState(TreeNodeViewModel node, HashSet<Guid> expanded)
+    {
+        if (node.Children.Count > 0 && TryGetNodeId(node, out var id))
+        {
+            node.IsExpanded = expanded.Contains(id);
+        }
+        else
+        {
+            node.IsExpanded = false;
+        }
+
+        foreach (var child in node.Children)
+        {
+            ApplyExpandedState(child, expanded);
+        }
+    }
+
+    private static bool TryGetNodeId(TreeNodeViewModel node, out Guid id)
+    {
+        switch (node)
+        {
+            case CollectionNodeViewModel collection:
+                id = collection.Model.Id;
+                return true;
+            case FolderNodeViewModel folder:
+                id = folder.Model.Id;
+                return true;
+            case RequestNodeViewModel request:
+                id = request.Model.Id;
+                return true;
+            default:
+                id = default;
+                return false;
+        }
     }
 
     private static RequestExportFormatOption ResolveExportFormat(string? name)
@@ -1197,7 +1267,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 }
 
                 WireUndoRecorders();
-                CollapseAllCollections();
+                RestoreTreeExpandedState();
                 StatusMessage = $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}";
             }
             catch (Exception ex)
@@ -1214,7 +1284,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 }
 
                 WireUndoRecorders();
-                CollapseAllCollections();
+                RestoreTreeExpandedState();
                 StatusMessage = "Load failed — using in-memory demo (not saved)";
             }
         }
@@ -1625,10 +1695,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         IsSending = true;
         var rows = new ObservableCollection<Views.RunAllRequestResultRow>(
-            requests.Select(r => new Views.RunAllRequestResultRow
+            requests.Select((r, index) => new Views.RunAllRequestResultRow
             {
                 Request = r,
-                Name = r.Name
+                TreeOrder = index,
+                Name = r.Name,
+                HierarchyDisplay = Views.RunAllRequestResultRow.BuildHierarchyDisplay(r)
             }));
         var ok = 0;
         var failed = 0;
@@ -1665,7 +1737,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                     StatusMessage = progress;
                     dialog.SetSummary(progress);
                     row.StatusDisplay = "Running…";
-                    row.ElapsedDisplay = "—";
+                    row.ClearTiming();
                     row.SetExpectationMet(null);
 
                     var response = request.LastResponse;
@@ -1683,7 +1755,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                                 ErrorMessage = message
                             });
                             row.StatusDisplay = message;
-                            row.ElapsedDisplay = "—";
+                            row.ClearTiming();
                             row.Succeeded = false;
                             row.SetExpectationMet(false);
                             failed++;
@@ -1713,7 +1785,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                         row.StatusDisplay = result.Succeeded
                             ? $"{result.StatusCode} {result.ReasonPhrase}".Trim()
                             : (result.ErrorMessage ?? "Failed");
-                        row.ElapsedDisplay = response.ElapsedDisplay;
+                        row.SetTiming(result.Timing.TotalMilliseconds, response.ElapsedDisplay);
                         row.Succeeded = result.Succeeded;
                         row.SetExpectationMet(
                             result.StatusCode is int code && code == request.ExpectedStatusCode);
@@ -1749,7 +1821,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                             ErrorMessage = ex.Message
                         });
                         row.StatusDisplay = ex.Message;
-                        row.ElapsedDisplay = "—";
+                        row.ClearTiming();
                         row.Succeeded = false;
                         row.SetExpectationMet(false);
                         failed++;
@@ -1803,7 +1875,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         Views.RunAllRequestResultRow cancelledRow)
     {
         cancelledRow.StatusDisplay = "Cancelled";
-        cancelledRow.ElapsedDisplay = "—";
+        cancelledRow.ClearTiming();
         cancelledRow.Succeeded = false;
         cancelledRow.SetExpectationMet(false);
 
@@ -4146,6 +4218,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private void ReloadWorkspaceFromDisk(string statusPrefix)
     {
         var priorOrder = Collections.Select(c => c.Model.Id).ToList();
+        CaptureExpandedTreeNodes();
 
         SelectedNode = null;
         _treeClipboard = null;

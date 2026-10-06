@@ -450,7 +450,7 @@
                                        TextAlignment="Center"
                                        TextWrapping="Wrap"
                                        Foreground="{StaticResource App.MutedBrush}"
-                                       Text="Create a collection, or drop Postman .json files here to import." />
+                                       Text="Create a collection, or drop Postman / .json collection files here to import." />
                             <Button Content="New Collection"
                                     HorizontalAlignment="Center"
                                     Style="{StaticResource PrimaryButton}"

@@ -3087,7 +3087,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             var dialog = new OpenFileDialog
             {
                 Title = "Import Postman Collection(s)",
-                Filter = "Postman Collection (*.json)|*.json|All files (*.*)|*.*",
+                Filter =
+                    "Postman Collection (*.postman_collection*;*.json)|*.postman_collection;*.postman_collection.json;*.json|All files (*.*)|*.*",
                 CheckFileExists = true,
                 Multiselect = true
             };
@@ -3106,6 +3107,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 try
                 {
                     var json = File.ReadAllText(filePath);
+                    // Into-node import always treats content as Postman (folder under target).
                     var document = JsonSerializer.Deserialize<PostmanCollectionDocument>(
                                        json,
                                        PostmanCollectionMapper.JsonOptions)
@@ -3214,21 +3216,28 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
+    private static readonly JsonSerializerOptions NativeCollectionJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+    };
+
     /// <summary>
-    /// Imports each JSON file as a new top-level collection (one collection per file).
-    /// Used by drag-and-drop onto the collections tree.
+    /// Imports each collection file as a new top-level collection (one collection per file).
+    /// Accepts Postman (<c>.postman_collection</c> / <c>.postman_collection.json</c>) and
+    /// RequestExplorer / generic <c>.json</c> files; format is detected from the name and contents.
     /// </summary>
     public void ImportCollectionsFromFiles(IReadOnlyList<string> filePaths)
     {
         ArgumentNullException.ThrowIfNull(filePaths);
 
-        var jsonFiles = filePaths
-            .Where(f => !string.IsNullOrWhiteSpace(f)
-                        && f.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        var importFiles = filePaths
+            .Where(PostmanCollectionMapper.IsImportableCollectionFile)
             .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (jsonFiles.Count == 0)
+        if (importFiles.Count == 0)
         {
             return;
         }
@@ -3244,17 +3253,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _suppressCollectionOrderPersist = true;
         try
         {
-            foreach (var filePath in jsonFiles)
+            foreach (var filePath in importFiles)
             {
                 try
                 {
                     var json = File.ReadAllText(filePath);
-                    var document = JsonSerializer.Deserialize<PostmanCollectionDocument>(
-                                       json,
-                                       PostmanCollectionMapper.JsonOptions)
-                                   ?? throw new InvalidOperationException("File is not a valid Postman collection.");
-
-                    var model = PostmanCollectionMapper.FromCollectionDocument(document);
+                    var model = ParseImportedCollectionFile(filePath, json);
                     // Always assign a fresh id so a re-import never clashes with an existing collection.
                     model.Id = Guid.NewGuid();
 
@@ -3301,13 +3305,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         if (importedNodes.Count == 0)
         {
-            MessageBox.Show(
-                errors.Count > 0
-                    ? string.Join(Environment.NewLine, errors)
-                    : "No Postman collections were imported.",
-                "Import",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
+                MessageBox.Show(
+                    errors.Count > 0
+                        ? string.Join(Environment.NewLine, errors)
+                        : "No collections were imported.",
+                    "Import",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             return;
         }
 
@@ -3336,6 +3340,61 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 "Import",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>
+    /// Chooses Postman vs RequestExplorer native JSON from the file name and document shape.
+    /// </summary>
+    private static CollectionDefinition ParseImportedCollectionFile(string filePath, string json)
+    {
+        var preferPostman = PostmanCollectionMapper.IsPostmanCollectionFileName(filePath)
+                            || PostmanCollectionMapper.LooksLikePostmanJson(json);
+
+        if (preferPostman)
+        {
+            return ParsePostmanCollectionJson(json);
+        }
+
+        if (TryParseNativeCollectionJson(json, out var native))
+        {
+            return native;
+        }
+
+        // Generic .json that wasn't clearly native — try Postman as a fallback.
+        return ParsePostmanCollectionJson(json);
+    }
+
+    private static CollectionDefinition ParsePostmanCollectionJson(string json)
+    {
+        var document = JsonSerializer.Deserialize<PostmanCollectionDocument>(
+                           json,
+                           PostmanCollectionMapper.JsonOptions)
+                       ?? throw new InvalidOperationException("File is not a valid Postman collection.");
+        return PostmanCollectionMapper.FromCollectionDocument(document);
+    }
+
+    private static bool TryParseNativeCollectionJson(string json, out CollectionDefinition collection)
+    {
+        try
+        {
+            collection = JsonSerializer.Deserialize<CollectionDefinition>(json, NativeCollectionJsonOptions)!;
+            if (collection is null)
+            {
+                collection = null!;
+                return false;
+            }
+
+            // Reject empty shells that aren't really collections.
+            return !string.IsNullOrWhiteSpace(collection.Name)
+                   || collection.Folders.Count > 0
+                   || collection.Requests.Count > 0
+                   || collection.Variables.Count > 0;
+        }
+        catch (JsonException)
+        {
+            collection = null!;
+            return false;
         }
     }
 

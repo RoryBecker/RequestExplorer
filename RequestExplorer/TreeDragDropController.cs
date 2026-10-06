@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using RequestExplorer.Services;
+using RequestExplorer.Services.Postman;
 using RequestExplorer.ViewModels;
 
 namespace RequestExplorer;
@@ -171,7 +172,7 @@ internal sealed class TreeDragDropController
 
     private void Tree_OnDragOver(object sender, DragEventArgs e)
     {
-        if (TryGetJsonFilePaths(e, out _))
+        if (TryGetImportableCollectionFilePaths(e, out _))
         {
             ShowFileImportIndicator();
             UpdateHoverToggle(null);
@@ -255,7 +256,7 @@ internal sealed class TreeDragDropController
 
     private void Tree_OnDrop(object sender, DragEventArgs e)
     {
-        if (TryGetJsonFilePaths(e, out var filePaths))
+        if (TryGetImportableCollectionFilePaths(e, out var filePaths))
         {
             ClearIndicators();
             StopHoverToggle();
@@ -301,7 +302,7 @@ internal sealed class TreeDragDropController
             return;
         }
 
-        if (!TryGetJsonFilePaths(e, out _))
+        if (!TryGetImportableCollectionFilePaths(e, out _))
         {
             e.Effects = DragDropEffects.None;
             e.Handled = true;
@@ -320,7 +321,7 @@ internal sealed class TreeDragDropController
             return;
         }
 
-        if (!TryGetJsonFilePaths(e, out var filePaths))
+        if (!TryGetImportableCollectionFilePaths(e, out var filePaths))
         {
             e.Handled = true;
             ClearIndicators();
@@ -358,7 +359,7 @@ internal sealed class TreeDragDropController
         ShowRootIndicator();
     }
 
-    private static bool TryGetJsonFilePaths(DragEventArgs e, out IReadOnlyList<string> paths)
+    private static bool TryGetImportableCollectionFilePaths(DragEventArgs e, out IReadOnlyList<string> paths)
     {
         paths = Array.Empty<string>();
         if (!e.Data.GetDataPresent(DataFormats.FileDrop)
@@ -368,15 +369,15 @@ internal sealed class TreeDragDropController
             return false;
         }
 
-        var jsonFiles = files
-            .Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        var importable = files
+            .Where(PostmanCollectionMapper.IsImportableCollectionFile)
             .ToList();
-        if (jsonFiles.Count == 0)
+        if (importable.Count == 0)
         {
             return false;
         }
 
-        paths = jsonFiles;
+        paths = importable;
         return true;
     }
 

@@ -174,13 +174,101 @@ public static class PostmanCollectionMapper
         return folder;
     }
 
+    private static readonly string[] ImportNameSuffixes =
+    [
+        ".postman_collection.json",
+        ".postman_collection",
+        ".json"
+    ];
+
+    /// <summary>
+    /// True for drop/import candidates: <c>*.postman_collection</c>,
+    /// <c>*.postman_collection.json</c>, or generic <c>*.json</c>.
+    /// </summary>
+    public static bool IsImportableCollectionFile(string? filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return false;
+        }
+
+        var name = Path.GetFileName(filePath);
+        return name.EndsWith(".postman_collection.json", StringComparison.OrdinalIgnoreCase)
+               || name.EndsWith(".postman_collection", StringComparison.OrdinalIgnoreCase)
+               || name.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>True when the file name uses a Postman collection suffix.</summary>
+    public static bool IsPostmanCollectionFileName(string? filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return false;
+        }
+
+        var name = Path.GetFileName(filePath);
+        return name.EndsWith(".postman_collection.json", StringComparison.OrdinalIgnoreCase)
+               || name.EndsWith(".postman_collection", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>True when JSON looks like a Postman Collection v2.x document.</summary>
+    public static bool LooksLikePostmanJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            // RequestExplorer native collections use folders/requests, not Postman item[].
+            if (root.TryGetProperty("folders", out _) || root.TryGetProperty("requests", out _))
+            {
+                return false;
+            }
+
+            if (root.TryGetProperty("item", out _))
+            {
+                return true;
+            }
+
+            if (!root.TryGetProperty("info", out var info) || info.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            if (info.TryGetProperty("schema", out var schema)
+                && schema.ValueKind == JsonValueKind.String
+                && schema.GetString() is { } schemaText
+                && schemaText.Contains("postman", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return info.TryGetProperty("_postman_id", out _);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
     public static string ResolveImportNameFromFilePath(string filePath)
     {
         var fileName = Path.GetFileName(filePath);
-        const string postmanSuffix = ".postman_collection.json";
-        if (fileName.EndsWith(postmanSuffix, StringComparison.OrdinalIgnoreCase))
+        foreach (var suffix in ImportNameSuffixes)
         {
-            return fileName[..^postmanSuffix.Length].Trim();
+            if (fileName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            {
+                return fileName[..^suffix.Length].Trim();
+            }
         }
 
         return Path.GetFileNameWithoutExtension(fileName).Trim();

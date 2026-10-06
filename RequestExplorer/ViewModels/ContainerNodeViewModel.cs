@@ -50,6 +50,9 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     private bool _hasDefinedVariables;
 
     [ObservableProperty]
+    private bool _hasInheritedVariables;
+
+    [ObservableProperty]
     private string _variablesTooltip = string.Empty;
 
     public void AttachUndoRecorder(IUndoRecorder recorder) => _undoRecorder = recorder;
@@ -296,6 +299,8 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
                 InheritedVariables.Add(row);
             }
         }
+
+        HasInheritedVariables = InheritedVariables.Count > 0;
     }
 
     private void RefreshDefinedVariablesGlyph()

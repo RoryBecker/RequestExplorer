@@ -805,6 +805,12 @@ public partial class MainWindow : Window
             Command = vm.ExportNodeCommand,
             CommandParameter = node
         });
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Export to Postman (Flatten)…",
+            Command = vm.ExportNodeFlattenedCommand,
+            CommandParameter = node
+        });
 
         if (node is CollectionNodeViewModel or FolderNodeViewModel)
         {

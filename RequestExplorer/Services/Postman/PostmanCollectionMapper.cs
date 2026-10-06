@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RequestExplorer.Models;
+using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Services.Postman;
 
@@ -50,6 +51,71 @@ public static class PostmanCollectionMapper
             },
             Item = [ToRequestItem(request)]
         };
+
+    /// <summary>
+    /// Builds a Postman collection with variables inlined into every request and omitted from
+    /// collection/folder scopes. Does not mutate the live tree — resolution uses clones.
+    /// </summary>
+    public static PostmanCollectionDocument ToFlattenedCollectionDocument(TreeNodeViewModel node)
+    {
+        ArgumentNullException.ThrowIfNull(node);
+
+        return node switch
+        {
+            CollectionNodeViewModel collection => new PostmanCollectionDocument
+            {
+                Info = new PostmanInfo
+                {
+                    PostmanId = collection.Model.Id.ToString(),
+                    Name = collection.Name
+                },
+                Item = ToFlattenedItems(collection.Children)
+            },
+            FolderNodeViewModel folder => new PostmanCollectionDocument
+            {
+                Info = new PostmanInfo
+                {
+                    PostmanId = folder.Model.Id.ToString(),
+                    Name = folder.Name
+                },
+                Item = ToFlattenedItems(folder.Children)
+            },
+            RequestNodeViewModel request => new PostmanCollectionDocument
+            {
+                Info = new PostmanInfo
+                {
+                    PostmanId = request.Model.Id.ToString(),
+                    Name = request.Name
+                },
+                Item = [ToRequestItem(VariableResolver.Resolve(request.Model, request))]
+            },
+            _ => throw new InvalidOperationException("Unsupported node type.")
+        };
+    }
+
+    private static List<PostmanItem> ToFlattenedItems(IEnumerable<TreeNodeViewModel> children)
+    {
+        var items = new List<PostmanItem>();
+        foreach (var child in children)
+        {
+            switch (child)
+            {
+                case FolderNodeViewModel folder:
+                    items.Add(new PostmanItem
+                    {
+                        Id = folder.Model.Id.ToString(),
+                        Name = folder.Name,
+                        Item = ToFlattenedItems(folder.Children)
+                    });
+                    break;
+                case RequestNodeViewModel request:
+                    items.Add(ToRequestItem(VariableResolver.Resolve(request.Model, request)));
+                    break;
+            }
+        }
+
+        return items;
+    }
 
     public static CollectionDefinition FromCollectionDocument(PostmanCollectionDocument document)
     {

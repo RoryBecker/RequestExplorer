@@ -2817,7 +2817,14 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     [RelayCommand]
-    private void ExportNode(TreeNodeViewModel? node)
+    private void ExportNode(TreeNodeViewModel? node) =>
+        ExportNodeCore(node, flattenVariables: false);
+
+    [RelayCommand]
+    private void ExportNodeFlattened(TreeNodeViewModel? node) =>
+        ExportNodeCore(node, flattenVariables: true);
+
+    private void ExportNodeCore(TreeNodeViewModel? node, bool flattenVariables)
     {
         node ??= SelectedNode;
         if (node is null)
@@ -2828,20 +2835,23 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         try
         {
             PrepareNodeForExport(node);
-            var document = node switch
-            {
-                CollectionNodeViewModel collection => PostmanCollectionMapper.ToCollectionDocument(collection.Model),
-                FolderNodeViewModel folder => PostmanCollectionMapper.ToCollectionDocument(folder.Model),
-                RequestNodeViewModel request => PostmanCollectionMapper.ToCollectionDocument(request.Model),
-                _ => throw new InvalidOperationException("Unsupported node type.")
-            };
+            var document = flattenVariables
+                ? PostmanCollectionMapper.ToFlattenedCollectionDocument(node)
+                : node switch
+                {
+                    CollectionNodeViewModel collection => PostmanCollectionMapper.ToCollectionDocument(collection.Model),
+                    FolderNodeViewModel folder => PostmanCollectionMapper.ToCollectionDocument(folder.Model),
+                    RequestNodeViewModel request => PostmanCollectionMapper.ToCollectionDocument(request.Model),
+                    _ => throw new InvalidOperationException("Unsupported node type.")
+                };
 
             var safeName = string.Join("_", node.Name.Split(Path.GetInvalidFileNameChars()));
+            var suffix = flattenVariables ? ".flattened.postman_collection.json" : ".postman_collection.json";
             var dialog = new SaveFileDialog
             {
-                Title = "Export for Postman",
+                Title = flattenVariables ? "Export to Postman (Flatten)" : "Export for Postman",
                 Filter = "Postman Collection (*.json)|*.json|All files (*.*)|*.*",
-                FileName = $"{safeName}.postman_collection.json",
+                FileName = $"{safeName}{suffix}",
                 DefaultExt = ".json",
                 AddExtension = true
             };
@@ -2853,7 +2863,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
             var json = JsonSerializer.Serialize(document, PostmanCollectionMapper.JsonOptions);
             File.WriteAllText(dialog.FileName, json);
-            StatusMessage = $"Exported '{node.Name}' for Postman";
+            StatusMessage = flattenVariables
+                ? $"Exported '{node.Name}' for Postman (variables flattened)"
+                : $"Exported '{node.Name}' for Postman";
         }
         catch (Exception ex)
         {

@@ -3151,6 +3151,109 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
+    /// <summary>
+    /// Imports each JSON file as a new top-level collection (one collection per file).
+    /// Used by drag-and-drop onto the collections tree.
+    /// </summary>
+    public void ImportCollectionsFromFiles(IReadOnlyList<string> filePaths)
+    {
+        ArgumentNullException.ThrowIfNull(filePaths);
+
+        var jsonFiles = filePaths
+            .Where(f => !string.IsNullOrWhiteSpace(f)
+                        && f.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (jsonFiles.Count == 0)
+        {
+            return;
+        }
+
+        var importedNodes = new List<CollectionNodeViewModel>();
+        var errors = new List<string>();
+
+        foreach (var filePath in jsonFiles)
+        {
+            try
+            {
+                var json = File.ReadAllText(filePath);
+                var document = JsonSerializer.Deserialize<PostmanCollectionDocument>(
+                                   json,
+                                   PostmanCollectionMapper.JsonOptions)
+                               ?? throw new InvalidOperationException("File is not a valid Postman collection.");
+
+                var model = PostmanCollectionMapper.FromCollectionDocument(document);
+                // Always assign a fresh id so a re-import never clashes with an existing collection.
+                model.Id = Guid.NewGuid();
+
+                var fileHint = PostmanCollectionMapper.ResolveImportNameFromFilePath(filePath);
+                if (string.IsNullOrWhiteSpace(model.Name))
+                {
+                    model.Name = string.IsNullOrWhiteSpace(fileHint) ? "Imported Collection" : fileHint;
+                }
+
+                if (model.Folders.Count == 0
+                    && model.Requests.Count == 0
+                    && model.Variables.Count == 0)
+                {
+                    errors.Add($"{Path.GetFileName(filePath)}: no items or variables to import.");
+                    continue;
+                }
+
+                var node = CollectionTreeMapper.ToViewModel(model);
+                WireUndoRecorders(node);
+                Collections.Add(node);
+                CollapseSubtree(node);
+                node.IsExpanded = true;
+                MarkSubtreeDirty(node);
+                importedNodes.Add(node);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{Path.GetFileName(filePath)}: {ex.Message}");
+            }
+        }
+
+        if (importedNodes.Count == 0)
+        {
+            MessageBox.Show(
+                errors.Count > 0
+                    ? string.Join(Environment.NewLine, errors)
+                    : "No Postman collections were imported.",
+                "Import",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var undoSteps = importedNodes
+            .AsEnumerable()
+            .Reverse()
+            .Select(n => CreateRemoveAction(n, $"Import '{n.Name}'"))
+            .ToList();
+        RecordUndo(new CompositeUndoAction(
+            importedNodes.Count == 1
+                ? $"Import '{importedNodes[0].Name}'"
+                : $"Import {importedNodes.Count} collections",
+            undoSteps));
+
+        SelectedNode = importedNodes[^1];
+        OnPropertyChanged(nameof(HasAnyDirty));
+        StatusMessage = importedNodes.Count == 1
+            ? $"Imported '{importedNodes[0].Name}' (Ctrl+S to persist)"
+            : $"Imported {importedNodes.Count} collections (Ctrl+S to persist)";
+
+        if (errors.Count > 0)
+        {
+            MessageBox.Show(
+                $"Imported {importedNodes.Count} collection(s), with {errors.Count} skipped:{Environment.NewLine}{string.Join(Environment.NewLine, errors)}",
+                "Import",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanCollapseOrExpandChildren))]
     private void CollapseChildren(TreeNodeViewModel? node)
     {

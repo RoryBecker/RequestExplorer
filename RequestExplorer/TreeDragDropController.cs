@@ -13,6 +13,7 @@ namespace RequestExplorer;
 internal sealed class TreeDragDropController
 {
     private readonly TreeView _tree;
+    private readonly FrameworkElement? _fileDropHost;
     private readonly Func<MainViewModel?> _getVm;
     private readonly DispatcherTimer _hoverToggleTimer;
 
@@ -25,9 +26,13 @@ internal sealed class TreeDragDropController
     private TreeDropPlacement? _currentPlacement;
     private bool _rootIndicator;
 
-    public TreeDragDropController(TreeView tree, Func<MainViewModel?> getVm)
+    public TreeDragDropController(
+        TreeView tree,
+        Func<MainViewModel?> getVm,
+        FrameworkElement? fileDropHost = null)
     {
         _tree = tree;
+        _fileDropHost = fileDropHost;
         _getVm = getVm;
         _hoverToggleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _hoverToggleTimer.Tick += HoverToggleTimer_OnTick;
@@ -41,6 +46,15 @@ internal sealed class TreeDragDropController
         _tree.Drop += Tree_OnDrop;
         _tree.GiveFeedback += Tree_OnGiveFeedback;
         _tree.QueryContinueDrag += Tree_OnQueryContinueDrag;
+
+        // Empty-state panel (tree hidden) still accepts JSON collection files.
+        if (_fileDropHost is not null)
+        {
+            _fileDropHost.AllowDrop = true;
+            _fileDropHost.DragOver += FileDropHost_OnDragOver;
+            _fileDropHost.Drop += FileDropHost_OnDrop;
+            _fileDropHost.DragLeave += FileDropHost_OnDragLeave;
+        }
     }
 
     /// <summary>True while a drag is active or a drag gesture has been primed.</summary>
@@ -157,6 +171,15 @@ internal sealed class TreeDragDropController
 
     private void Tree_OnDragOver(object sender, DragEventArgs e)
     {
+        if (TryGetJsonFilePaths(e, out _))
+        {
+            ShowFileImportIndicator();
+            UpdateHoverToggle(null);
+            e.Effects = DragDropEffects.Copy;
+            e.Handled = true;
+            return;
+        }
+
         if (!TryGetDragPayload(e, out var payload))
         {
             e.Effects = DragDropEffects.None;
@@ -232,6 +255,15 @@ internal sealed class TreeDragDropController
 
     private void Tree_OnDrop(object sender, DragEventArgs e)
     {
+        if (TryGetJsonFilePaths(e, out var filePaths))
+        {
+            ClearIndicators();
+            StopHoverToggle();
+            _getVm()?.ImportCollectionsFromFiles(filePaths);
+            e.Handled = true;
+            return;
+        }
+
         if (_getVm() is not MainViewModel vm || !TryGetDragPayload(e, out var payload))
         {
             e.Handled = true;
@@ -259,6 +291,93 @@ internal sealed class TreeDragDropController
 
         vm.TryMoveNodes(payload.Nodes, target, placement.Value);
         e.Handled = true;
+    }
+
+    private void FileDropHost_OnDragOver(object sender, DragEventArgs e)
+    {
+        // When the tree is visible it handles its own drag-over; this covers the empty state.
+        if (_tree.IsVisible)
+        {
+            return;
+        }
+
+        if (!TryGetJsonFilePaths(e, out _))
+        {
+            e.Effects = DragDropEffects.None;
+            e.Handled = true;
+            return;
+        }
+
+        ShowRootIndicator();
+        e.Effects = DragDropEffects.Copy;
+        e.Handled = true;
+    }
+
+    private void FileDropHost_OnDrop(object sender, DragEventArgs e)
+    {
+        if (_tree.IsVisible)
+        {
+            return;
+        }
+
+        if (!TryGetJsonFilePaths(e, out var filePaths))
+        {
+            e.Handled = true;
+            ClearIndicators();
+            return;
+        }
+
+        ClearIndicators();
+        _getVm()?.ImportCollectionsFromFiles(filePaths);
+        e.Handled = true;
+    }
+
+    private void FileDropHost_OnDragLeave(object sender, DragEventArgs e)
+    {
+        if (_tree.IsVisible || _fileDropHost is null)
+        {
+            return;
+        }
+
+        var pos = e.GetPosition(_fileDropHost);
+        if (pos.X < 0 || pos.Y < 0 || pos.X > _fileDropHost.ActualWidth || pos.Y > _fileDropHost.ActualHeight)
+        {
+            ClearIndicators();
+        }
+    }
+
+    private void ShowFileImportIndicator()
+    {
+        if (_getVm()?.Collections is { Count: > 0 } collections)
+        {
+            var last = collections.LastOrDefault(c => c.IsVisibleInFilter) ?? collections[^1];
+            ShowIndicator(last, TreeDropPlacement.After);
+            return;
+        }
+
+        ShowRootIndicator();
+    }
+
+    private static bool TryGetJsonFilePaths(DragEventArgs e, out IReadOnlyList<string> paths)
+    {
+        paths = Array.Empty<string>();
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop)
+            || e.Data.GetData(DataFormats.FileDrop) is not string[] files
+            || files.Length == 0)
+        {
+            return false;
+        }
+
+        var jsonFiles = files
+            .Where(f => f.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (jsonFiles.Count == 0)
+        {
+            return false;
+        }
+
+        paths = jsonFiles;
+        return true;
     }
 
     private static bool TryGetDragPayload(DragEventArgs e, out TreeNodeDragPayload payload)

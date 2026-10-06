@@ -33,7 +33,10 @@ public partial class MainWindow : Window
         SizeChanged += (_, _) => CaptureWindowBounds();
         LocationChanged += (_, _) => CaptureWindowBounds();
         StateChanged += (_, _) => CaptureWindowBounds();
-        _treeDragDrop = new TreeDragDropController(CollectionTree, () => DataContext as MainViewModel);
+        _treeDragDrop = new TreeDragDropController(
+            CollectionTree,
+            () => DataContext as MainViewModel,
+            CollectionsDropHost);
     }
 
     private void MainWindow_OnLoaded(object sender, RoutedEventArgs e)

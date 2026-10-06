@@ -427,7 +427,7 @@
                     </StackPanel>
                 </Grid>
 
-                <Grid>
+                <Grid x:Name="CollectionsDropHost">
                     <Border Margin="8">
                         <Border.Style>
                             <Style TargetType="Border">
@@ -448,7 +448,7 @@
                                        TextAlignment="Center"
                                        TextWrapping="Wrap"
                                        Foreground="{StaticResource App.MutedBrush}"
-                                       Text="Create a collection to start building requests." />
+                                       Text="Create a collection, or drop Postman .json files here to import." />
                             <Button Content="New Collection"
                                     HorizontalAlignment="Center"
                                     Style="{StaticResource PrimaryButton}"

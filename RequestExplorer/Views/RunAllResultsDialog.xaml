@@ -14,6 +14,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <TextBlock x:Name="SummaryText"
@@ -36,7 +37,13 @@
                   RowHeight="28"
                   ColumnHeaderHeight="28"
                   SelectionMode="Single"
-                  SelectionUnit="FullRow">
+                  SelectionUnit="FullRow"
+                  MouseDoubleClick="ResultsGrid_OnMouseDoubleClick">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="ToolTip" Value="{Binding HierarchyPath}" />
+                </Style>
+            </DataGrid.RowStyle>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Request"
                                     Binding="{Binding Name}"
@@ -50,7 +57,13 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <StackPanel Grid.Row="2"
+        <TextBlock Grid.Row="2"
+                   Margin="0,8,0,0"
+                   FontSize="11"
+                   Foreground="{StaticResource App.MutedBrush}"
+                   Text="Hover a row for its path. Double-click to select it in the collection tree." />
+
+        <StackPanel Grid.Row="3"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,12,0,0">

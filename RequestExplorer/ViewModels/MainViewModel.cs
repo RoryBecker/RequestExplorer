@@ -1625,7 +1625,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         IsSending = true;
         var rows = new ObservableCollection<Views.RunAllRequestResultRow>(
-            requests.Select(r => new Views.RunAllRequestResultRow { Name = r.Name }));
+            requests.Select(r => new Views.RunAllRequestResultRow
+            {
+                Request = r,
+                Name = r.Name
+            }));
         var ok = 0;
         var failed = 0;
         var completed = 0;
@@ -1780,6 +1784,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         };
 
         dialog.ShowDialog();
+
+        if (dialog.NavigatedNode is { } target)
+        {
+            RevealAndSelectNodes([target]);
+            StatusMessage = $"Selected {target.HierarchyPath}";
+        }
     }
 
     private static void MarkRunAllCancelled(

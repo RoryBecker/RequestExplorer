@@ -1,11 +1,19 @@
 using System.Collections.Generic;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Views;
 
 public partial class RunAllRequestResultRow : ObservableObject
 {
+    public required RequestNodeViewModel Request { get; init; }
+
+    public string HierarchyPath => Request.HierarchyPath;
+
     [ObservableProperty]
     private string _name = string.Empty;
 
@@ -38,6 +46,9 @@ public partial class RunAllResultsDialog : Window
         Closing += OnClosing;
     }
 
+    /// <summary>Request chosen via double-click; set before the dialog closes.</summary>
+    public RequestNodeViewModel? NavigatedNode { get; private set; }
+
     public void SetSummary(string text) => SummaryText.Text = text;
 
     public void MarkFinished()
@@ -48,6 +59,38 @@ public partial class RunAllResultsDialog : Window
         CloseButton.IsEnabled = true;
         CloseButton.IsDefault = true;
         CloseButton.IsCancel = true;
+    }
+
+    private void ResultsGrid_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left)
+        {
+            return;
+        }
+
+        if (FindRowItem(e.OriginalSource as DependencyObject) is not RunAllRequestResultRow row)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        NavigatedNode = row.Request;
+        DialogResult = true;
+    }
+
+    private static RunAllRequestResultRow? FindRowItem(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is DataGridRow { Item: RunAllRequestResultRow row })
+            {
+                return row;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return null;
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e)

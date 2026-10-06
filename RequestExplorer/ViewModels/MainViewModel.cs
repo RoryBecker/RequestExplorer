@@ -1329,7 +1329,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    partial void OnTreeFilterTextChanged(string value) => ApplyTreeFilter();
+    partial void OnTreeFilterTextChanged(string value) => ScheduleDebouncedTreeFilter();
 
     partial void OnTreeFilterIncludeAncestorsChanged(bool value) => OnTreeSearchScopeFlagChanged();
 
@@ -1391,6 +1391,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private bool _treeFilterApplyQueued;
     private bool _deferTreeFilterDuringAltMove;
+    private DispatcherTimer? _treeFilterDebounceTimer;
+    private const int TreeFilterDebounceMilliseconds = 200;
 
     private void ApplyTreeFilterIfActive()
     {
@@ -1432,8 +1434,38 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
+    /// <summary>
+    /// Waits until typing pauses before walking the tree. Clearing the box applies immediately.
+    /// </summary>
+    private void ScheduleDebouncedTreeFilter()
+    {
+        if (string.IsNullOrWhiteSpace(TreeFilterText))
+        {
+            ApplyTreeFilter();
+            return;
+        }
+
+        if (_treeFilterDebounceTimer is null)
+        {
+            _treeFilterDebounceTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(TreeFilterDebounceMilliseconds)
+            };
+            _treeFilterDebounceTimer.Tick += (_, _) =>
+            {
+                _treeFilterDebounceTimer.Stop();
+                ApplyTreeFilter();
+            };
+        }
+
+        _treeFilterDebounceTimer.Stop();
+        _treeFilterDebounceTimer.Start();
+    }
+
     private void ApplyTreeFilter()
     {
+        _treeFilterDebounceTimer?.Stop();
+
         var filter = TreeFilterText.Trim();
         var filtering = filter.Length > 0;
 
@@ -1853,35 +1885,30 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             }
         }
 
-        string FormatPassSummary(bool cancelled, int completed, int ok, int failed) =>
+        string FormatPassSummary(bool cancelled, int completed, int notCompleted) =>
             cancelled
-                ? $"Cancelled after {completed} of {requests.Count} — {ok} succeeded, {failed} failed"
-                : $"Finished {completed} request(s) — {ok} succeeded, {failed} failed";
+                ? $"Cancelled — {completed} completed, {notCompleted} not completed"
+                : $"Finished — {completed} completed, {notCompleted} not completed";
 
-        static (int ok, int failed, int completed) TallyRows(IEnumerable<Views.RunAllRequestResultRow> source)
+        static (int completed, int notCompleted) TallyRows(IEnumerable<Views.RunAllRequestResultRow> source)
         {
-            var ok = 0;
-            var failed = 0;
             var completed = 0;
+            var notCompleted = 0;
             foreach (var row in source)
             {
-                if (row.StatusDisplay is "Pending" or "Skipped" or "Running…")
+                // Skipped / cancelled / still queued never finished a send.
+                if (row.StatusDisplay is "Pending" or "Skipped" or "Running…" or "Cancelled")
                 {
-                    continue;
-                }
-
-                completed++;
-                if (row.Succeeded)
-                {
-                    ok++;
+                    notCompleted++;
                 }
                 else
                 {
-                    failed++;
+                    // Any terminal status (incl. 4xx/5xx or transport errors) counts as completed.
+                    completed++;
                 }
             }
 
-            return (ok, failed, completed);
+            return (completed, notCompleted);
         }
 
         void MarkIncompleteRowsSkipped()
@@ -1923,9 +1950,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 row.ApplyExpectationResult(null);
             }
 
-            var ok = 0;
-            var failed = 0;
-            var completed = 0;
+            var progressCompleted = 0;
             var cancelled = false;
             using var gate = new SemaphoreSlim(maxThreads, maxThreads);
 
@@ -1978,21 +2003,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                             {
                                 cancelled = true;
                             }
-                            else if (row.Succeeded)
-                            {
-                                ok++;
-                            }
-                            else
-                            {
-                                failed++;
-                            }
 
-                            completed++;
+                            progressCompleted++;
                             var summary = cancelled
-                                ? $"Cancelling… {completed}/{requests.Count}"
+                                ? $"Cancelling… {progressCompleted}/{requests.Count}"
                                 : maxThreads <= 1
-                                    ? $"Running {completed}/{requests.Count}: {row.Name}…"
-                                    : $"Running {completed}/{requests.Count} ({maxThreads} threads)…";
+                                    ? $"Running {progressCompleted}/{requests.Count}: {row.Name}…"
+                                    : $"Running {progressCompleted}/{requests.Count} ({maxThreads} threads)…";
                             StatusMessage = summary;
                             dialog.SetSummary(summary);
                         });
@@ -2019,16 +2036,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             finally
             {
                 EndSendingState();
-                var (tallyOk, tallyFailed, tallyCompleted) = TallyRows(rows);
-                // Prefer live counters when a full sequential-style tally is complete; otherwise recount.
-                if (tallyCompleted > 0)
-                {
-                    ok = tallyOk;
-                    failed = tallyFailed;
-                    completed = tallyCompleted;
-                }
-
-                PublishSummary(FormatPassSummary(cancelled, completed, ok, failed));
+                var (completed, notCompleted) = TallyRows(rows);
+                PublishSummary(FormatPassSummary(cancelled, completed, notCompleted));
             }
         }
 
@@ -2053,8 +2062,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             finally
             {
                 EndSendingState();
-                var (ok, failed, completed) = TallyRows(rows);
-                var summary = $"Reran {row.Name} — batch {completed}/{requests.Count}: {ok} succeeded, {failed} failed";
+                var (completed, notCompleted) = TallyRows(rows);
+                var summary =
+                    $"Reran {row.Name} — {completed} completed, {notCompleted} not completed";
                 PublishSummary(summary);
             }
         }

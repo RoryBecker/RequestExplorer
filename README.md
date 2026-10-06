@@ -1,8 +1,6 @@
 # RequestExplorer
 
-A local Windows HTTP client (C# / WPF) for composing and sending requests, organized in Collections → Folders → Requests.
-
-See [PLAN_COMPLETED.md](PLAN_COMPLETED.md) for the completed multiphase feature plan and locked product decisions. Planned structural work: [PLANNED_ARCHITECTURAL_REFACTOR.md](PLANNED_ARCHITECTURAL_REFACTOR.md).
+A local Windows HTTP client for building, organizing, and testing API requests. Work is arranged in a **Collections → Folders → Requests** tree, with variables, expectations, batch runs, and Postman import/export—all stored as JSON on your machine.
 
 ## Requirements
 
@@ -16,50 +14,80 @@ dotnet build RequestExplorer.sln
 dotnet run --project RequestExplorer
 ```
 
-### Optional publish (unpackaged)
+First launch with an empty workspace seeds a small **httpbin.org Demo** collection so you can try Send immediately.
 
-Framework-dependent (smaller; requires .NET 8 Desktop runtime on the machine):
+### Optional publish
+
+Framework-dependent (requires the .NET 8 Desktop runtime):
 
 ```powershell
 dotnet publish RequestExplorer -c Release -r win-x64 --self-contained false -o .\publish
 ```
 
-Self-contained single-folder (larger; no shared runtime required):
+Self-contained (larger; no shared runtime required):
 
 ```powershell
 dotnet publish RequestExplorer -c Release -r win-x64 --self-contained true -o .\publish-sc
 ```
 
-MSIX / Store packaging is deferred (preference **P4**).
+## Features
 
-## Persistence
+### Collections tree
 
-- One JSON file per collection under `%LocalAppData%\RequestExplorer\collections\`
-- File name: `{collectionId}.json` (GUID without dashes)
-- First launch with an empty store seeds the httpbin demo and writes it to disk
-- **File → Open collections folder** reveals the storage directory
+- Organize requests in collections and nested folders
+- Create, rename, duplicate, and delete nodes from the toolbar, **Edit** menu, context menu, or row **+** / **…** menus
+- Multi-select for batch operations
+- Drag and drop to reorder or nest (before / after / into)
+- Move up/down with **Alt+↑** / **Alt+↓**, or **Move to New Sub-folder…**
+- **Copy to Collection** — copy the selection into an existing collection or a newly named one
+- Tree filter with optional matching on name, URL, and ancestor path
+- **Edit as JSON…** for a collection, folder, or request subtree
 
-### Collection JSON shape (camelCase)
+### Editing & sending requests
 
-```json
-{
-  "id": "…",
-  "name": "httpbin.org Demo",
-  "folders": [ { "id": "…", "name": "…", "folders": [], "requests": [] } ],
-  "requests": [
-    {
-      "id": "…",
-      "name": "GET",
-      "verb": "get",
-      "address": "https://httpbin.org/get",
-      "params": [ { "isEnabled": true, "key": "q", "value": "x" } ],
-      "headers": [],
-      "authentication": { "type": "none" },
-      "body": { "content": "", "contentType": "application/json" }
-    }
-  ]
-}
-```
+- Verbs: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
+- URL, raw body (with content type), query params, headers (per-row on/off), and auth (None, Bearer, Basic, API Key)
+- **Send** (**Ctrl+Enter**) and **Cancel** for in-flight requests
+- Unsaved changes show `*` on the request and ancestors — **Ctrl+S** saves the current collection
+
+### Response pane
+
+- Status, elapsed time, and body with find next/previous
+- Headers, cookies, raw response, and timing breakdown
+- Save the response body to a file when available
+
+### Variables
+
+- Define variables on collections and folders; children inherit them (with source and shadowing shown)
+- Use `{{name}}` in URLs and other request fields
+- **Diagnose Variables** on a selection to find missing or disabled variables and jump to the affected nodes
+
+### Expectations & Run All
+
+- Per request: expected status code; optional max response time and exact body match
+- **Run All** runs every request under the selected collection, folder, or single request
+- Results dialog: parallel threads (1–10), optional timing checks, sortable grid with Response / Body / Time / Met highlighting, stop remaining, and per-row rerun
+- Double-click a result row to select that request in the tree
+
+### Quick Export
+
+- Side panel with live previews for cURL, HTTP, Postman Collection v2.1, JavaScript Fetch, PowerShell, Python requests, HTTPie, and more
+- Copy to clipboard; diagnosis when variables or the URL cannot be resolved cleanly
+
+### Postman import & export
+
+From a collection or folder **…** menu:
+
+- **Export for Postman…**
+- **Export to Postman (Flatten)…** (variables inlined)
+- **Import Postman Collection(s)…** into that container
+
+### Undo, backups & settings
+
+- Undo / redo (**Ctrl+Z** / **Ctrl+Y**), including multi-step history from the toolbar
+- **File → Backup now**, **Restore…**, and **Open backups folder**
+- **Tools → Settings…**: request timeout, optional “dev mode” (no timeout; Cancel still works), backup on startup, and how many backups to keep
+- Layout, filters, and Run All options are remembered between sessions
 
 ## Keyboard shortcuts
 
@@ -69,19 +97,20 @@ MSIX / Store packaging is deferred (preference **P4**).
 | Ctrl+Shift+S | Save all collections |
 | Ctrl+Enter | Send selected request |
 | Ctrl+Shift+N | New collection |
-| Ctrl+D | Duplicate selected request |
+| Ctrl+D | Duplicate selected node |
+| Ctrl+C / Ctrl+V | Copy / paste tree nodes |
+| Ctrl+Z / Ctrl+Y | Undo / redo |
 | F2 | Rename |
 | Del | Delete |
-| Esc (dialog) | Cancel prompt |
+| Alt+↑ / Alt+↓ | Move among siblings |
+| Esc | Close dialogs / cancel prompts |
 
-## Features
+## Where your data lives
 
-- Explorer-style tree with collections, folders, and requests
-- Editable verb, URL, params, headers, auth (None / Bearer / Basic / API Key), raw/JSON body
-- Dirty tracking with `*` on requests and ancestor nodes; Ctrl+S to persist
-- Send / Cancel with response status, body, headers, cookies, and timing
-- Build a collection from scratch via toolbar, context menu, or **Edit** menu
+| Path | Contents |
+|------|----------|
+| `%LocalAppData%\RequestExplorer\collections\` | One JSON file per collection (named after the collection; id suffix if needed), plus `collection-order.json` |
+| `%LocalAppData%\RequestExplorer\preferences.json` | UI preferences (layout, filters, Run All options, etc.) |
+| `%LocalAppData%\RequestExplorer\backups\` | Rolling zip backups |
 
-## Phase status
-
-All planned phases (0–6) are implemented. Further work is optional enhancement beyond the original plan.
+Use **File → Open collections folder** to open the collections directory in Explorer.

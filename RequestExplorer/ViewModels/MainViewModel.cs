@@ -1666,6 +1666,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                     dialog.SetSummary(progress);
                     row.StatusDisplay = "Running…";
                     row.ElapsedDisplay = "—";
+                    row.SetExpectationMet(null);
 
                     var response = request.LastResponse;
                     response.BeginSend();
@@ -1684,6 +1685,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                             row.StatusDisplay = message;
                             row.ElapsedDisplay = "—";
                             row.Succeeded = false;
+                            row.SetExpectationMet(false);
                             failed++;
                             completed++;
                             continue;
@@ -1713,6 +1715,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                             : (result.ErrorMessage ?? "Failed");
                         row.ElapsedDisplay = response.ElapsedDisplay;
                         row.Succeeded = result.Succeeded;
+                        row.SetExpectationMet(
+                            result.StatusCode is int code && code == request.ExpectedStatusCode);
 
                         if (result.Succeeded)
                         {
@@ -1747,6 +1751,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                         row.StatusDisplay = ex.Message;
                         row.ElapsedDisplay = "—";
                         row.Succeeded = false;
+                        row.SetExpectationMet(false);
                         failed++;
                         completed++;
                     }
@@ -1800,10 +1805,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         cancelledRow.StatusDisplay = "Cancelled";
         cancelledRow.ElapsedDisplay = "—";
         cancelledRow.Succeeded = false;
+        cancelledRow.SetExpectationMet(false);
 
         for (var j = cancelledIndex + 1; j < rows.Count; j++)
         {
             rows[j].StatusDisplay = "Skipped";
+            rows[j].SetExpectationMet(null);
         }
     }
 

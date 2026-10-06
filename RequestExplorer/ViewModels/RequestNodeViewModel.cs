@@ -32,6 +32,9 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         _apiKeyLocation = model.Authentication.ApiKeyLocation;
         _bodyContent = model.Body.Content;
         _bodyContentType = model.Body.ContentType ?? string.Empty;
+        _expectedStatusCode = model.ExpectedStatusCode is >= 100 and <= 599
+            ? model.ExpectedStatusCode
+            : 200;
 
         _trackDirty = false;
         foreach (var item in model.Params)
@@ -118,6 +121,9 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     [ObservableProperty]
     private string _bodyContentType;
+
+    [ObservableProperty]
+    private int _expectedStatusCode = 200;
 
     public bool IsAuthNone => AuthType == AuthType.None;
     public bool IsAuthBearer => AuthType == AuthType.Bearer;
@@ -206,6 +212,17 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     partial void OnApiKeyLocationChanged(ApiKeyLocation value)
     {
         Model.Authentication.ApiKeyLocation = value;
+        MarkDirty();
+    }
+
+    partial void OnExpectedStatusCodeChanged(int value)
+    {
+        if (Model.ExpectedStatusCode == value)
+        {
+            return;
+        }
+
+        Model.ExpectedStatusCode = value;
         MarkDirty();
     }
 

@@ -9,6 +9,20 @@
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
         Background="{StaticResource App.PanelBrush}">
+    <Window.Resources>
+        <Style x:Key="MetCellStyle" TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="#FF15803D" />
+            <Setter Property="ToolTip" Value="Expectation met" />
+            <Style.Triggers>
+                <Trigger Property="Text" Value="">
+                    <Setter Property="ToolTip" Value="{x:Null}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -53,7 +67,18 @@
                                     Width="*" />
                 <DataGridTextColumn Header="Time"
                                     Binding="{Binding ElapsedDisplay}"
-                                    Width="100" />
+                                    Width="80" />
+                <DataGridTextColumn Header="Met"
+                                    Binding="{Binding MetDisplay}"
+                                    Width="48"
+                                    ElementStyle="{StaticResource MetCellStyle}">
+                    <DataGridTextColumn.HeaderStyle>
+                        <Style TargetType="DataGridColumnHeader">
+                            <Setter Property="ToolTip" Value="Expectation met — response status matches the expected status code" />
+                            <Setter Property="HorizontalContentAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.HeaderStyle>
+                </DataGridTextColumn>
             </DataGrid.Columns>
         </DataGrid>
 

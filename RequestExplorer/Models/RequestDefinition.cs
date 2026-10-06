@@ -11,4 +11,7 @@ public sealed class RequestDefinition
     public List<KeyValueItem> Headers { get; set; } = [];
     public AuthenticationSettings Authentication { get; set; } = new();
     public RequestBody Body { get; set; } = new();
+
+    /// <summary>HTTP status code expected on success (used by Run All expectations).</summary>
+    public int ExpectedStatusCode { get; set; } = 200;
 }

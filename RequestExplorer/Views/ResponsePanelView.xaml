@@ -145,6 +145,11 @@
                          Content="Timing"
                          Style="{StaticResource ResponseTabRadio}"
                          Checked="Tab_OnChecked" />
+            <RadioButton x:Name="TabExpectations"
+                         GroupName="ResponsePanelTabs"
+                         Content="Expectations"
+                         Style="{StaticResource ResponseTabRadio}"
+                         Checked="Tab_OnChecked" />
         </StackPanel>
 
         <!-- Star row: always consumes leftover height from the response grid row. -->
@@ -245,6 +250,31 @@
                     </TextBlock>
                     <TextBlock Foreground="#FF888888"
                                Text="DNS / connect / TLS timings are not available via HttpClient in this build." />
+                </StackPanel>
+            </ScrollViewer>
+
+            <ScrollViewer x:Name="ExpectationsPanel"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch">
+                <StackPanel Margin="8,8,8,0" Orientation="Vertical">
+                    <TextBlock Margin="0,0,0,12"
+                               TextWrapping="Wrap"
+                               Foreground="#FF888888"
+                               Text="Define what a successful response looks like for this request. Run All uses this when marking Met." />
+                    <DockPanel LastChildFill="False">
+                        <TextBlock DockPanel.Dock="Left"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,10,0"
+                                   Text="Expected status code" />
+                        <TextBox DockPanel.Dock="Left"
+                                 Width="72"
+                                 VerticalContentAlignment="Center"
+                                 Padding="4,2"
+                                 ToolTip="HTTP status code expected when this request succeeds (default 200)"
+                                 Text="{Binding DataContext.SelectedRequest.ExpectedStatusCode, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                    </DockPanel>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

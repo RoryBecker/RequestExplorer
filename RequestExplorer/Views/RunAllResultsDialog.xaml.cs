@@ -25,6 +25,13 @@ public partial class RunAllRequestResultRow : ObservableObject
 
     [ObservableProperty]
     private bool _succeeded;
+
+    /// <summary>✓ when the response status matches the request's expected status code.</summary>
+    [ObservableProperty]
+    private string _metDisplay = string.Empty;
+
+    public void SetExpectationMet(bool? met) =>
+        MetDisplay = met == true ? "✓" : string.Empty;
 }
 
 public partial class RunAllResultsDialog : Window

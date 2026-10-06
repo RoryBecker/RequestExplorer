@@ -68,15 +68,21 @@ public partial class ResponsePanelView
             || HeadersPanel is null
             || CookiesPanel is null
             || RawResponseTextBox is null
-            || TimingPanel is null)
+            || TimingPanel is null
+            || ExpectationsPanel is null)
         {
             return;
         }
 
+        var hasResponseVm = _subscribedResponse is not null;
         var hasResult = _subscribedResponse?.HasResult == true || _subscribedResponse?.IsSending == true;
+        var showExpectations = hasResponseVm && TabExpectations.IsChecked == true;
 
-        TabStrip.Visibility = hasResult ? Visibility.Visible : Visibility.Collapsed;
-        EmptyMessage.Visibility = hasResult ? Visibility.Collapsed : Visibility.Visible;
+        // Expectations is request config — available even before a response exists.
+        TabStrip.Visibility = hasResponseVm ? Visibility.Visible : Visibility.Collapsed;
+        EmptyMessage.Visibility = hasResponseVm && !hasResult && !showExpectations
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         var showBody = hasResult && TabBody.IsChecked == true;
         var showHeaders = hasResult && TabHeaders.IsChecked == true;
@@ -89,6 +95,7 @@ public partial class ResponsePanelView
         CookiesPanel.Visibility = showCookies ? Visibility.Visible : Visibility.Collapsed;
         RawResponseTextBox.Visibility = showRaw ? Visibility.Visible : Visibility.Collapsed;
         TimingPanel.Visibility = showTiming ? Visibility.Visible : Visibility.Collapsed;
+        ExpectationsPanel.Visibility = showExpectations ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OnBodySearchSelectionRequested()

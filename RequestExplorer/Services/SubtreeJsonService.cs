@@ -196,6 +196,11 @@ public static class SubtreeJsonService
         request.Headers ??= [];
         request.Authentication ??= new AuthenticationSettings();
         request.Body ??= new RequestBody();
+        if (request.ExpectedStatusCode is < 100 or > 599)
+        {
+            request.ExpectedStatusCode = 200;
+        }
+
         foreach (var item in request.Params)
         {
             Normalize(item);

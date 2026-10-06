@@ -589,6 +589,9 @@
                                 <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
                                 <Separator />
                                 <MenuItem Header="Edit as JSON…" Command="{Binding EditAsJsonCommand}" />
+                                <MenuItem Header="Export to Postman…" Command="{Binding ExportNodeCommand}" />
+                                <MenuItem Header="Export to Postman (Flatten)…" Command="{Binding ExportNodeFlattenedCommand}" />
+                                <MenuItem Header="Import Postman Collection(s)…" Command="{Binding ImportIntoNodeCommand}" />
                             </ContextMenu>
                         </TreeView.ContextMenu>
 
@@ -598,47 +601,28 @@
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <Border Style="{StaticResource TreeDropBeforeLine}" />
                                     <Border Style="{StaticResource TreeDropIntoHighlight}">
-                                        <Grid MinHeight="22" Margin="0,1" HorizontalAlignment="Stretch">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0"
-                                                        Orientation="Horizontal"
-                                                        VerticalAlignment="Center">
-                                                <TextBlock FontFamily="Segoe MDL2 Assets"
-                                                           Text="&#xE8F1;"
-                                                           Margin="0,0,6,0"
-                                                           Foreground="{StaticResource App.AccentBrush}"
-                                                           VerticalAlignment="Center" />
-                                                <TextBlock FontFamily="Segoe MDL2 Assets"
-                                                           Text="&#xE81E;"
-                                                           Margin="0,0,4,0"
-                                                           FontSize="11"
-                                                           Foreground="{StaticResource App.MutedBrush}"
-                                                           VerticalAlignment="Center"
-                                                           ToolTip="{Binding VariablesTooltip}"
-                                                           Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
-                                                <TextBlock Text="{Binding DisplayName}"
-                                                           FontWeight="SemiBold"
-                                                           VerticalAlignment="Center"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1"
-                                                        Orientation="Horizontal"
-                                                        VerticalAlignment="Center"
-                                                        Margin="8,0,0,0">
-                                                <Button Content="+"
-                                                        Style="{StaticResource TreeActionButton}"
-                                                        ToolTip="Add child"
-                                                        Click="TreeAddButton_OnClick" />
-                                                <Button Content="…"
-                                                        Style="{StaticResource TreeActionButton}"
-                                                        Margin="4,0,0,0"
-                                                        ToolTip="More actions"
-                                                        Click="TreeMoreButton_OnClick" />
-                                            </StackPanel>
-                                        </Grid>
+                                        <StackPanel Orientation="Horizontal"
+                                                    MinHeight="22"
+                                                    Margin="0,1"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                       Text="&#xE8F1;"
+                                                       Margin="0,0,6,0"
+                                                       Foreground="{StaticResource App.AccentBrush}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                       Text="&#xE81E;"
+                                                       Margin="0,0,4,0"
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource App.MutedBrush}"
+                                                       VerticalAlignment="Center"
+                                                       ToolTip="{Binding VariablesTooltip}"
+                                                       Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
                                     </Border>
                                     <Border Style="{StaticResource TreeDropAfterLine}" />
                                 </StackPanel>
@@ -649,46 +633,27 @@
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <Border Style="{StaticResource TreeDropBeforeLine}" />
                                     <Border Style="{StaticResource TreeDropIntoHighlight}">
-                                        <Grid MinHeight="22" Margin="0,1" HorizontalAlignment="Stretch">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0"
-                                                        Orientation="Horizontal"
-                                                        VerticalAlignment="Center">
-                                                <TextBlock FontFamily="Segoe MDL2 Assets"
-                                                           Text="&#xE8B7;"
-                                                           Margin="0,0,6,0"
-                                                           Foreground="{StaticResource App.MutedBrush}"
-                                                           VerticalAlignment="Center" />
-                                                <TextBlock FontFamily="Segoe MDL2 Assets"
-                                                           Text="&#xE81E;"
-                                                           Margin="0,0,4,0"
-                                                           FontSize="11"
-                                                           Foreground="{StaticResource App.MutedBrush}"
-                                                           VerticalAlignment="Center"
-                                                           ToolTip="{Binding VariablesTooltip}"
-                                                           Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
-                                                <TextBlock Text="{Binding DisplayName}"
-                                                           VerticalAlignment="Center"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1"
-                                                        Orientation="Horizontal"
-                                                        VerticalAlignment="Center"
-                                                        Margin="8,0,0,0">
-                                                <Button Content="+"
-                                                        Style="{StaticResource TreeActionButton}"
-                                                        ToolTip="Add child"
-                                                        Click="TreeAddButton_OnClick" />
-                                                <Button Content="…"
-                                                        Style="{StaticResource TreeActionButton}"
-                                                        Margin="4,0,0,0"
-                                                        ToolTip="More actions"
-                                                        Click="TreeMoreButton_OnClick" />
-                                            </StackPanel>
-                                        </Grid>
+                                        <StackPanel Orientation="Horizontal"
+                                                    MinHeight="22"
+                                                    Margin="0,1"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                       Text="&#xE8B7;"
+                                                       Margin="0,0,6,0"
+                                                       Foreground="{StaticResource App.MutedBrush}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock FontFamily="Segoe MDL2 Assets"
+                                                       Text="&#xE81E;"
+                                                       Margin="0,0,4,0"
+                                                       FontSize="11"
+                                                       Foreground="{StaticResource App.MutedBrush}"
+                                                       VerticalAlignment="Center"
+                                                       ToolTip="{Binding VariablesTooltip}"
+                                                       Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
                                     </Border>
                                     <Border Style="{StaticResource TreeDropAfterLine}" />
                                 </StackPanel>
@@ -698,33 +663,19 @@
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <Border Style="{StaticResource TreeDropBeforeLine}" />
                                     <Border Style="{StaticResource TreeDropIntoHighlight}">
-                                        <Grid MinHeight="22" Margin="0,1" HorizontalAlignment="Stretch">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0"
-                                                        Orientation="Horizontal"
-                                                        VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Verb}"
-                                                           Margin="0,0,6,0"
-                                                           FontWeight="SemiBold"
-                                                           VerticalAlignment="Center"
-                                                           Foreground="{Binding Verb, Converter={StaticResource VerbBrush}}" />
-                                                <TextBlock Text="{Binding DisplayName}"
-                                                           VerticalAlignment="Center"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1"
-                                                        Orientation="Horizontal"
-                                                        VerticalAlignment="Center"
-                                                        Margin="8,0,0,0">
-                                                <Button Content="…"
-                                                        Style="{StaticResource TreeActionButton}"
-                                                        ToolTip="More actions"
-                                                        Click="TreeMoreButton_OnClick" />
-                                            </StackPanel>
-                                        </Grid>
+                                        <StackPanel Orientation="Horizontal"
+                                                    MinHeight="22"
+                                                    Margin="0,1"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Verb}"
+                                                       Margin="0,0,6,0"
+                                                       FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{Binding Verb, Converter={StaticResource VerbBrush}}" />
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
                                     </Border>
                                     <Border Style="{StaticResource TreeDropAfterLine}" />
                                 </StackPanel>

@@ -297,6 +297,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(MoveNodeDownCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveToNewSubFolderCommand))]
     [NotifyCanExecuteChangedFor(nameof(EditAsJsonCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ImportIntoNodeCommand))]
     private TreeNodeViewModel? _selectedNode;
 
     private TreeClipboardPayload? _treeClipboard;
@@ -3040,7 +3041,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             var suffix = flattenVariables ? ".flattened.postman_collection.json" : ".postman_collection.json";
             var dialog = new SaveFileDialog
             {
-                Title = flattenVariables ? "Export to Postman (Flatten)" : "Export for Postman",
+                Title = flattenVariables ? "Export to Postman (Flatten)" : "Export to Postman",
                 Filter = "Postman Collection (*.json)|*.json|All files (*.*)|*.*",
                 FileName = $"{safeName}{suffix}",
                 DefaultExt = ".json",
@@ -3068,17 +3069,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanImportIntoNode))]
     private void ImportIntoNode(TreeNodeViewModel? node)
     {
-        node ??= SelectedNode;
-        if (node is not (CollectionNodeViewModel or FolderNodeViewModel))
+        var target = node ?? SelectedNode;
+        if (target is not CollectionNodeViewModel and not FolderNodeViewModel)
         {
-            MessageBox.Show(
-                "Import is only available for collections and folders.",
-                "Import",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
             return;
         }
 
@@ -3128,7 +3124,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                         importedFolder.Name = string.IsNullOrWhiteSpace(fileHint) ? "Imported Collection" : fileHint;
                     }
 
-                    var child = AttachImportedFolder(node, importedFolder);
+                    var child = AttachImportedFolder(target, importedFolder);
                     importedNodes.Add(child);
                 }
                 catch (Exception ex)
@@ -3149,8 +3145,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 return;
             }
 
-            node.IsExpanded = true;
-            node.IsDirty = true;
+            target.IsExpanded = true;
+            target.IsDirty = true;
             foreach (var child in importedNodes)
             {
                 CollapseSubtree(child);
@@ -3160,19 +3156,19 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             var undoSteps = importedNodes
                 .AsEnumerable()
                 .Reverse()
-                .Select(n => CreateRemoveAction(n, $"Import into '{node.Name}'"))
+                .Select(n => CreateRemoveAction(n, $"Import into '{target.Name}'"))
                 .ToList();
             RecordUndo(new CompositeUndoAction(
                 importedNodes.Count == 1
-                    ? $"Import '{importedNodes[0].Name}' into '{node.Name}'"
-                    : $"Import {importedNodes.Count} collections into '{node.Name}'",
+                    ? $"Import '{importedNodes[0].Name}' into '{target.Name}'"
+                    : $"Import {importedNodes.Count} collections into '{target.Name}'",
                 undoSteps));
 
             SelectedNode = importedNodes[^1];
             OnPropertyChanged(nameof(HasAnyDirty));
             StatusMessage = importedNodes.Count == 1
-                ? $"Imported '{importedNodes[0].Name}' into '{node.Name}' (Ctrl+S to persist)"
-                : $"Imported {importedNodes.Count} collections into '{node.Name}' (Ctrl+S to persist)";
+                ? $"Imported '{importedNodes[0].Name}' into '{target.Name}' (Ctrl+S to persist)"
+                : $"Imported {importedNodes.Count} collections into '{target.Name}' (Ctrl+S to persist)";
 
             if (errors.Count > 0)
             {
@@ -3192,6 +3188,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 MessageBoxImage.Error);
         }
     }
+
+    private bool CanImportIntoNode(TreeNodeViewModel? node) =>
+        (node ?? SelectedNode) is CollectionNodeViewModel or FolderNodeViewModel;
 
     private FolderNodeViewModel AttachImportedFolder(TreeNodeViewModel node, FolderDefinition importedFolder)
     {

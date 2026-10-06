@@ -35,7 +35,7 @@ dotnet publish RequestExplorer -c Release -r win-x64 --self-contained true -o .\
 ### Collections tree
 
 - Organize requests in collections and nested folders
-- Create, rename, duplicate, and delete nodes from the toolbar, **Edit** menu, context menu, or row **+** / **…** menus
+- Create, rename, duplicate, and delete nodes from the toolbar, **Edit** menu, or tree context menu
 - Multi-select for batch operations
 - Drag and drop to reorder or nest (before / after / into)
 - Move up/down with **Alt+↑** / **Alt+↓**, or **Move to New Sub-folder…**
@@ -78,7 +78,7 @@ dotnet publish RequestExplorer -c Release -r win-x64 --self-contained true -o .\
 
 From a collection or folder **…** menu:
 
-- **Export for Postman…**
+- **Export to Postman…**
 - **Export to Postman (Flatten)…** (variables inlined)
 - **Import Postman Collection(s)…** into that container
 

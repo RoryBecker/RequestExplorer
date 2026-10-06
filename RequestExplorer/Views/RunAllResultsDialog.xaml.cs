@@ -53,29 +53,66 @@ public partial class RunAllRequestResultRow : ObservableObject
     [ObservableProperty]
     private bool _succeeded;
 
-    /// <summary>✓ when all enabled expectations are met.</summary>
+    /// <summary>✓ when all enabled expectations are met; ✗ when any failed.</summary>
     [ObservableProperty]
     private string _metDisplay = string.Empty;
+
+    /// <summary>✓/✗ when a body expectation was checked; empty otherwise.</summary>
+    [ObservableProperty]
+    private string _bodyDisplay = string.Empty;
 
     [ObservableProperty]
     private bool _isStatusExpectationFailed;
 
     [ObservableProperty]
+    private bool _isStatusExpectationMet;
+
+    [ObservableProperty]
+    private bool _isBodyExpectationFailed;
+
+    [ObservableProperty]
+    private bool _isBodyExpectationMet;
+
+    [ObservableProperty]
     private bool _isTimingExpectationFailed;
+
+    [ObservableProperty]
+    private bool _isTimingExpectationMet;
 
     public void ApplyExpectationResult(ExpectationCheckResult? result)
     {
         if (result is null)
         {
             MetDisplay = string.Empty;
+            BodyDisplay = string.Empty;
             IsStatusExpectationFailed = false;
+            IsStatusExpectationMet = false;
+            IsBodyExpectationFailed = false;
+            IsBodyExpectationMet = false;
             IsTimingExpectationFailed = false;
+            IsTimingExpectationMet = false;
             return;
         }
 
-        MetDisplay = result.IsMet ? "✓" : string.Empty;
+        MetDisplay = result.IsMet ? "✓" : "✗";
         IsStatusExpectationFailed = result.StatusFailed;
+        IsStatusExpectationMet = !result.StatusFailed;
+
+        if (result.BodyChecked)
+        {
+            BodyDisplay = result.BodyFailed ? "✗" : "✓";
+            IsBodyExpectationFailed = result.BodyFailed;
+            IsBodyExpectationMet = !result.BodyFailed;
+        }
+        else
+        {
+            BodyDisplay = string.Empty;
+            IsBodyExpectationFailed = false;
+            IsBodyExpectationMet = false;
+        }
+
         IsTimingExpectationFailed = result.TimingFailed;
+        IsTimingExpectationMet = result.TimingChecked && !result.TimingFailed;
     }
 
     public void ClearTiming()
@@ -180,13 +217,14 @@ public sealed class RunAllRowComparer : IComparer
             nameof(RunAllRequestResultRow.HierarchyDisplay) => row.HierarchyDisplay,
             nameof(RunAllRequestResultRow.Name) => row.Name,
             nameof(RunAllRequestResultRow.StatusDisplay) => row.StatusDisplay,
+            nameof(RunAllRequestResultRow.BodyDisplay) => row.BodyDisplay,
             nameof(RunAllRequestResultRow.MetDisplay) => row.MetDisplay,
             _ => string.Empty
         };
 
-    /// <summary>0 = unmet / blank, 1 = met (✓).</summary>
+    /// <summary>0 = unmet (✗ or blank), 1 = met (✓).</summary>
     private static int MetRank(string? metDisplay) =>
-        string.IsNullOrEmpty(metDisplay) ? 0 : 1;
+        string.Equals(metDisplay, "✓", StringComparison.Ordinal) ? 1 : 0;
 
     private static int CompareText(string? a, string? b) =>
         string.Compare(a, b, StringComparison.OrdinalIgnoreCase);

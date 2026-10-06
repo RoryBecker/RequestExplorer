@@ -787,6 +787,11 @@ public partial class MainWindow : Window
             Command = vm.MoveNodeDownCommand,
             InputGestureText = "Alt+Down"
         });
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Move to New Sub-folder…",
+            Command = vm.MoveToNewSubFolderCommand
+        });
         menu.Items.Add(new Separator());
 
         menu.Items.Add(new MenuItem

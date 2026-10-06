@@ -293,6 +293,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(ExpandChildrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveNodeUpCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveNodeDownCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveToNewSubFolderCommand))]
     [NotifyCanExecuteChangedFor(nameof(EditAsJsonCommand))]
     private TreeNodeViewModel? _selectedNode;
 
@@ -3612,6 +3613,140 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     {
         MoveNodeUpCommand.NotifyCanExecuteChanged();
         MoveNodeDownCommand.NotifyCanExecuteChanged();
+        MoveToNewSubFolderCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanMoveToNewSubFolder))]
+    private void MoveToNewSubFolder()
+    {
+        if (!TryGetMoveToNewSubFolderTarget(out var batch, out var parent, out var insertAt))
+        {
+            return;
+        }
+
+        if (!TryPromptName("Move to New Sub-folder", "Folder name:", "New Folder", out var name))
+        {
+            return;
+        }
+
+        var model = new FolderDefinition { Name = name };
+        var folder = new FolderNodeViewModel(model);
+        folder.AttachUndoRecorder(this);
+
+        _suppressMoveSideEffects = true;
+        var undoSteps = new List<IUndoAction>();
+        var movedAny = false;
+        try
+        {
+            InsertNodeCore(parent, folder, insertAt);
+            parent.IsExpanded = true;
+            folder.IsExpanded = true;
+
+            foreach (var source in batch)
+            {
+                if (TryMoveIdentityCollectUndo(source, folder, folder.Children.Count, undoSteps))
+                {
+                    movedAny = true;
+                }
+            }
+        }
+        finally
+        {
+            _suppressMoveSideEffects = false;
+        }
+
+        if (!movedAny)
+        {
+            // Folder was created but nothing moved — remove it and abort.
+            RemoveNodeCore(folder);
+            StatusMessage = "Could not move selection into a new sub-folder";
+            return;
+        }
+
+        undoSteps.Add(CreateRemoveAction(folder, $"Add folder '{name}'"));
+        RecordUndo(new CompositeUndoAction(
+            batch.Count == 1
+                ? $"Move '{batch[0].Name}' to new sub-folder '{name}'"
+                : $"Move {batch.Count} items to new sub-folder '{name}'",
+            undoSteps,
+            selectAfter: batch,
+            selectAfterInverse: batch));
+
+        ReplaceSelection(batch, batch[0]);
+        SelectedNode = batch[0];
+        RefreshRowLayoutAfterMove(folder);
+        foreach (var node in batch)
+        {
+            RefreshRowLayoutAfterMove(node);
+        }
+
+        StatusMessage = batch.Count == 1
+            ? $"Moved '{batch[0].Name}' into new folder '{name}' (Ctrl+S to persist)"
+            : $"Moved {batch.Count} items into new folder '{name}' (Ctrl+S to persist)";
+    }
+
+    private bool CanMoveToNewSubFolder() =>
+        TryGetMoveToNewSubFolderTarget(out _, out _, out _);
+
+    /// <summary>
+    /// Selection must be non-collection nodes that share one collection/folder parent.
+    /// </summary>
+    private bool TryGetMoveToNewSubFolderTarget(
+        out List<TreeNodeViewModel> batch,
+        out TreeNodeViewModel parent,
+        out int insertAt)
+    {
+        batch = [];
+        parent = null!;
+        insertAt = 0;
+
+        var raw = GetMoveBatch();
+        if (raw.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var node in raw)
+        {
+            if (node is CollectionNodeViewModel)
+            {
+                return false;
+            }
+        }
+
+        batch = OrderBatchForMove(raw);
+        if (batch.Count == 0)
+        {
+            return false;
+        }
+
+        var first = batch[0];
+        foreach (var node in batch)
+        {
+            if (!SharesSelectionParent(node, first))
+            {
+                return false;
+            }
+        }
+
+        if (first.Parent is not (CollectionNodeViewModel or FolderNodeViewModel))
+        {
+            return false;
+        }
+
+        parent = first.Parent;
+        var minIndex = parent.Children.Count;
+        foreach (var node in batch)
+        {
+            var index = parent.Children.IndexOf(node);
+            if (index >= 0 && index < minIndex)
+            {
+                minIndex = index;
+            }
+        }
+
+        insertAt = minIndex;
+        return true;
     }
 
     private bool CanMoveSelectedAmongSiblings(int direction)

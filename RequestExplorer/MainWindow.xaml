@@ -154,6 +154,7 @@
                 <MenuItem Header="_Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
                 <MenuItem Header="Move _Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
                 <MenuItem Header="Move _Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />
+                <MenuItem Header="Move to New _Sub-folder…" Command="{Binding MoveToNewSubFolderCommand}" />
                 <MenuItem Header="_Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
                 <Separator />
                 <MenuItem Header="Edit as _JSON…" Command="{Binding EditAsJsonCommand}" />
@@ -577,6 +578,7 @@
                                 <Separator />
                                 <MenuItem Header="Move Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
                                 <MenuItem Header="Move Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />
+                                <MenuItem Header="Move to New Sub-folder…" Command="{Binding MoveToNewSubFolderCommand}" />
                                 <Separator />
                                 <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
                                 <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />

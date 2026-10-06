@@ -13,6 +13,12 @@ public sealed class ExpectationCheckResult
 
     public bool BodyFailed { get; init; }
 
+    /// <summary>True when the request has a body expectation enabled for this check.</summary>
+    public bool BodyChecked { get; init; }
+
+    /// <summary>True when timing was included in this check.</summary>
+    public bool TimingChecked { get; init; }
+
     public static ExpectationCheckResult NotRun { get; } = new();
 
     public static ExpectationCheckResult UnmetWithoutResponse { get; } = new()
@@ -44,15 +50,17 @@ public static class RequestExpectations
 
         var statusFailed = result.StatusCode is not int code || code != request.ExpectedStatusCode;
 
+        var bodyChecked = request.ExpectBodyEnabled;
         var bodyFailed = false;
-        if (request.ExpectBodyEnabled)
+        if (bodyChecked)
         {
             var actual = result.Succeeded ? (result.Body ?? string.Empty) : string.Empty;
             bodyFailed = !string.Equals(actual, request.ExpectedBody ?? string.Empty, StringComparison.Ordinal);
         }
 
+        var timingChecked = includeTimingChecks && request.ExpectTimingEnabled;
         var timingFailed = false;
-        if (includeTimingChecks && request.ExpectTimingEnabled)
+        if (timingChecked)
         {
             timingFailed = result.Timing.TotalMilliseconds > request.ExpectedTimingMilliseconds;
         }
@@ -60,7 +68,9 @@ public static class RequestExpectations
         return new ExpectationCheckResult
         {
             StatusFailed = statusFailed,
+            BodyChecked = bodyChecked,
             BodyFailed = bodyFailed,
+            TimingChecked = timingChecked,
             TimingFailed = timingFailed,
             IsMet = !statusFailed && !bodyFailed && !timingFailed
         };

@@ -20,9 +20,11 @@ public sealed class HttpRequestExecutor : IDisposable
 
     public HttpRequestExecutor()
     {
+        // Timeout is enforced per-send via CancellationToken — HttpClient.Timeout cannot be
+        // changed after the first request, which would crash Settings after a send.
         _httpClient = new HttpClient
         {
-            Timeout = _timeout
+            Timeout = Timeout.InfiniteTimeSpan
         };
     }
 
@@ -40,8 +42,6 @@ public sealed class HttpRequestExecutor : IDisposable
             _timeout = TimeSpan.FromSeconds(seconds);
             _timeoutLabel = $"{seconds}s";
         }
-
-        _httpClient.Timeout = _timeout;
     }
 
     public async Task<HttpExecutionResult> SendAsync(RequestDefinition request, CancellationToken cancellationToken)
@@ -53,17 +53,29 @@ public sealed class HttpRequestExecutor : IDisposable
             return Failure("Address is empty.");
         }
 
+        var timeout = _timeout;
+        var timeoutLabel = _timeoutLabel;
         HttpRequestMessage? message = null;
         var totalWatch = Stopwatch.StartNew();
         var rawRequest = string.Empty;
 
+        CancellationTokenSource? timeoutCts = null;
+        CancellationTokenSource? linkedCts = null;
         try
         {
             message = BuildRequestMessage(request);
             rawRequest = FormatRawRequest(message, request.Body.Content);
 
+            var sendToken = cancellationToken;
+            if (timeout != Timeout.InfiniteTimeSpan)
+            {
+                timeoutCts = new CancellationTokenSource(timeout);
+                linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+                sendToken = linkedCts.Token;
+            }
+
             using var response = await _httpClient
-                .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .SendAsync(message, HttpCompletionOption.ResponseHeadersRead, sendToken)
                 .ConfigureAwait(false);
 
             var timeToHeadersMs = totalWatch.Elapsed.TotalMilliseconds;
@@ -90,10 +102,10 @@ public sealed class HttpRequestExecutor : IDisposable
                 ?? headers.FirstOrDefault(h => h.Name.Equals("Content-Disposition", StringComparison.OrdinalIgnoreCase))?.Value;
 
             var bodyWatch = Stopwatch.StartNew();
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken)
+            await using var stream = await response.Content.ReadAsStreamAsync(sendToken)
                 .ConfigureAwait(false);
             using var memory = new MemoryStream();
-            await stream.CopyToAsync(memory, cancellationToken).ConfigureAwait(false);
+            await stream.CopyToAsync(memory, sendToken).ConfigureAwait(false);
             bodyWatch.Stop();
             totalWatch.Stop();
 
@@ -141,15 +153,20 @@ public sealed class HttpRequestExecutor : IDisposable
             totalWatch.Stop();
             return Failure("Request cancelled.", totalWatch.Elapsed.TotalMilliseconds, rawRequest);
         }
+        catch (OperationCanceledException) when (timeoutCts is { IsCancellationRequested: true })
+        {
+            totalWatch.Stop();
+            return Failure($"Request timed out after {timeoutLabel}.", totalWatch.Elapsed.TotalMilliseconds, rawRequest);
+        }
         catch (TaskCanceledException)
         {
             totalWatch.Stop();
-            return Failure($"Request timed out after {_timeoutLabel}.", totalWatch.Elapsed.TotalMilliseconds, rawRequest);
-        }
-        catch (OperationCanceledException)
-        {
-            totalWatch.Stop();
-            return Failure($"Request timed out after {_timeoutLabel}.", totalWatch.Elapsed.TotalMilliseconds, rawRequest);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return Failure("Request cancelled.", totalWatch.Elapsed.TotalMilliseconds, rawRequest);
+            }
+
+            return Failure($"Request timed out after {timeoutLabel}.", totalWatch.Elapsed.TotalMilliseconds, rawRequest);
         }
         catch (Exception ex)
         {
@@ -158,6 +175,8 @@ public sealed class HttpRequestExecutor : IDisposable
         }
         finally
         {
+            linkedCts?.Dispose();
+            timeoutCts?.Dispose();
             message?.Dispose();
         }
     }

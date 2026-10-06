@@ -230,7 +230,8 @@ public partial class RunAllResultsDialog : Window
         ObservableCollection<RunAllRequestResultRow> rows,
         Action? cancelRequested = null,
         Func<Task>? rerunRequested = null,
-        Func<RunAllRequestResultRow, Task>? rerunRowRequested = null)
+        Func<RunAllRequestResultRow, Task>? rerunRowRequested = null,
+        int initialMaxThreads = 1)
     {
         InitializeComponent();
         Title = title;
@@ -238,6 +239,12 @@ public partial class RunAllResultsDialog : Window
         _cancelRequested = cancelRequested;
         _rerunRequested = rerunRequested;
         _rerunRowRequested = rerunRowRequested;
+        for (var i = 1; i <= 10; i++)
+        {
+            MaxThreadsBox.Items.Add(i);
+        }
+
+        MaxThreadsBox.SelectedItem = Math.Clamp(initialMaxThreads, 1, 10);
         _view = (ListCollectionView)CollectionViewSource.GetDefaultView(rows);
         _view.CustomSort = _comparer;
         ResultsGrid.ItemsSource = _view;
@@ -253,6 +260,20 @@ public partial class RunAllResultsDialog : Window
     /// <summary>When true, timing expectations count toward Met for this run.</summary>
     public bool CheckTiming => CheckTimingBox.IsChecked == true;
 
+    /// <summary>Max concurrent requests for a pass (1–10).</summary>
+    public int MaxThreads
+    {
+        get
+        {
+            if (MaxThreadsBox.SelectedItem is int value)
+            {
+                return Math.Clamp(value, 1, 10);
+            }
+
+            return 1;
+        }
+    }
+
     public void SetSummary(string text) => SummaryText.Text = text;
 
     public void MarkRunning()
@@ -263,9 +284,12 @@ public partial class RunAllResultsDialog : Window
         CancelButton.Visibility = Visibility.Visible;
         RerunButton.IsEnabled = false;
         RerunButton.Visibility = Visibility.Collapsed;
-        CloseButton.IsEnabled = false;
+        // Keep Close available so dismissing the window can abandon the run.
+        CloseButton.IsEnabled = true;
         CloseButton.IsDefault = false;
         CloseButton.IsCancel = false;
+        MaxThreadsBox.IsEnabled = false;
+        CheckTimingBox.IsEnabled = false;
     }
 
     public void MarkFinished()
@@ -279,6 +303,26 @@ public partial class RunAllResultsDialog : Window
         CloseButton.IsEnabled = true;
         CloseButton.IsDefault = true;
         CloseButton.IsCancel = true;
+        MaxThreadsBox.IsEnabled = true;
+        CheckTimingBox.IsEnabled = true;
+    }
+
+    /// <summary>Cancels any in-flight Run All work (safe to call more than once).</summary>
+    public void RequestCancel()
+    {
+        if (_stopRequested && _finished)
+        {
+            return;
+        }
+
+        if (!_finished)
+        {
+            _stopRequested = true;
+            CancelButton.IsEnabled = false;
+            SetSummary("Stopping remaining requests…");
+        }
+
+        _cancelRequested?.Invoke();
     }
 
     private void ResultsGrid_OnSorting(object sender, DataGridSortingEventArgs e)
@@ -400,10 +444,7 @@ public partial class RunAllResultsDialog : Window
             return;
         }
 
-        _stopRequested = true;
-        CancelButton.IsEnabled = false;
-        SetSummary("Stopping remaining requests…");
-        _cancelRequested?.Invoke();
+        RequestCancel();
     }
 
     private async void Rerun_Click(object sender, RoutedEventArgs e)
@@ -477,13 +518,22 @@ public partial class RunAllResultsDialog : Window
         return menuItem.DataContext as RunAllRequestResultRow;
     }
 
-    private void Close_Click(object sender, RoutedEventArgs e) => DialogResult = true;
-
-    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void Close_Click(object sender, RoutedEventArgs e)
     {
         if (!_finished)
         {
-            _cancelRequested?.Invoke();
+            RequestCancel();
+        }
+
+        DialogResult = true;
+    }
+
+    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Title-bar / Alt+F4 / programmatic close — always abandon remaining work.
+        if (!_finished)
+        {
+            RequestCancel();
         }
     }
 }

@@ -90,16 +90,28 @@
         </Grid.RowDefinitions>
 
         <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
-            <CheckBox x:Name="CheckTimingBox"
-                      DockPanel.Dock="Right"
-                      Content="Check Timing"
-                      IsChecked="True"
-                      VerticalAlignment="Center"
-                      Margin="16,0,0,0"
-                      ToolTip="When checked, request timing expectations are included in Met" />
+            <StackPanel DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center">
+                <TextBlock Text="Threads"
+                           VerticalAlignment="Center"
+                           Margin="0,0,6,0"
+                           Foreground="{StaticResource App.MutedBrush}" />
+                <ComboBox x:Name="MaxThreadsBox"
+                          Width="52"
+                          VerticalAlignment="Center"
+                          ToolTip="Maximum number of requests to run at the same time (1–10)" />
+                <CheckBox x:Name="CheckTimingBox"
+                          Content="Check Timing"
+                          IsChecked="True"
+                          VerticalAlignment="Center"
+                          Margin="16,0,0,0"
+                          ToolTip="When checked, request timing expectations are included in Met" />
+            </StackPanel>
             <TextBlock x:Name="SummaryText"
                        TextWrapping="Wrap"
                        VerticalAlignment="Center"
+                       Margin="0,0,12,0"
                        Foreground="{StaticResource App.MutedBrush}" />
         </DockPanel>
 

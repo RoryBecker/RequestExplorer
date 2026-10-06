@@ -53,6 +53,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         UiPreferences.BackupRetentionCount =
             WorkspaceBackupService.ClampRetention(UiPreferences.BackupRetentionCount);
+        UiPreferences.RunAllMaxThreads = Math.Clamp(UiPreferences.RunAllMaxThreads, 1, 10);
 
         _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
         _selectedExportFormat = ResolveExportFormat(UiPreferences.SelectedExportFormat);
@@ -1718,20 +1719,46 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         void PublishSummary(string summary)
         {
             StatusMessage = summary;
-            dialog!.SetSummary(summary);
-            dialog.MarkFinished();
+            try
+            {
+                if (dialog is { IsLoaded: true })
+                {
+                    dialog.SetSummary(summary);
+                    dialog.MarkFinished();
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Dialog may already be closing/closed after cancel-via-close.
+            }
+        }
+
+        var dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
+
+        Task OnUiAsync(Action action)
+        {
+            if (dispatcher.CheckAccess())
+            {
+                action();
+                return Task.CompletedTask;
+            }
+
+            return dispatcher.InvokeAsync(action).Task;
         }
 
         /// <summary>Returns true when the request was cancelled mid-send.</summary>
         async Task<bool> ExecuteOneAsync(Views.RunAllRequestResultRow row, CancellationToken token)
         {
             var request = row.Request;
-            row.StatusDisplay = "Running…";
-            row.ClearTiming();
-            row.ApplyExpectationResult(null);
-
             var response = request.LastResponse;
-            response.BeginSend();
+
+            await OnUiAsync(() =>
+            {
+                row.StatusDisplay = "Running…";
+                row.ClearTiming();
+                row.ApplyExpectationResult(null);
+                response.BeginSend();
+            });
 
             try
             {
@@ -1739,15 +1766,18 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 if (diagnosis.HasIssues)
                 {
                     var message = VariableDiagnostics.FormatRequestReport(diagnosis);
-                    response.Apply(new HttpExecutionResult
+                    await OnUiAsync(() =>
                     {
-                        Succeeded = false,
-                        ErrorMessage = message
+                        response.Apply(new HttpExecutionResult
+                        {
+                            Succeeded = false,
+                            ErrorMessage = message
+                        });
+                        row.StatusDisplay = message;
+                        row.ClearTiming();
+                        row.Succeeded = false;
+                        row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
                     });
-                    row.StatusDisplay = message;
-                    row.ClearTiming();
-                    row.Succeeded = false;
-                    row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
                     return false;
                 }
 
@@ -1755,6 +1785,39 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 var result = await _httpExecutor.SendAsync(resolved, token);
 
                 if (token.IsCancellationRequested)
+                {
+                    await OnUiAsync(() =>
+                    {
+                        response.Apply(new HttpExecutionResult
+                        {
+                            Succeeded = false,
+                            ErrorMessage = "Cancelled"
+                        });
+                        row.StatusDisplay = "Cancelled";
+                        row.ClearTiming();
+                        row.Succeeded = false;
+                        row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
+                    });
+                    return true;
+                }
+
+                var checkTiming = dialog!.CheckTiming;
+                await OnUiAsync(() =>
+                {
+                    response.Apply(result);
+                    row.StatusDisplay = result.Succeeded
+                        ? $"{result.StatusCode} {result.ReasonPhrase}".Trim()
+                        : (result.ErrorMessage ?? "Failed");
+                    row.SetTiming(result.Timing.TotalMilliseconds, response.ElapsedDisplay);
+                    row.Succeeded = result.Succeeded;
+                    row.ApplyExpectationResult(
+                        RequestExpectations.Evaluate(request, result, checkTiming));
+                });
+                return false;
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                await OnUiAsync(() =>
                 {
                     response.Apply(new HttpExecutionResult
                     {
@@ -1765,48 +1828,28 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                     row.ClearTiming();
                     row.Succeeded = false;
                     row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
-                    return true;
-                }
-
-                response.Apply(result);
-                row.StatusDisplay = result.Succeeded
-                    ? $"{result.StatusCode} {result.ReasonPhrase}".Trim()
-                    : (result.ErrorMessage ?? "Failed");
-                row.SetTiming(result.Timing.TotalMilliseconds, response.ElapsedDisplay);
-                row.Succeeded = result.Succeeded;
-                row.ApplyExpectationResult(
-                    RequestExpectations.Evaluate(request, result, dialog!.CheckTiming));
-                return false;
-            }
-            catch (OperationCanceledException) when (token.IsCancellationRequested)
-            {
-                response.Apply(new HttpExecutionResult
-                {
-                    Succeeded = false,
-                    ErrorMessage = "Cancelled"
                 });
-                row.StatusDisplay = "Cancelled";
-                row.ClearTiming();
-                row.Succeeded = false;
-                row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
                 return true;
             }
             catch (Exception ex)
             {
-                response.Apply(new HttpExecutionResult
+                await OnUiAsync(() =>
                 {
-                    Succeeded = false,
-                    ErrorMessage = ex.Message
+                    response.Apply(new HttpExecutionResult
+                    {
+                        Succeeded = false,
+                        ErrorMessage = ex.Message
+                    });
+                    row.StatusDisplay = ex.Message;
+                    row.ClearTiming();
+                    row.Succeeded = false;
+                    row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
                 });
-                row.StatusDisplay = ex.Message;
-                row.ClearTiming();
-                row.Succeeded = false;
-                row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
                 return false;
             }
             finally
             {
-                response.IsSending = false;
+                await OnUiAsync(() => response.IsSending = false);
             }
         }
 
@@ -1841,15 +1884,37 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return (ok, failed, completed);
         }
 
+        void MarkIncompleteRowsSkipped()
+        {
+            foreach (var row in rows)
+            {
+                if (row.StatusDisplay is "Pending" or "Running…")
+                {
+                    row.StatusDisplay = row.StatusDisplay == "Running…" ? "Cancelled" : "Skipped";
+                    if (row.StatusDisplay == "Cancelled")
+                    {
+                        row.ClearTiming();
+                        row.Succeeded = false;
+                        row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
+                    }
+                    else
+                    {
+                        row.ApplyExpectationResult(null);
+                    }
+                }
+            }
+        }
+
         async Task ExecutePassAsync()
         {
             _sendCts?.Cancel();
             _sendCts?.Dispose();
             _sendCts = new CancellationTokenSource();
             var token = _sendCts.Token;
+            var maxThreads = dialog!.MaxThreads;
 
             BeginSendingState();
-            dialog!.MarkRunning();
+            dialog.MarkRunning();
             foreach (var row in rows)
             {
                 row.StatusDisplay = "Pending";
@@ -1862,53 +1927,107 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             var failed = 0;
             var completed = 0;
             var cancelled = false;
+            using var gate = new SemaphoreSlim(maxThreads, maxThreads);
 
             try
             {
-                for (var i = 0; i < rows.Count; i++)
+                var progress = maxThreads <= 1
+                    ? $"Running {requests.Count} request(s)…"
+                    : $"Running {requests.Count} request(s) with {maxThreads} threads…";
+                StatusMessage = progress;
+                dialog.SetSummary(progress);
+
+                var tasks = rows.Select(async row =>
                 {
-                    token.ThrowIfCancellationRequested();
-
-                    var row = rows[i];
-                    var progress = $"Running {i + 1}/{requests.Count}: {row.Name}…";
-                    StatusMessage = progress;
-                    dialog.SetSummary(progress);
-
-                    var wasCancelled = await ExecuteOneAsync(row, token);
-                    if (wasCancelled)
+                    try
                     {
-                        cancelled = true;
-                        MarkRunAllCancelled(rows, i, row);
-                        completed++;
-                        break;
+                        await gate.WaitAsync(token);
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested)
+                    {
+                        await OnUiAsync(() =>
+                        {
+                            if (row.StatusDisplay == "Pending")
+                            {
+                                row.StatusDisplay = "Skipped";
+                                row.ApplyExpectationResult(null);
+                            }
+                        });
+                        return;
                     }
 
-                    if (row.Succeeded)
+                    try
                     {
-                        ok++;
-                    }
-                    else
-                    {
-                        failed++;
-                    }
+                        if (token.IsCancellationRequested)
+                        {
+                            await OnUiAsync(() =>
+                            {
+                                if (row.StatusDisplay == "Pending")
+                                {
+                                    row.StatusDisplay = "Skipped";
+                                    row.ApplyExpectationResult(null);
+                                }
+                            });
+                            return;
+                        }
 
-                    completed++;
+                        var wasCancelled = await ExecuteOneAsync(row, token);
+                        await OnUiAsync(() =>
+                        {
+                            if (wasCancelled)
+                            {
+                                cancelled = true;
+                            }
+                            else if (row.Succeeded)
+                            {
+                                ok++;
+                            }
+                            else
+                            {
+                                failed++;
+                            }
+
+                            completed++;
+                            var summary = cancelled
+                                ? $"Cancelling… {completed}/{requests.Count}"
+                                : maxThreads <= 1
+                                    ? $"Running {completed}/{requests.Count}: {row.Name}…"
+                                    : $"Running {completed}/{requests.Count} ({maxThreads} threads)…";
+                            StatusMessage = summary;
+                            dialog.SetSummary(summary);
+                        });
+                    }
+                    finally
+                    {
+                        gate.Release();
+                    }
+                });
+
+                await Task.WhenAll(tasks);
+
+                if (token.IsCancellationRequested)
+                {
+                    cancelled = true;
+                    await OnUiAsync(MarkIncompleteRowsSkipped);
                 }
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
                 cancelled = true;
-                for (var j = completed; j < rows.Count; j++)
-                {
-                    if (rows[j].StatusDisplay is "Pending" or "Running…")
-                    {
-                        rows[j].StatusDisplay = "Skipped";
-                    }
-                }
+                await OnUiAsync(MarkIncompleteRowsSkipped);
             }
             finally
             {
                 EndSendingState();
+                var (tallyOk, tallyFailed, tallyCompleted) = TallyRows(rows);
+                // Prefer live counters when a full sequential-style tally is complete; otherwise recount.
+                if (tallyCompleted > 0)
+                {
+                    ok = tallyOk;
+                    failed = tallyFailed;
+                    completed = tallyCompleted;
+                }
+
                 PublishSummary(FormatPassSummary(cancelled, completed, ok, failed));
             }
         }
@@ -1945,7 +2064,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             rows,
             () => _sendCts?.Cancel(),
             ExecutePassAsync,
-            ExecuteRowAsync)
+            ExecuteRowAsync,
+            initialMaxThreads: UiPreferences.RunAllMaxThreads)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -1964,27 +2084,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         dialog.ShowDialog();
 
+        UiPreferences.RunAllMaxThreads = dialog.MaxThreads;
+        PersistUiPreferences();
+
         if (dialog.NavigatedNode is { } target)
         {
             RevealAndSelectNodes([target]);
             StatusMessage = $"Selected {target.HierarchyPath}";
-        }
-    }
-
-    private static void MarkRunAllCancelled(
-        IList<Views.RunAllRequestResultRow> rows,
-        int cancelledIndex,
-        Views.RunAllRequestResultRow cancelledRow)
-    {
-        cancelledRow.StatusDisplay = "Cancelled";
-        cancelledRow.ClearTiming();
-        cancelledRow.Succeeded = false;
-        cancelledRow.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
-
-        for (var j = cancelledIndex + 1; j < rows.Count; j++)
-        {
-            rows[j].StatusDisplay = "Skipped";
-            rows[j].ApplyExpectationResult(null);
         }
     }
 

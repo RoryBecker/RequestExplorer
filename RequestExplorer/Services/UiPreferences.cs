@@ -48,6 +48,9 @@ public sealed class UiPreferences
     /// <summary>Tree node ids (collections/folders/requests) that were expanded when preferences were last saved.</summary>
     public List<Guid> ExpandedTreeNodeIds { get; set; } = [];
 
+    /// <summary>Max concurrent requests for Run All (clamped 1–10 when applied).</summary>
+    public int RunAllMaxThreads { get; set; } = 1;
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

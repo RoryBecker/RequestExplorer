@@ -559,6 +559,9 @@
 
                         <TreeView.ContextMenu>
                             <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" />
+                                <MenuItem Header="{Binding RunAllRequestsMenuHeader}" Command="{Binding RunAllRequestsCommand}" />
+                                <Separator />
                                 <MenuItem Header="Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S" />
                                 <MenuItem Header="Save All" Command="{Binding SaveAllCommand}" InputGestureText="Ctrl+Shift+S" />
                                 <Separator />
@@ -567,16 +570,13 @@
                                 <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" />
                                 <MenuItem Header="Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" />
                                 <Separator />
+                                <MenuItem Header="Expand All Children" Command="{Binding ExpandChildrenCommand}" />
+                                <MenuItem Header="Collapse All Children" Command="{Binding CollapseChildrenCommand}" />
+                                <Separator />
                                 <MenuItem Header="Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
                                 <MenuItem x:Name="CopyToCollectionMenuItem" Header="Copy to Collection" />
                                 <MenuItem Header="Paste" Command="{Binding SmartPasteCommand}" InputGestureText="Ctrl+V" />
                                 <MenuItem Header="Paste at Top Level" Command="{Binding PasteAtRootCommand}" />
-                                <Separator />
-                                <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" />
-                                <MenuItem Header="{Binding RunAllRequestsMenuHeader}" Command="{Binding RunAllRequestsCommand}" />
-                                <Separator />
-                                <MenuItem Header="Expand All Children" Command="{Binding ExpandChildrenCommand}" />
-                                <MenuItem Header="Collapse All Children" Command="{Binding CollapseChildrenCommand}" />
                                 <Separator />
                                 <MenuItem Header="Move Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
                                 <MenuItem Header="Move Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />

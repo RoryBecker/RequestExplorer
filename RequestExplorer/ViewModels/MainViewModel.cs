@@ -3752,24 +3752,37 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     /// <summary>True when the current selection can be copied into a collection.</summary>
     public bool CanCopyToCollection() => GetMoveBatch().Count > 0;
 
-    /// <summary>Existing collections that can receive the selection (excludes selected collections).</summary>
+    /// <summary>
+    /// Collections that can receive the selection (excludes selected collections).
+    /// </summary>
     public IReadOnlyList<CollectionNodeViewModel> GetCopyToCollectionDestinations()
     {
-        var selectedCollections = new HashSet<TreeNodeViewModel>();
-        foreach (var node in GetMoveBatch())
+        var batch = GetMoveBatch();
+        var result = new List<CollectionNodeViewModel>();
+        foreach (var collection in Collections)
         {
-            if (node is CollectionNodeViewModel collection)
+            if (!IsInvalidCopyDestination(collection, batch))
             {
-                selectedCollections.Add(collection);
+                result.Add(collection);
             }
         }
 
-        if (selectedCollections.Count == 0)
+        return result;
+    }
+
+    private static bool IsInvalidCopyDestination(
+        TreeNodeViewModel destination,
+        IReadOnlyList<TreeNodeViewModel> batch)
+    {
+        foreach (var source in batch)
         {
-            return Collections.ToList();
+            if (ReferenceEquals(source, destination) || IsUnder(destination, source))
+            {
+                return true;
+            }
         }
 
-        return Collections.Where(c => !selectedCollections.Contains(c)).ToList();
+        return false;
     }
 
     /// <summary>
@@ -3794,7 +3807,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         collection.AttachUndoRecorder(this);
         InsertNodeCore(null, collection, Collections.Count);
 
-        if (!TryCopySourcesIntoCollection(batch, collection, out var pasted, out var undoSteps))
+        if (!TryCopySourcesIntoParent(batch, collection, out var pasted, out var undoSteps))
         {
             RemoveNodeCore(collection);
             StatusMessage = "Could not copy selection into a new collection";
@@ -3810,7 +3823,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             selectAfter: pasted,
             selectAfterInverse: pasted));
 
-        FinishCopyToCollection(collection, pasted, name);
+        FinishCopyToParent(collection, pasted, name);
     }
 
     /// <summary>Copies the selection into an existing collection (collections become folders).</summary>
@@ -3819,7 +3832,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         ArgumentNullException.ThrowIfNull(target);
 
         var batch = OrderBatchForMove(GetMoveBatch());
-        if (batch.Count == 0)
+        if (batch.Count == 0 || IsInvalidCopyDestination(target, batch))
         {
             return;
         }
@@ -3840,7 +3853,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return;
         }
 
-        if (!TryCopySourcesIntoCollection(sources, target, out var pasted, out var undoSteps))
+        if (!TryCopySourcesIntoParent(sources, target, out var pasted, out var undoSteps))
         {
             StatusMessage = "Could not copy selection into collection";
             return;
@@ -3854,12 +3867,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             selectAfter: pasted,
             selectAfterInverse: pasted));
 
-        FinishCopyToCollection(target, pasted, target.Name);
+        FinishCopyToParent(target, pasted, target.Name);
     }
 
-    private bool TryCopySourcesIntoCollection(
+    private bool TryCopySourcesIntoParent(
         IReadOnlyList<TreeNodeViewModel> sources,
-        CollectionNodeViewModel target,
+        TreeNodeViewModel target,
         out List<TreeNodeViewModel> pasted,
         out List<IUndoAction> undoSteps)
     {
@@ -3880,8 +3893,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         return pasted.Count > 0;
     }
 
-    private void FinishCopyToCollection(
-        CollectionNodeViewModel target,
+    private void FinishCopyToParent(
+        TreeNodeViewModel target,
         List<TreeNodeViewModel> pasted,
         string destinationName)
     {

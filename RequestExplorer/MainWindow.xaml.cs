@@ -653,8 +653,9 @@ public partial class MainWindow : Window
         menu.Items.Add(new Separator());
         foreach (var collection in destinations)
         {
-            var item = new MenuItem { Header = collection.Name };
-            item.Click += (_, _) => vm.CopySelectionToCollection(collection);
+            var target = collection;
+            var item = new MenuItem { Header = target.Name };
+            item.Click += (_, _) => vm.CopySelectionToCollection(target);
             menu.Items.Add(item);
         }
     }

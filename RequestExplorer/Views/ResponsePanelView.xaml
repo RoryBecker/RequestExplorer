@@ -266,7 +266,7 @@
                                Foreground="#FF888888"
                                Text="Define what a successful response looks like for this request. Run All marks Met only when every enabled check passes. Status code is always checked; body and timing are optional." />
 
-                    <DockPanel Margin="0,0,0,14" LastChildFill="False">
+                    <DockPanel Margin="0,0,0,12" LastChildFill="False">
                         <TextBlock DockPanel.Dock="Left"
                                    VerticalAlignment="Center"
                                    Margin="0,0,10,0"
@@ -278,6 +278,11 @@
                                  ToolTip="HTTP status code expected when this request succeeds (default 200)"
                                  Text="{Binding ExpectedStatusCode, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                     </DockPanel>
+
+                    <Border Height="1"
+                            Margin="0,0,0,12"
+                            Background="#FFE5E7EB"
+                            SnapsToDevicePixels="True" />
 
                     <DockPanel Margin="0,0,0,6" LastChildFill="True">
                         <CheckBox DockPanel.Dock="Left"
@@ -292,7 +297,7 @@
                                 ToolTip="Copy the last successful total time and enable this check"
                                 Command="{Binding CopyExpectedTimingFromLastRunCommand}" />
                     </DockPanel>
-                    <DockPanel Margin="0,0,0,14" LastChildFill="False">
+                    <DockPanel Margin="0,0,0,12" LastChildFill="False">
                         <TextBox DockPanel.Dock="Left"
                                  Width="100"
                                  VerticalContentAlignment="Center"
@@ -306,6 +311,11 @@
                                    Foreground="#FF888888"
                                    Text="ms" />
                     </DockPanel>
+
+                    <Border Height="1"
+                            Margin="0,0,0,12"
+                            Background="#FFE5E7EB"
+                            SnapsToDevicePixels="True" />
 
                     <DockPanel Margin="0,0,0,6" LastChildFill="True">
                         <CheckBox DockPanel.Dock="Left"

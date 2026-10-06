@@ -76,6 +76,10 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <ContextMenu x:Key="RunAllRowContextMenu" x:Shared="False">
+            <MenuItem Header="Rerun" Click="RerunRowMenu_Click" />
+        </ContextMenu>
     </Window.Resources>
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -85,11 +89,19 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock x:Name="SummaryText"
-                   Grid.Row="0"
-                   Margin="0,0,0,10"
-                   TextWrapping="Wrap"
-                   Foreground="{StaticResource App.MutedBrush}" />
+        <DockPanel Grid.Row="0" Margin="0,0,0,10" LastChildFill="True">
+            <CheckBox x:Name="CheckTimingBox"
+                      DockPanel.Dock="Right"
+                      Content="Check Timing"
+                      IsChecked="True"
+                      VerticalAlignment="Center"
+                      Margin="16,0,0,0"
+                      ToolTip="When checked, request timing expectations are included in Met" />
+            <TextBlock x:Name="SummaryText"
+                       TextWrapping="Wrap"
+                       VerticalAlignment="Center"
+                       Foreground="{StaticResource App.MutedBrush}" />
+        </DockPanel>
 
         <DataGrid x:Name="ResultsGrid"
                   Grid.Row="1"
@@ -107,10 +119,12 @@
                   ColumnHeaderHeight="28"
                   SelectionMode="Single"
                   SelectionUnit="FullRow"
-                  MouseDoubleClick="ResultsGrid_OnMouseDoubleClick">
+                  MouseDoubleClick="ResultsGrid_OnMouseDoubleClick"
+                  ContextMenuOpening="ResultsGrid_OnContextMenuOpening">
             <DataGrid.RowStyle>
                 <Style TargetType="DataGridRow">
                     <Setter Property="ToolTip" Value="{Binding HierarchyPath}" />
+                    <Setter Property="ContextMenu" Value="{StaticResource RunAllRowContextMenu}" />
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>
@@ -165,6 +179,13 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Margin="0,12,0,0">
+            <Button x:Name="RerunButton"
+                    Content="Rerun"
+                    Width="88"
+                    Margin="0,0,8,0"
+                    Visibility="Collapsed"
+                    IsEnabled="False"
+                    Click="Rerun_Click" />
             <Button x:Name="CancelButton"
                     Content="Stop Remaining"
                     MinWidth="120"

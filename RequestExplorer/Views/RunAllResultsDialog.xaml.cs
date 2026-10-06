@@ -216,39 +216,66 @@ public sealed class RunAllRowComparer : IComparer
 public partial class RunAllResultsDialog : Window
 {
     private readonly Action? _cancelRequested;
+    private readonly Func<Task>? _rerunRequested;
+    private readonly Func<RunAllRequestResultRow, Task>? _rerunRowRequested;
     private readonly ListCollectionView _view;
     private readonly RunAllRowComparer _comparer = new();
     private bool _finished;
     private bool _stopRequested;
+    private bool _rerunInFlight;
     private string? _sortColumn;
 
     public RunAllResultsDialog(
         string title,
         ObservableCollection<RunAllRequestResultRow> rows,
-        Action? cancelRequested = null)
+        Action? cancelRequested = null,
+        Func<Task>? rerunRequested = null,
+        Func<RunAllRequestResultRow, Task>? rerunRowRequested = null)
     {
         InitializeComponent();
         Title = title;
         SummaryText.Text = "Starting…";
         _cancelRequested = cancelRequested;
+        _rerunRequested = rerunRequested;
+        _rerunRowRequested = rerunRowRequested;
         _view = (ListCollectionView)CollectionViewSource.GetDefaultView(rows);
         _view.CustomSort = _comparer;
         ResultsGrid.ItemsSource = _view;
         ResultsGrid.Sorting += ResultsGrid_OnSorting;
         Closing += OnClosing;
         ApplySortIndicators();
+        MarkRunning();
     }
 
     /// <summary>Request chosen via double-click; set before the dialog closes.</summary>
     public RequestNodeViewModel? NavigatedNode { get; private set; }
 
+    /// <summary>When true, timing expectations count toward Met for this run.</summary>
+    public bool CheckTiming => CheckTimingBox.IsChecked == true;
+
     public void SetSummary(string text) => SummaryText.Text = text;
+
+    public void MarkRunning()
+    {
+        _finished = false;
+        _stopRequested = false;
+        CancelButton.IsEnabled = true;
+        CancelButton.Visibility = Visibility.Visible;
+        RerunButton.IsEnabled = false;
+        RerunButton.Visibility = Visibility.Collapsed;
+        CloseButton.IsEnabled = false;
+        CloseButton.IsDefault = false;
+        CloseButton.IsCancel = false;
+    }
 
     public void MarkFinished()
     {
         _finished = true;
+        _rerunInFlight = false;
         CancelButton.IsEnabled = false;
         CancelButton.Visibility = Visibility.Collapsed;
+        RerunButton.Visibility = Visibility.Visible;
+        RerunButton.IsEnabled = _rerunRequested is not null;
         CloseButton.IsEnabled = true;
         CloseButton.IsDefault = true;
         CloseButton.IsCancel = true;
@@ -377,6 +404,77 @@ public partial class RunAllResultsDialog : Window
         CancelButton.IsEnabled = false;
         SetSummary("Stopping remaining requests…");
         _cancelRequested?.Invoke();
+    }
+
+    private async void Rerun_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_finished || _rerunInFlight || _rerunRequested is null)
+        {
+            return;
+        }
+
+        _rerunInFlight = true;
+        RerunButton.IsEnabled = false;
+        try
+        {
+            await _rerunRequested();
+        }
+        finally
+        {
+            _rerunInFlight = false;
+        }
+    }
+
+    private void ResultsGrid_OnContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (!_finished || _rerunInFlight || _rerunRowRequested is null)
+        {
+            e.Handled = true;
+        }
+    }
+
+    private async void RerunRowMenu_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_finished || _rerunInFlight || _rerunRowRequested is null)
+        {
+            return;
+        }
+
+        var row = ResolveRowFromMenu(sender) ?? ResultsGrid.SelectedItem as RunAllRequestResultRow;
+        if (row is null)
+        {
+            return;
+        }
+
+        _rerunInFlight = true;
+        RerunButton.IsEnabled = false;
+        try
+        {
+            await _rerunRowRequested(row);
+        }
+        finally
+        {
+            _rerunInFlight = false;
+            if (_finished)
+            {
+                RerunButton.IsEnabled = _rerunRequested is not null;
+            }
+        }
+    }
+
+    private static RunAllRequestResultRow? ResolveRowFromMenu(object sender)
+    {
+        if (sender is not MenuItem menuItem)
+        {
+            return null;
+        }
+
+        if (menuItem.Parent is ContextMenu { PlacementTarget: DataGridRow row })
+        {
+            return row.Item as RunAllRequestResultRow;
+        }
+
+        return menuItem.DataContext as RunAllRequestResultRow;
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => DialogResult = true;

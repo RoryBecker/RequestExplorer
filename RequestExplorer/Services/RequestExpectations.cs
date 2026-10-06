@@ -25,12 +25,19 @@ public static class RequestExpectations
 {
     /// <summary>
     /// Status code always applies. Body and timing apply only when enabled on the request.
+    /// Timing is also gated by <paramref name="includeTimingChecks"/> (Run All dialog toggle).
     /// Timing is a maximum: actual total ms must be ≤ expected.
     /// </summary>
-    public static bool IsMet(RequestNodeViewModel request, HttpExecutionResult result) =>
-        Evaluate(request, result).IsMet;
+    public static bool IsMet(
+        RequestNodeViewModel request,
+        HttpExecutionResult result,
+        bool includeTimingChecks = true) =>
+        Evaluate(request, result, includeTimingChecks).IsMet;
 
-    public static ExpectationCheckResult Evaluate(RequestNodeViewModel request, HttpExecutionResult result)
+    public static ExpectationCheckResult Evaluate(
+        RequestNodeViewModel request,
+        HttpExecutionResult result,
+        bool includeTimingChecks = true)
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(result);
@@ -45,7 +52,7 @@ public static class RequestExpectations
         }
 
         var timingFailed = false;
-        if (request.ExpectTimingEnabled)
+        if (includeTimingChecks && request.ExpectTimingEnabled)
         {
             timingFailed = result.Timing.TotalMilliseconds > request.ExpectedTimingMilliseconds;
         }

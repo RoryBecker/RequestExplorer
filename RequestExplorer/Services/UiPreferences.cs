@@ -4,6 +4,8 @@ public sealed class UiPreferences
 {
     public bool IsQuickExportVisible { get; set; }
 
+    public bool IsDarkMode { get; set; }
+
     public double QuickExportWidth { get; set; } = 320;
 
     public double CollectionsWidth { get; set; } = 360;

@@ -7,7 +7,7 @@
         MinWidth="520"
         MinHeight="320"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource App.PanelBrush}">
+        Background="{DynamicResource App.PanelBrush}">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -19,7 +19,7 @@
         <TextBlock Grid.Row="0"
                    Margin="0,0,0,10"
                    TextWrapping="Wrap"
-                   Foreground="{StaticResource App.MutedBrush}"
+                   Foreground="{DynamicResource App.MutedBrush}"
                    Text="Restoring replaces collection files on disk. Preferences and window layout are left unchanged. A safety backup is created first." />
 
         <ListView x:Name="BackupList"
@@ -41,14 +41,14 @@
                    Grid.Row="1"
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
-                   Foreground="{StaticResource App.MutedBrush}"
+                   Foreground="{DynamicResource App.MutedBrush}"
                    Text="No backups found."
                    Visibility="Collapsed" />
 
         <TextBlock Grid.Row="2"
                    Margin="0,10,0,0"
                    TextWrapping="Wrap"
-                   Foreground="#FFB45309"
+                   Foreground="{DynamicResource App.WarnBrush}"
                    Text="This cannot be undone except by restoring another backup." />
 
         <StackPanel Grid.Row="3"

@@ -39,7 +39,7 @@
                     <Style TargetType="Button" BasedOn="{StaticResource ToolbarIconButton}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsQuickExportWrap}" Value="True">
-                                <Setter Property="Background" Value="#FFD1D5DB" />
+                                <Setter Property="Background" Value="{DynamicResource App.ToolbarCheckedBrush}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -50,7 +50,7 @@
             <TextBlock FontSize="14"
                        FontWeight="SemiBold"
                        VerticalAlignment="Center"
-                       Foreground="{StaticResource App.MutedBrush}"
+                       Foreground="{DynamicResource App.MutedBrush}"
                        Text="Quick Export" />
         </DockPanel>
 
@@ -73,13 +73,13 @@
                            Margin="0,0,0,4"
                            FontSize="12"
                            FontWeight="SemiBold"
-                           Foreground="{StaticResource App.DangerBrush}"
+                           Foreground="{DynamicResource App.DangerBrush}"
                            Text="Diagnosis" />
                 <Border MinHeight="88"
                         MaxHeight="160"
-                        BorderBrush="{StaticResource App.DangerBrush}"
+                        BorderBrush="{DynamicResource App.DangerBrush}"
                         BorderThickness="1"
-                        Background="#FFFEF2F2">
+                        Background="{DynamicResource App.SubtlePanelBrush}">
                     <TextBox IsReadOnly="True"
                              AcceptsReturn="True"
                              TextWrapping="Wrap"
@@ -90,14 +90,14 @@
                              BorderThickness="0"
                              Background="Transparent"
                              Padding="8"
-                             Foreground="#FF991B1B"
+                             Foreground="{DynamicResource App.DangerBrush}"
                              Text="{Binding QuickExportDiagnosis, Mode=OneWay}" />
                 </Border>
             </DockPanel>
 
-            <Border BorderBrush="{StaticResource App.BorderBrush}"
+            <Border BorderBrush="{DynamicResource App.BorderBrush}"
                     BorderThickness="1"
-                    Background="#FFF9FAFB">
+                    Background="{DynamicResource App.SubtlePanelBrush}">
                 <TextBox IsReadOnly="True"
                          AcceptsReturn="True"
                          TextWrapping="{Binding QuickExportTextWrapping}"

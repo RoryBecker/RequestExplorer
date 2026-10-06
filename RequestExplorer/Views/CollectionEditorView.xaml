@@ -6,12 +6,6 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <Style x:Key="KeyValueGrid" TargetType="DataGrid">
-            <Style.Resources>
-                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#802563EB" />
-                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FF1F2937" />
-                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#402563EB" />
-                <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FF1F2937" />
-            </Style.Resources>
             <Setter Property="AutoGenerateColumns" Value="False" />
             <Setter Property="CanUserAddRows" Value="False" />
             <Setter Property="CanUserDeleteRows" Value="False" />
@@ -20,25 +14,15 @@
             <Setter Property="views:KeyValueGridVariableMenus.EnableMoveMenus" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
-            <Setter Property="HorizontalGridLinesBrush" Value="#FFEEEEEE" />
+            <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource App.GridLineBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#FFE5E7EB" />
+            <Setter Property="BorderBrush" Value="{DynamicResource App.BorderBrush}" />
+            <Setter Property="Background" Value="{DynamicResource App.PanelBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
             <Setter Property="RowHeight" Value="30" />
             <Setter Property="ColumnHeaderHeight" Value="28" />
             <Setter Property="SelectionMode" Value="Extended" />
             <Setter Property="SelectionUnit" Value="FullRow" />
-            <Setter Property="RowStyle">
-                <Setter.Value>
-                    <Style TargetType="DataGridRow">
-                        <Style.Resources>
-                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#802563EB" />
-                            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FF1F2937" />
-                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#402563EB" />
-                            <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FF1F2937" />
-                        </Style.Resources>
-                    </Style>
-                </Setter.Value>
-            </Setter>
             <Setter Property="CellStyle">
                 <Setter.Value>
                     <Style TargetType="DataGridCell">
@@ -46,8 +30,8 @@
                         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#802563EB" />
-                                <Setter Property="Foreground" Value="#FF1F2937" />
+                                <Setter Property="Background" Value="{DynamicResource App.SelectionBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource App.SelectionTextBrush}" />
                             </Trigger>
                         </Style.Triggers>
                     </Style>
@@ -94,7 +78,7 @@
                        VerticalAlignment="Center"
                        FontSize="12"
                        FontWeight="SemiBold"
-                       Foreground="#FFB45309"
+                       Foreground="{DynamicResource App.WarnBrush}"
                        Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}"
                        Text="Unsaved changes *  (Ctrl+S to save)" />
         </DockPanel>
@@ -103,11 +87,11 @@
                    Margin="0,0,0,8"
                    FontSize="12"
                    FontWeight="SemiBold"
-                   Foreground="{StaticResource App.MutedBrush}"
+                   Foreground="{DynamicResource App.MutedBrush}"
                    Text="COLLECTION" />
 
         <StackPanel Grid.Row="2" Margin="0,0,0,12">
-            <TextBlock FontSize="13" Foreground="#FF374151">
+            <TextBlock FontSize="13" Foreground="{DynamicResource App.TextBrush}">
                 <Run Text="{Binding ChildFolderCount, Mode=OneWay}" />
                 <Run Text=" folder(s)," />
                 <Run Text="{Binding ChildRequestCount, Mode=OneWay}" />
@@ -115,7 +99,7 @@
             </TextBlock>
             <TextBlock Margin="0,8,0,0"
                        TextWrapping="Wrap"
-                       Foreground="{StaticResource App.MutedBrush}"
+                       Foreground="{DynamicResource App.MutedBrush}"
                        Text="Variables defined here are available to all requests in this collection via {{{{name}}}}. Closer folders override matching names." />
         </StackPanel>
 
@@ -124,7 +108,7 @@
                        Margin="0,0,0,6"
                        FontSize="12"
                        FontWeight="SemiBold"
-                       Foreground="{StaticResource App.MutedBrush}"
+                       Foreground="{DynamicResource App.MutedBrush}"
                        Text="VARIABLES" />
             <Grid>
                 <Grid.RowDefinitions>
@@ -139,7 +123,7 @@
                                Margin="0,0,0,4"
                                FontSize="11"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource App.MutedBrush}"
+                               Foreground="{DynamicResource App.MutedBrush}"
                                Text="INHERITED" />
                     <DataGrid ItemsSource="{Binding InheritedVariables}"
                               AutoGenerateColumns="False"
@@ -149,15 +133,15 @@
                               IsReadOnly="True"
                               HeadersVisibility="Column"
                               GridLinesVisibility="Horizontal"
-                              HorizontalGridLinesBrush="#FFEEEEEE"
+                              HorizontalGridLinesBrush="{DynamicResource App.GridLineBrush}"
                               BorderThickness="1"
-                              BorderBrush="#FFE5E7EB"
+                              BorderBrush="{DynamicResource App.BorderBrush}"
                               RowHeight="28"
                               ColumnHeaderHeight="26"
                               MaxHeight="160"
                               MinHeight="56"
-                              Background="#FFF9FAFB"
-                              Foreground="#FF6B7280">
+                              Background="{DynamicResource App.SubtlePanelBrush}"
+                              Foreground="{DynamicResource App.MutedBrush}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Key"
                                                 Binding="{Binding Key}"
@@ -194,7 +178,7 @@
                                Margin="0,0,0,4"
                                FontSize="11"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource App.MutedBrush}"
+                               Foreground="{DynamicResource App.MutedBrush}"
                                Text="LOCAL" />
                     <DataGrid Style="{StaticResource KeyValueGrid}"
                               ItemsSource="{Binding Variables}">

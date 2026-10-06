@@ -16,7 +16,7 @@
                     <ControlTemplate TargetType="RadioButton">
                         <Border x:Name="Chrome"
                                 Background="Transparent"
-                                BorderBrush="#FFE5E7EB"
+                                BorderBrush="{DynamicResource App.BorderBrush}"
                                 BorderThickness="1,1,1,0"
                                 Padding="{TemplateBinding Padding}"
                                 CornerRadius="3,3,0,0">
@@ -25,12 +25,12 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Chrome" Property="Background" Value="White" />
-                                <Setter TargetName="Chrome" Property="BorderBrush" Value="#FF2563EB" />
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource App.PanelBrush}" />
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource App.AccentBrush}" />
                                 <Setter Property="FontWeight" Value="SemiBold" />
                             </Trigger>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Chrome" Property="Background" Value="#FFF3F4F6" />
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource App.ControlBackgroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -49,9 +49,11 @@
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#FFE5E7EB" />
+            <Setter Property="BorderBrush" Value="{DynamicResource App.BorderBrush}" />
             <Setter Property="Padding" Value="4" />
-            <Setter Property="Background" Value="White" />
+            <Setter Property="Background" Value="{DynamicResource App.InputBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource App.TextBrush}" />
         </Style>
     </UserControl.Resources>
 
@@ -68,19 +70,19 @@
             <TextBlock DockPanel.Dock="Left"
                        VerticalAlignment="Center"
                        Margin="0,0,16,0">
-                <Run Text="Status " Foreground="#FF888888" />
+                <Run Text="Status " Foreground="{DynamicResource App.MutedBrush}" />
                 <Run Text="{Binding StatusDisplay, Mode=OneWay}" FontWeight="SemiBold" />
             </TextBlock>
             <TextBlock DockPanel.Dock="Left"
                        VerticalAlignment="Center"
                        Margin="0,0,16,0">
-                <Run Text="Time " Foreground="#FF888888" />
+                <Run Text="Time " Foreground="{DynamicResource App.MutedBrush}" />
                 <Run Text="{Binding ElapsedDisplay, Mode=OneWay}" FontWeight="SemiBold" />
             </TextBlock>
             <TextBlock DockPanel.Dock="Left"
                        VerticalAlignment="Center"
                        Margin="0,0,12,0"
-                       Foreground="#FFB45309"
+                       Foreground="{DynamicResource App.WarnBrush}"
                        Text="{Binding SizeWarning}">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
@@ -157,7 +159,7 @@
             <TextBlock x:Name="EmptyMessage"
                        VerticalAlignment="Center"
                        HorizontalAlignment="Center"
-                       Foreground="#FF999999"
+                       Foreground="{DynamicResource App.MutedBrush}"
                        Text="No response yet. Press Send to run this request." />
 
             <DockPanel x:Name="BodyPanel" LastChildFill="True">
@@ -168,7 +170,7 @@
                                Text="Find"
                                VerticalAlignment="Center"
                                Margin="0,0,6,0"
-                               Foreground="#FF888888" />
+                               Foreground="{DynamicResource App.MutedBrush}" />
                     <StackPanel DockPanel.Dock="Right"
                                 Orientation="Horizontal"
                                 Margin="4,0,0,0">
@@ -188,7 +190,7 @@
                                MinWidth="72"
                                Margin="8,0,0,0"
                                VerticalAlignment="Center"
-                               Foreground="#FF888888"
+                               Foreground="{DynamicResource App.MutedBrush}"
                                Text="{Binding BodySearchStatus, Mode=OneWay}" />
                     <TextBox VerticalContentAlignment="Center"
                              Text="{Binding BodySearchQuery, UpdateSourceTrigger=PropertyChanged}" />
@@ -248,7 +250,7 @@
                         <Run FontWeight="SemiBold" Text="Body download: " />
                         <Run Text="{Binding BodyReadDisplay, Mode=OneWay}" />
                     </TextBlock>
-                    <TextBlock Foreground="#FF888888"
+                    <TextBlock Foreground="{DynamicResource App.MutedBrush}"
                                Text="DNS / connect / TLS timings are not available via HttpClient in this build." />
                 </StackPanel>
             </ScrollViewer>
@@ -263,7 +265,7 @@
                             DataContext="{Binding DataContext.SelectedRequest, RelativeSource={RelativeSource AncestorType=Window}}">
                     <TextBlock Margin="0,0,0,12"
                                TextWrapping="Wrap"
-                               Foreground="#FF888888"
+                               Foreground="{DynamicResource App.MutedBrush}"
                                Text="Define what a successful response looks like for this request. Run All marks Met only when every enabled check passes. Status code is always checked; body and timing are optional." />
 
                     <DockPanel Margin="0,0,0,12" LastChildFill="False">
@@ -281,7 +283,7 @@
 
                     <Border Height="1"
                             Margin="0,0,0,12"
-                            Background="#FFE5E7EB"
+                            Background="{DynamicResource App.BorderBrush}"
                             SnapsToDevicePixels="True" />
 
                     <DockPanel Margin="0,0,0,6" LastChildFill="True">
@@ -308,13 +310,13 @@
                         <TextBlock DockPanel.Dock="Left"
                                    Margin="8,0,0,0"
                                    VerticalAlignment="Center"
-                                   Foreground="#FF888888"
+                                   Foreground="{DynamicResource App.MutedBrush}"
                                    Text="ms" />
                     </DockPanel>
 
                     <Border Height="1"
                             Margin="0,0,0,12"
-                            Background="#FFE5E7EB"
+                            Background="{DynamicResource App.BorderBrush}"
                             SnapsToDevicePixels="True" />
 
                     <DockPanel Margin="0,0,0,6" LastChildFill="True">

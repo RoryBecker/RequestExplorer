@@ -8,7 +8,8 @@
         MinWidth="640"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="{StaticResource App.PanelBrush}">
+        Background="{DynamicResource App.PanelBrush}"
+        Foreground="{DynamicResource App.TextBrush}">
     <Window.Resources>
         <Style x:Key="MetCellStyle" TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Center" />
@@ -172,7 +173,7 @@
                 <TextBlock Text="Threads"
                            VerticalAlignment="Center"
                            Margin="0,0,6,0"
-                           Foreground="{StaticResource App.MutedBrush}" />
+                           Foreground="{DynamicResource App.MutedBrush}" />
                 <ComboBox x:Name="MaxThreadsBox"
                           Width="52"
                           VerticalAlignment="Center"
@@ -188,7 +189,7 @@
                        TextWrapping="Wrap"
                        VerticalAlignment="Center"
                        Margin="0,0,12,0"
-                       Foreground="{StaticResource App.MutedBrush}" />
+                       Foreground="{DynamicResource App.MutedBrush}" />
         </DockPanel>
 
         <DataGrid x:Name="ResultsGrid"
@@ -200,8 +201,8 @@
                   CanUserSortColumns="True"
                   HeadersVisibility="Column"
                   GridLinesVisibility="Horizontal"
-                  HorizontalGridLinesBrush="#FFEEEEEE"
-                  BorderBrush="{StaticResource App.BorderBrush}"
+                  HorizontalGridLinesBrush="{DynamicResource App.GridLineBrush}"
+                  BorderBrush="{DynamicResource App.BorderBrush}"
                   BorderThickness="1"
                   RowHeight="28"
                   ColumnHeaderHeight="28"
@@ -237,7 +238,7 @@
                                     CellStyle="{StaticResource ExpectationBodyCellStyle}"
                                     ElementStyle="{StaticResource ExpectationGlyphCellStyle}">
                     <DataGridTextColumn.HeaderStyle>
-                        <Style TargetType="DataGridColumnHeader">
+                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
                             <Setter Property="ToolTip" Value="Body expectation match (blank when body check is off)" />
                             <Setter Property="HorizontalContentAlignment" Value="Center" />
                         </Style>
@@ -250,7 +251,7 @@
                                     CellStyle="{StaticResource ExpectationTimingCellStyle}"
                                     ElementStyle="{StaticResource ExpectationTimingTextStyle}">
                     <DataGridTextColumn.HeaderStyle>
-                        <Style TargetType="DataGridColumnHeader">
+                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
                             <Setter Property="ToolTip" Value="Click to cycle: tree order → largest first → smallest first" />
                         </Style>
                     </DataGridTextColumn.HeaderStyle>
@@ -261,7 +262,7 @@
                                     Width="48"
                                     ElementStyle="{StaticResource MetCellStyle}">
                     <DataGridTextColumn.HeaderStyle>
-                        <Style TargetType="DataGridColumnHeader">
+                        <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
                             <Setter Property="ToolTip" Value="Overall expectations — click to sort (tree order → unmet first → met first)" />
                             <Setter Property="HorizontalContentAlignment" Value="Center" />
                         </Style>
@@ -273,7 +274,7 @@
         <TextBlock Grid.Row="2"
                    Margin="0,8,0,0"
                    FontSize="11"
-                   Foreground="{StaticResource App.MutedBrush}"
+                   Foreground="{DynamicResource App.MutedBrush}"
                    Text="Hover a row for its full path. Double-click to select it. Click a column header to cycle sort (tree order → A–Z / largest → Z–A / smallest)." />
 
         <StackPanel Grid.Row="3"

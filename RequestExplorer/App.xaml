@@ -3,123 +3,220 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-        <SolidColorBrush x:Key="App.SurfaceBrush" Color="#FFF7F8FA" />
-        <SolidColorBrush x:Key="App.PanelBrush" Color="#FFFFFFFF" />
-        <SolidColorBrush x:Key="App.BorderBrush" Color="#FFD8DEE6" />
-        <SolidColorBrush x:Key="App.MutedBrush" Color="#FF6B7280" />
-        <SolidColorBrush x:Key="App.AccentBrush" Color="#FF2563EB" />
-        <SolidColorBrush x:Key="App.DangerBrush" Color="#FFDC2626" />
-        <SolidColorBrush x:Key="App.WarnBrush" Color="#FFB45309" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/MenuAndTabs.xaml" />
+                <ResourceDictionary Source="Themes/Inputs.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-        <Style TargetType="Button">
-            <Setter Property="Padding" Value="10,4" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-            <Setter Property="Background" Value="#FFEEF2FF" />
-            <Setter Property="BorderBrush" Value="{StaticResource App.BorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Foreground" Value="#FF1F2937" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.5" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <SolidColorBrush x:Key="App.SurfaceBrush" Color="#FFF7F8FA" />
+            <SolidColorBrush x:Key="App.PanelBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="App.SubtlePanelBrush" Color="#FFF9FAFB" />
+            <SolidColorBrush x:Key="App.BorderBrush" Color="#FFD8DEE6" />
+            <SolidColorBrush x:Key="App.TextBrush" Color="#FF1F2937" />
+            <SolidColorBrush x:Key="App.MutedBrush" Color="#FF6B7280" />
+            <SolidColorBrush x:Key="App.AccentBrush" Color="#FF2563EB" />
+            <SolidColorBrush x:Key="App.DangerBrush" Color="#FFDC2626" />
+            <SolidColorBrush x:Key="App.WarnBrush" Color="#FFB45309" />
+            <SolidColorBrush x:Key="App.ButtonBackgroundBrush" Color="#FFEEF2FF" />
+            <SolidColorBrush x:Key="App.StatusBarBrush" Color="#FFEFF2F6" />
+            <SolidColorBrush x:Key="App.MenuBackgroundBrush" Color="#FFF7F8FA" />
+            <SolidColorBrush x:Key="App.ControlBackgroundBrush" Color="#FFF3F4F6" />
+            <SolidColorBrush x:Key="App.ToolbarHoverBrush" Color="#FFE5E7EB" />
+            <SolidColorBrush x:Key="App.ToolbarCheckedBrush" Color="#FFD1D5DB" />
+            <SolidColorBrush x:Key="App.ToolbarCheckedHoverBrush" Color="#FFC4C9D0" />
+            <SolidColorBrush x:Key="App.InputBackgroundBrush" Color="#FFFFFFFF" />
+            <SolidColorBrush x:Key="App.GridLineBrush" Color="#FFEEEEEE" />
+            <SolidColorBrush x:Key="App.SelectionBrush" Color="#802563EB" />
+            <SolidColorBrush x:Key="App.SelectionTextBrush" Color="#FF1F2937" />
+            <SolidColorBrush x:Key="App.InactiveSelectionBrush" Color="#402563EB" />
+            <SolidColorBrush x:Key="App.DropIntoBrush" Color="#332563EB" />
 
-        <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="{StaticResource App.AccentBrush}" />
-            <Setter Property="Foreground" Value="White" />
-            <Setter Property="BorderBrush" Value="{StaticResource App.AccentBrush}" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-        </Style>
+            <Style TargetType="Window">
+                <Setter Property="Background" Value="{DynamicResource App.PanelBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+            </Style>
 
-        <Style TargetType="StatusBar">
-            <Setter Property="Background" Value="#FFEFF2F6" />
-            <Setter Property="Foreground" Value="{StaticResource App.MutedBrush}" />
-        </Style>
+            <Style TargetType="TextBox">
+                <Setter Property="Background" Value="{DynamicResource App.InputBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource App.BorderBrush}" />
+                <Setter Property="CaretBrush" Value="{DynamicResource App.TextBrush}" />
+            </Style>
 
-        <Style TargetType="Menu">
-            <Setter Property="Background" Value="#FFF7F8FA" />
-            <Setter Property="Padding" Value="4,2" />
-        </Style>
-        <Style x:Key="TreeActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Width" Value="22" />
-            <Setter Property="Height" Value="20" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Background" Value="#FFF3F4F6" />
-            <Setter Property="BorderBrush" Value="{StaticResource App.BorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-        </Style>
+            <Style TargetType="DataGrid">
+                <Setter Property="Background" Value="{DynamicResource App.PanelBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource App.BorderBrush}" />
+                <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource App.GridLineBrush}" />
+                <Setter Property="RowBackground" Value="{DynamicResource App.PanelBrush}" />
+                <Setter Property="AlternatingRowBackground" Value="{DynamicResource App.SubtlePanelBrush}" />
+            </Style>
 
-        <Style x:Key="ToolbarIconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Width" Value="32" />
-            <Setter Property="Height" Value="28" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="1,0" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FFE5E7EB" />
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.4" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <Style TargetType="TreeView">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+                <Setter Property="BorderThickness" Value="0" />
+            </Style>
 
-        <Style x:Key="ToolbarIconToggleButton" TargetType="ToggleButton" BasedOn="{StaticResource {x:Type ToggleButton}}">
-            <Setter Property="Width" Value="32" />
-            <Setter Property="Height" Value="28" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="1,0" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Focusable" Value="False" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#FFE5E7EB" />
-                </Trigger>
-                <Trigger Property="IsChecked" Value="True">
-                    <Setter Property="Background" Value="#FFD1D5DB" />
-                </Trigger>
-                <MultiTrigger>
-                    <MultiTrigger.Conditions>
-                        <Condition Property="IsChecked" Value="True" />
-                        <Condition Property="IsMouseOver" Value="True" />
-                    </MultiTrigger.Conditions>
-                    <Setter Property="Background" Value="#FFC4C9D0" />
-                </MultiTrigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Opacity" Value="0.4" />
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <Style TargetType="ToolTip">
+                <Setter Property="Background" Value="{DynamicResource App.SubtlePanelBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource App.BorderBrush}" />
+            </Style>
 
-        <Style x:Key="ToolbarSplitChevron" TargetType="Button" BasedOn="{StaticResource ToolbarIconButton}">
-            <Setter Property="Width" Value="16" />
-            <Setter Property="Margin" Value="0,0,4,0" />
-        </Style>
+            <Style TargetType="Button">
+                <Setter Property="Padding" Value="10,4" />
+                <Setter Property="Margin" Value="0,0,4,0" />
+                <Setter Property="Background" Value="{DynamicResource App.ButtonBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource App.BorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Opacity" Value="0.5" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
 
-        <Style x:Key="ToolbarIconText" TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
-            <Setter Property="FontSize" Value="16" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Foreground" Value="#FF1F2937" />
-        </Style>
+            <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="Background" Value="{DynamicResource App.AccentBrush}" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="BorderBrush" Value="{DynamicResource App.AccentBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+
+            <Style TargetType="StatusBar">
+                <Setter Property="Background" Value="{DynamicResource App.StatusBarBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource App.MutedBrush}" />
+            </Style>
+
+            <Style x:Key="TreeActionButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                <Setter Property="Width" Value="22" />
+                <Setter Property="Height" Value="20" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Background" Value="{DynamicResource App.ControlBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource App.BorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
+            <Style x:Key="ToolbarIconButton" TargetType="Button">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="28" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="1,0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  RecognizesAccessKey="True"
+                                                  TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource App.ToolbarHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="ToolbarIconToggleButton" TargetType="ToggleButton">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="28" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="1,0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  RecognizesAccessKey="True"
+                                                  TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource App.ToolbarHoverBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource App.ToolbarCheckedBrush}" />
+                                </Trigger>
+                                <MultiTrigger>
+                                    <MultiTrigger.Conditions>
+                                        <Condition Property="IsChecked" Value="True" />
+                                        <Condition Property="IsMouseOver" Value="True" />
+                                    </MultiTrigger.Conditions>
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource App.ToolbarCheckedHoverBrush}" />
+                                </MultiTrigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ToolBar tends to force its own Button/ToggleButton chrome; keep ours. -->
+            <Style TargetType="ToolBar">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+                <Style.Resources>
+                    <Style TargetType="Button" BasedOn="{StaticResource ToolbarIconButton}" />
+                    <Style TargetType="ToggleButton" BasedOn="{StaticResource ToolbarIconToggleButton}" />
+                </Style.Resources>
+            </Style>
+
+            <Style x:Key="ToolbarSplitChevron" TargetType="Button" BasedOn="{StaticResource ToolbarIconButton}">
+                <Setter Property="Width" Value="16" />
+                <Setter Property="Margin" Value="0,0,4,0" />
+            </Style>
+
+            <Style x:Key="ToolbarIconText" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{DynamicResource App.TextBrush}" />
+            </Style>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

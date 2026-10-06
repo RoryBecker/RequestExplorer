@@ -8,7 +8,7 @@
         MinWidth="420"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="{StaticResource App.PanelBrush}">
+        Background="{DynamicResource App.PanelBrush}">
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
@@ -26,15 +26,15 @@
                      FontFamily="Consolas"
                      FontSize="12"
                      Padding="8"
-                     BorderBrush="{StaticResource App.BorderBrush}"
+                     BorderBrush="{DynamicResource App.BorderBrush}"
                      BorderThickness="1"
-                     Background="#FFF9FAFB"
+                     Background="{DynamicResource App.SubtlePanelBrush}"
                      Cursor="Arrow" />
 
         <TextBlock Grid.Row="1"
                    Margin="0,8,0,0"
                    FontSize="11"
-                   Foreground="{StaticResource App.MutedBrush}"
+                   Foreground="{DynamicResource App.MutedBrush}"
                    Text="Click a node name to select it in the collection tree." />
 
         <Button Grid.Row="2"

@@ -21,7 +21,7 @@
                    Text="RequestExplorer" />
         <TextBlock Grid.Row="1"
                    Margin="0,8,0,0"
-                   Foreground="#FF6B7280"
+                   Foreground="{DynamicResource App.MutedBrush}"
                    TextWrapping="Wrap"
                    Text="A local Windows HTTP client for exploring APIs. Collections are stored as JSON on this machine." />
 

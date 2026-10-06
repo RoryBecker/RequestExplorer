@@ -58,6 +58,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.RunAllMaxThreads = Math.Clamp(UiPreferences.RunAllMaxThreads, 1, 10);
 
         _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
+        _isDarkMode = UiPreferences.IsDarkMode;
+        ThemeService.Apply(_isDarkMode);
         _selectedExportFormat = ResolveExportFormat(UiPreferences.SelectedExportFormat);
         _isQuickExportWrap = UiPreferences.GetQuickExportWrap(_selectedExportFormat.Format.ToString());
         _treeFilterIncludeAncestors = UiPreferences.TreeFilterIncludeAncestors;
@@ -107,6 +109,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     public void PersistUiPreferences()
     {
         UiPreferences.IsQuickExportVisible = IsQuickExportVisible;
+        UiPreferences.IsDarkMode = IsDarkMode;
         UiPreferences.SelectedExportFormat = SelectedExportFormat.Format.ToString();
         UiPreferences.TreeFilterIncludeAncestors = TreeFilterIncludeAncestors;
         UiPreferences.TreeFilterIncludeName = TreeFilterIncludeName;
@@ -321,6 +324,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     [ObservableProperty]
     private bool _isQuickExportVisible;
+
+    [ObservableProperty]
+    private bool _isDarkMode;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(QuickExportTextWrapping))]
@@ -746,6 +752,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         StatusMessage = value ? "Quick Export shown" : "Quick Export hidden";
+        PersistUiPreferences();
+    }
+
+    partial void OnIsDarkModeChanged(bool value)
+    {
+        ThemeService.Apply(value);
+        StatusMessage = value ? "Dark mode on" : "Dark mode off";
         PersistUiPreferences();
     }
 

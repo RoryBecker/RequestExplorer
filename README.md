@@ -87,7 +87,8 @@ From a collection or folder **…** menu:
 - Undo / redo (**Ctrl+Z** / **Ctrl+Y**), including multi-step history from the toolbar
 - **File → Backup now**, **Restore…**, and **Open backups folder**
 - **Tools → Settings…**: request timeout, optional “dev mode” (no timeout; Cancel still works), backup on startup, and how many backups to keep
-- Layout, filters, and Run All options are remembered between sessions
+- Layout, filters, dark mode, and Run All options are remembered between sessions
+- Toolbar toggle for **dark mode** (moon icon)
 
 ## Keyboard shortcuts
 

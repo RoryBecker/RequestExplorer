@@ -8,7 +8,7 @@
         MinWidth="560"
         WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False"
-        Background="{StaticResource App.PanelBrush}"
+        Background="{DynamicResource App.PanelBrush}"
         Closing="Window_OnClosing">
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -22,7 +22,7 @@
         <TextBlock x:Name="SubtitleText"
                    Grid.Row="0"
                    Margin="0,0,0,8"
-                   Foreground="{StaticResource App.MutedBrush}"
+                   Foreground="{DynamicResource App.MutedBrush}"
                    TextWrapping="Wrap" />
 
         <DockPanel Grid.Row="1"
@@ -32,7 +32,7 @@
                        Text="Find"
                        VerticalAlignment="Center"
                        Margin="0,0,6,0"
-                       Foreground="{StaticResource App.MutedBrush}" />
+                       Foreground="{DynamicResource App.MutedBrush}" />
             <StackPanel DockPanel.Dock="Right"
                         Orientation="Horizontal"
                         Margin="4,0,0,0">
@@ -53,7 +53,7 @@
                        MinWidth="72"
                        Margin="8,0,0,0"
                        VerticalAlignment="Center"
-                       Foreground="{StaticResource App.MutedBrush}" />
+                       Foreground="{DynamicResource App.MutedBrush}" />
             <TextBox x:Name="FindBox"
                      VerticalContentAlignment="Center"
                      TextChanged="FindBox_OnTextChanged" />
@@ -69,16 +69,16 @@
                  FontFamily="Consolas"
                  FontSize="12"
                  Padding="8"
-                 BorderBrush="{StaticResource App.BorderBrush}"
+                 BorderBrush="{DynamicResource App.BorderBrush}"
                  BorderThickness="1"
-                 Background="#FFF9FAFB"
+                 Background="{DynamicResource App.SubtlePanelBrush}"
                  VerticalAlignment="Stretch"
                  HorizontalAlignment="Stretch" />
 
         <TextBlock x:Name="ErrorText"
                    Grid.Row="3"
                    Margin="0,8,0,0"
-                   Foreground="{StaticResource App.DangerBrush}"
+                   Foreground="{DynamicResource App.DangerBrush}"
                    TextWrapping="Wrap"
                    Visibility="Collapsed" />
 

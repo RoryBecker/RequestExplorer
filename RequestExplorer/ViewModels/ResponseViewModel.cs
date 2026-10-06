@@ -14,12 +14,15 @@ public partial class ResponseViewModel : ObservableObject
     private byte[]? _bodyBytes;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCopyExpectationsFromLastRun))]
     private bool _hasResult;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCopyExpectationsFromLastRun))]
     private bool _isSending;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCopyExpectationsFromLastRun))]
     private bool _isError;
 
     [ObservableProperty]
@@ -31,8 +34,14 @@ public partial class ResponseViewModel : ObservableObject
     [ObservableProperty]
     private string _elapsedDisplay = "—";
 
+    /// <summary>Raw total duration from the last result; null when unknown.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanCopyExpectationsFromLastRun))]
+    private double? _totalMilliseconds;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSearchBody))]
+    [NotifyPropertyChangedFor(nameof(CanCopyExpectationsFromLastRun))]
     private string _bodyText = string.Empty;
 
     [ObservableProperty]
@@ -86,6 +95,9 @@ public partial class ResponseViewModel : ObservableObject
 
     public bool CanSearchBody => !string.IsNullOrEmpty(BodyText);
 
+    public bool CanCopyExpectationsFromLastRun =>
+        HasResult && !IsSending && !IsError;
+
     public string BodySearchStatus =>
         string.IsNullOrEmpty(BodySearchQuery)
             ? string.Empty
@@ -105,6 +117,7 @@ public partial class ResponseViewModel : ObservableObject
         SizeWarning = string.Empty;
         StatusDisplay = "Sending…";
         ElapsedDisplay = "—";
+        TotalMilliseconds = null;
         BodyText = string.Empty;
         RawRequest = string.Empty;
         RawResponse = string.Empty;
@@ -165,6 +178,7 @@ public partial class ResponseViewModel : ObservableObject
             _bodyBytes = null;
         }
 
+        TotalMilliseconds = result.Timing.TotalMilliseconds;
         ElapsedDisplay = FormatMs(result.Timing.TotalMilliseconds);
         TotalTimingDisplay = FormatMs(result.Timing.TotalMilliseconds);
         TimeToHeadersDisplay = result.Succeeded

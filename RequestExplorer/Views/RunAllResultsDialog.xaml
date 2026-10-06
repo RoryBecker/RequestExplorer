@@ -22,6 +22,60 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="ExpectationFailResponseCellStyle" TargetType="DataGridCell">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsStatusExpectationFailed}" Value="True">
+                    <Setter Property="Background" Value="#FFDC2626" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsStatusExpectationFailed}" Value="True" />
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#FFB91C1C" />
+                    <Setter Property="Foreground" Value="White" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ExpectationFailResponseTextStyle" TargetType="TextBlock">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsStatusExpectationFailed}" Value="True">
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ExpectationFailTimingCellStyle" TargetType="DataGridCell">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsTimingExpectationFailed}" Value="True">
+                    <Setter Property="Background" Value="#FFDC2626" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding IsTimingExpectationFailed}" Value="True" />
+                        <Condition Binding="{Binding IsSelected, RelativeSource={RelativeSource Self}}" Value="True" />
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#FFB91C1C" />
+                    <Setter Property="Foreground" Value="White" />
+                </MultiDataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ExpectationFailTimingTextStyle" TargetType="TextBlock">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsTimingExpectationFailed}" Value="True">
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
     <Grid Margin="16">
         <Grid.RowDefinitions>
@@ -71,11 +125,15 @@
                 <DataGridTextColumn Header="Response"
                                     Binding="{Binding StatusDisplay}"
                                     SortMemberPath="StatusDisplay"
-                                    Width="*" />
+                                    Width="*"
+                                    CellStyle="{StaticResource ExpectationFailResponseCellStyle}"
+                                    ElementStyle="{StaticResource ExpectationFailResponseTextStyle}" />
                 <DataGridTextColumn Header="Time"
                                     Binding="{Binding ElapsedDisplay}"
                                     SortMemberPath="ElapsedMilliseconds"
-                                    Width="80">
+                                    Width="80"
+                                    CellStyle="{StaticResource ExpectationFailTimingCellStyle}"
+                                    ElementStyle="{StaticResource ExpectationFailTimingTextStyle}">
                     <DataGridTextColumn.HeaderStyle>
                         <Style TargetType="DataGridColumnHeader">
                             <Setter Property="ToolTip" Value="Click to cycle: tree order → largest first → smallest first" />

@@ -258,12 +258,15 @@
                           HorizontalScrollBarVisibility="Disabled"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch">
-                <StackPanel Margin="8,8,8,0" Orientation="Vertical">
+                <StackPanel Margin="8,8,8,0"
+                            Orientation="Vertical"
+                            DataContext="{Binding DataContext.SelectedRequest, RelativeSource={RelativeSource AncestorType=Window}}">
                     <TextBlock Margin="0,0,0,12"
                                TextWrapping="Wrap"
                                Foreground="#FF888888"
-                               Text="Define what a successful response looks like for this request. Run All uses this when marking Met." />
-                    <DockPanel LastChildFill="False">
+                               Text="Define what a successful response looks like for this request. Run All marks Met only when every enabled check passes. Status code is always checked; body and timing are optional." />
+
+                    <DockPanel Margin="0,0,0,14" LastChildFill="False">
                         <TextBlock DockPanel.Dock="Left"
                                    VerticalAlignment="Center"
                                    Margin="0,0,10,0"
@@ -273,8 +276,58 @@
                                  VerticalContentAlignment="Center"
                                  Padding="4,2"
                                  ToolTip="HTTP status code expected when this request succeeds (default 200)"
-                                 Text="{Binding DataContext.SelectedRequest.ExpectedStatusCode, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                                 Text="{Binding ExpectedStatusCode, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
                     </DockPanel>
+
+                    <DockPanel Margin="0,0,0,6" LastChildFill="True">
+                        <CheckBox DockPanel.Dock="Left"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,12,0"
+                                  Content="Timing (max total ms)"
+                                  IsChecked="{Binding ExpectTimingEnabled, Mode=TwoWay}" />
+                        <Button DockPanel.Dock="Right"
+                                Padding="8,2"
+                                Margin="8,0,0,0"
+                                Content="Copy from last run"
+                                ToolTip="Copy the last successful total time and enable this check"
+                                Command="{Binding CopyExpectedTimingFromLastRunCommand}" />
+                    </DockPanel>
+                    <DockPanel Margin="0,0,0,14" LastChildFill="False">
+                        <TextBox DockPanel.Dock="Left"
+                                 Width="100"
+                                 VerticalContentAlignment="Center"
+                                 Padding="4,2"
+                                 IsEnabled="{Binding ExpectTimingEnabled}"
+                                 ToolTip="Response total time must be at most this many milliseconds"
+                                 Text="{Binding ExpectedTimingMilliseconds, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                        <TextBlock DockPanel.Dock="Left"
+                                   Margin="8,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="#FF888888"
+                                   Text="ms" />
+                    </DockPanel>
+
+                    <DockPanel Margin="0,0,0,6" LastChildFill="True">
+                        <CheckBox DockPanel.Dock="Left"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,12,0"
+                                  Content="Body content"
+                                  IsChecked="{Binding ExpectBodyEnabled, Mode=TwoWay}" />
+                        <Button DockPanel.Dock="Right"
+                                Padding="8,2"
+                                Margin="8,0,0,0"
+                                Content="Copy from last run"
+                                ToolTip="Copy the last successful response body and enable this check"
+                                Command="{Binding CopyExpectedBodyFromLastRunCommand}" />
+                    </DockPanel>
+                    <TextBox MinHeight="120"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             FontFamily="Consolas"
+                             FontSize="12"
+                             IsEnabled="{Binding ExpectBodyEnabled}"
+                             Text="{Binding ExpectedBody, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>

@@ -201,6 +201,18 @@ public static class SubtreeJsonService
             request.ExpectedStatusCode = 200;
         }
 
+        request.ExpectedBody ??= string.Empty;
+        // Unset / legacy timing expectation → on at 300ms.
+        if (!request.ExpectTimingEnabled && request.ExpectedTimingMilliseconds <= 0)
+        {
+            request.ExpectTimingEnabled = true;
+            request.ExpectedTimingMilliseconds = 300;
+        }
+        else if (request.ExpectedTimingMilliseconds < 0)
+        {
+            request.ExpectedTimingMilliseconds = 300;
+        }
+
         foreach (var item in request.Params)
         {
             Normalize(item);

@@ -35,6 +35,20 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         _expectedStatusCode = model.ExpectedStatusCode is >= 100 and <= 599
             ? model.ExpectedStatusCode
             : 200;
+        _expectBodyEnabled = model.ExpectBodyEnabled;
+        _expectedBody = model.ExpectedBody ?? string.Empty;
+        if (!model.ExpectTimingEnabled && model.ExpectedTimingMilliseconds <= 0)
+        {
+            model.ExpectTimingEnabled = true;
+            model.ExpectedTimingMilliseconds = 300;
+        }
+        else if (model.ExpectedTimingMilliseconds < 0)
+        {
+            model.ExpectedTimingMilliseconds = 300;
+        }
+
+        _expectTimingEnabled = model.ExpectTimingEnabled;
+        _expectedTimingMilliseconds = model.ExpectedTimingMilliseconds;
 
         _trackDirty = false;
         foreach (var item in model.Params)
@@ -64,6 +78,19 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
         Params.CollectionChanged += OnParamsCollectionChanged;
         Headers.CollectionChanged += OnHeadersCollectionChanged;
+        LastResponse.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(ResponseViewModel.CanCopyExpectationsFromLastRun)
+                or nameof(ResponseViewModel.HasResult)
+                or nameof(ResponseViewModel.IsSending)
+                or nameof(ResponseViewModel.IsError)
+                or nameof(ResponseViewModel.BodyText)
+                or nameof(ResponseViewModel.TotalMilliseconds))
+            {
+                CopyExpectedBodyFromLastRunCommand.NotifyCanExecuteChanged();
+                CopyExpectedTimingFromLastRunCommand.NotifyCanExecuteChanged();
+            }
+        };
     }
 
     public void AttachUndoRecorder(IUndoRecorder recorder) => _undoRecorder = recorder;
@@ -124,6 +151,18 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     [ObservableProperty]
     private int _expectedStatusCode = 200;
+
+    [ObservableProperty]
+    private bool _expectBodyEnabled;
+
+    [ObservableProperty]
+    private string _expectedBody = string.Empty;
+
+    [ObservableProperty]
+    private bool _expectTimingEnabled = true;
+
+    [ObservableProperty]
+    private double _expectedTimingMilliseconds = 300;
 
     public bool IsAuthNone => AuthType == AuthType.None;
     public bool IsAuthBearer => AuthType == AuthType.Bearer;
@@ -225,6 +264,83 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         Model.ExpectedStatusCode = value;
         MarkDirty();
     }
+
+    partial void OnExpectBodyEnabledChanged(bool value)
+    {
+        if (Model.ExpectBodyEnabled == value)
+        {
+            return;
+        }
+
+        Model.ExpectBodyEnabled = value;
+        MarkDirty();
+    }
+
+    partial void OnExpectedBodyChanged(string value)
+    {
+        value ??= string.Empty;
+        if (string.Equals(Model.ExpectedBody, value, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Model.ExpectedBody = value;
+        MarkDirty();
+    }
+
+    partial void OnExpectTimingEnabledChanged(bool value)
+    {
+        if (Model.ExpectTimingEnabled == value)
+        {
+            return;
+        }
+
+        Model.ExpectTimingEnabled = value;
+        MarkDirty();
+    }
+
+    partial void OnExpectedTimingMillisecondsChanged(double value)
+    {
+        if (value < 0)
+        {
+            ExpectedTimingMilliseconds = 0;
+            return;
+        }
+
+        if (Math.Abs(Model.ExpectedTimingMilliseconds - value) < 0.0001)
+        {
+            return;
+        }
+
+        Model.ExpectedTimingMilliseconds = value;
+        MarkDirty();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCopyExpectationsFromLastRun))]
+    private void CopyExpectedBodyFromLastRun()
+    {
+        if (!CanCopyExpectationsFromLastRun())
+        {
+            return;
+        }
+
+        ExpectedBody = LastResponse.BodyText ?? string.Empty;
+        ExpectBodyEnabled = true;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCopyExpectationsFromLastRun))]
+    private void CopyExpectedTimingFromLastRun()
+    {
+        if (!CanCopyExpectationsFromLastRun() || LastResponse.TotalMilliseconds is not double ms)
+        {
+            return;
+        }
+
+        ExpectedTimingMilliseconds = Math.Round(ms, 3);
+        ExpectTimingEnabled = true;
+    }
+
+    private bool CanCopyExpectationsFromLastRun() => LastResponse.CanCopyExpectationsFromLastRun;
 
     partial void OnBodyContentChanged(string value)
     {

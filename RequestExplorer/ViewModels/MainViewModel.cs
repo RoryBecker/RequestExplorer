@@ -1738,7 +1738,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                     dialog.SetSummary(progress);
                     row.StatusDisplay = "Running…";
                     row.ClearTiming();
-                    row.SetExpectationMet(null);
+                    row.ApplyExpectationResult(null);
 
                     var response = request.LastResponse;
                     response.BeginSend();
@@ -1757,7 +1757,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                             row.StatusDisplay = message;
                             row.ClearTiming();
                             row.Succeeded = false;
-                            row.SetExpectationMet(false);
+                            row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
                             failed++;
                             completed++;
                             continue;
@@ -1787,8 +1787,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                             : (result.ErrorMessage ?? "Failed");
                         row.SetTiming(result.Timing.TotalMilliseconds, response.ElapsedDisplay);
                         row.Succeeded = result.Succeeded;
-                        row.SetExpectationMet(
-                            result.StatusCode is int code && code == request.ExpectedStatusCode);
+                        row.ApplyExpectationResult(RequestExpectations.Evaluate(request, result));
 
                         if (result.Succeeded)
                         {
@@ -1823,7 +1822,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                         row.StatusDisplay = ex.Message;
                         row.ClearTiming();
                         row.Succeeded = false;
-                        row.SetExpectationMet(false);
+                        row.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
                         failed++;
                         completed++;
                     }
@@ -1877,12 +1876,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         cancelledRow.StatusDisplay = "Cancelled";
         cancelledRow.ClearTiming();
         cancelledRow.Succeeded = false;
-        cancelledRow.SetExpectationMet(false);
+        cancelledRow.ApplyExpectationResult(ExpectationCheckResult.UnmetWithoutResponse);
 
         for (var j = cancelledIndex + 1; j < rows.Count; j++)
         {
             rows[j].StatusDisplay = "Skipped";
-            rows[j].SetExpectationMet(null);
+            rows[j].ApplyExpectationResult(null);
         }
     }
 

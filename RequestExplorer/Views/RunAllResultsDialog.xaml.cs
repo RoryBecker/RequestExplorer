@@ -8,6 +8,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using RequestExplorer.Services;
 using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Views;
@@ -52,12 +53,30 @@ public partial class RunAllRequestResultRow : ObservableObject
     [ObservableProperty]
     private bool _succeeded;
 
-    /// <summary>✓ when the response status matches the request's expected status code.</summary>
+    /// <summary>✓ when all enabled expectations are met.</summary>
     [ObservableProperty]
     private string _metDisplay = string.Empty;
 
-    public void SetExpectationMet(bool? met) =>
-        MetDisplay = met == true ? "✓" : string.Empty;
+    [ObservableProperty]
+    private bool _isStatusExpectationFailed;
+
+    [ObservableProperty]
+    private bool _isTimingExpectationFailed;
+
+    public void ApplyExpectationResult(ExpectationCheckResult? result)
+    {
+        if (result is null)
+        {
+            MetDisplay = string.Empty;
+            IsStatusExpectationFailed = false;
+            IsTimingExpectationFailed = false;
+            return;
+        }
+
+        MetDisplay = result.IsMet ? "✓" : string.Empty;
+        IsStatusExpectationFailed = result.StatusFailed;
+        IsTimingExpectationFailed = result.TimingFailed;
+    }
 
     public void ClearTiming()
     {

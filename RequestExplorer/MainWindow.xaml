@@ -476,7 +476,8 @@
                               PreviewMouseLeftButtonDown="CollectionTree_OnPreviewMouseLeftButtonDown"
                               PreviewMouseLeftButtonUp="CollectionTree_OnPreviewMouseLeftButtonUp"
                               PreviewMouseRightButtonDown="CollectionTree_OnPreviewMouseRightButtonDown"
-                              PreviewKeyDown="CollectionTree_OnPreviewKeyDown">
+                              PreviewKeyDown="CollectionTree_OnPreviewKeyDown"
+                              ContextMenuOpening="CollectionTree_OnContextMenuOpening">
                         <TreeView.ItemContainerStyle>
                             <Style TargetType="TreeViewItem">
                                 <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
@@ -567,6 +568,7 @@
                                 <MenuItem Header="Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" />
                                 <Separator />
                                 <MenuItem Header="Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
+                                <MenuItem x:Name="CopyToCollectionMenuItem" Header="Copy to Collection" />
                                 <MenuItem Header="Paste" Command="{Binding SmartPasteCommand}" InputGestureText="Ctrl+V" />
                                 <MenuItem Header="Paste at Top Level" Command="{Binding PasteAtRootCommand}" />
                                 <Separator />

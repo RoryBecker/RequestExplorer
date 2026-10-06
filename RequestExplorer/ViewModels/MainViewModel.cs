@@ -3749,6 +3749,173 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         return true;
     }
 
+    /// <summary>True when the current selection can be copied into a collection.</summary>
+    public bool CanCopyToCollection() => GetMoveBatch().Count > 0;
+
+    /// <summary>Existing collections that can receive the selection (excludes selected collections).</summary>
+    public IReadOnlyList<CollectionNodeViewModel> GetCopyToCollectionDestinations()
+    {
+        var selectedCollections = new HashSet<TreeNodeViewModel>();
+        foreach (var node in GetMoveBatch())
+        {
+            if (node is CollectionNodeViewModel collection)
+            {
+                selectedCollections.Add(collection);
+            }
+        }
+
+        if (selectedCollections.Count == 0)
+        {
+            return Collections.ToList();
+        }
+
+        return Collections.Where(c => !selectedCollections.Contains(c)).ToList();
+    }
+
+    /// <summary>
+    /// Prompts for a new collection name, creates it, and copies the selection into it.
+    /// Originals stay in place. Collections in the selection are copied as folders.
+    /// </summary>
+    public void CopySelectionToNewCollection()
+    {
+        var batch = OrderBatchForMove(GetMoveBatch());
+        if (batch.Count == 0)
+        {
+            return;
+        }
+
+        if (!TryPromptName("New Collection", "Collection name:", "New Collection", out var name))
+        {
+            return;
+        }
+
+        var model = new CollectionDefinition { Name = name };
+        var collection = new CollectionNodeViewModel(model);
+        collection.AttachUndoRecorder(this);
+        InsertNodeCore(null, collection, Collections.Count);
+
+        if (!TryCopySourcesIntoCollection(batch, collection, out var pasted, out var undoSteps))
+        {
+            RemoveNodeCore(collection);
+            StatusMessage = "Could not copy selection into a new collection";
+            return;
+        }
+
+        undoSteps.Insert(0, CreateRemoveAction(collection, $"Add collection '{name}'"));
+        RecordUndo(new CompositeUndoAction(
+            pasted.Count == 1
+                ? $"Copy '{pasted[0].Name}' to new collection '{name}'"
+                : $"Copy {pasted.Count} items to new collection '{name}'",
+            undoSteps,
+            selectAfter: pasted,
+            selectAfterInverse: pasted));
+
+        FinishCopyToCollection(collection, pasted, name);
+    }
+
+    /// <summary>Copies the selection into an existing collection (collections become folders).</summary>
+    public void CopySelectionToCollection(CollectionNodeViewModel target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+
+        var batch = OrderBatchForMove(GetMoveBatch());
+        if (batch.Count == 0)
+        {
+            return;
+        }
+
+        var sources = new List<TreeNodeViewModel>();
+        foreach (var source in batch)
+        {
+            if (ReferenceEquals(source, target))
+            {
+                continue;
+            }
+
+            sources.Add(source);
+        }
+
+        if (sources.Count == 0)
+        {
+            return;
+        }
+
+        if (!TryCopySourcesIntoCollection(sources, target, out var pasted, out var undoSteps))
+        {
+            StatusMessage = "Could not copy selection into collection";
+            return;
+        }
+
+        RecordUndo(new CompositeUndoAction(
+            pasted.Count == 1
+                ? $"Copy '{pasted[0].Name}' to '{target.Name}'"
+                : $"Copy {pasted.Count} items to '{target.Name}'",
+            undoSteps,
+            selectAfter: pasted,
+            selectAfterInverse: pasted));
+
+        FinishCopyToCollection(target, pasted, target.Name);
+    }
+
+    private bool TryCopySourcesIntoCollection(
+        IReadOnlyList<TreeNodeViewModel> sources,
+        CollectionNodeViewModel target,
+        out List<TreeNodeViewModel> pasted,
+        out List<IUndoAction> undoSteps)
+    {
+        pasted = [];
+        undoSteps = [];
+        foreach (var source in sources)
+        {
+            var clone = CloneNodeIntoParent(source, target);
+            if (clone is null)
+            {
+                continue;
+            }
+
+            pasted.Add(clone);
+            undoSteps.Add(CreateRemoveAction(clone, $"Copy '{source.Name}'"));
+        }
+
+        return pasted.Count > 0;
+    }
+
+    private void FinishCopyToCollection(
+        CollectionNodeViewModel target,
+        List<TreeNodeViewModel> pasted,
+        string destinationName)
+    {
+        target.IsExpanded = true;
+        ReplaceSelection(pasted, pasted[0]);
+        SelectedNode = pasted[0];
+        foreach (var node in pasted)
+        {
+            RefreshRowLayoutAfterMove(node);
+        }
+
+        StatusMessage = pasted.Count == 1
+            ? $"Copied '{pasted[0].Name}' into '{destinationName}' (Ctrl+S to persist)"
+            : $"Copied {pasted.Count} items into '{destinationName}' (Ctrl+S to persist)";
+    }
+
+    private TreeNodeViewModel? CloneNodeIntoParent(TreeNodeViewModel source, TreeNodeViewModel parent)
+    {
+        PrepareNodeForExport(source);
+        switch (source)
+        {
+            case RequestNodeViewModel request:
+                return AttachPastedRequest(parent, TreeNodeCloneService.CloneRequest(request.Model));
+            case FolderNodeViewModel folder:
+                CollectionTreeMapper.SyncFolder(folder);
+                return AttachPastedFolder(parent, TreeNodeCloneService.CloneFolder(folder.Model));
+            case CollectionNodeViewModel collection:
+                CollectionTreeMapper.SyncModelFromView(collection);
+                return AttachPastedFolder(parent, TreeNodeCloneService.CollectionAsFolder(collection.Model));
+            default:
+                return null;
+        }
+    }
+
     private bool CanMoveSelectedAmongSiblings(int direction)
     {
         if (Keyboard.FocusedElement is TextBox)

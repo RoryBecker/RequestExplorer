@@ -602,7 +602,60 @@ public partial class MainWindow : Window
 
         if (DataContext is MainViewModel vm)
         {
-            vm.SelectedNode = node;
+            // Keep multi-select when right-clicking inside the current selection.
+            if (vm.IsNodeInSelection(node))
+            {
+                vm.SelectedNode = node;
+            }
+            else
+            {
+                vm.SelectOnly(node);
+            }
+        }
+    }
+
+    private void CollectionTree_OnContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        PopulateCopyToCollectionMenu(CopyToCollectionMenuItem, vm);
+    }
+
+    private static MenuItem BuildCopyToCollectionMenuItem(MainViewModel vm)
+    {
+        var root = new MenuItem { Header = "Copy to Collection" };
+        PopulateCopyToCollectionMenu(root, vm);
+        return root;
+    }
+
+    private static void PopulateCopyToCollectionMenu(MenuItem menu, MainViewModel vm)
+    {
+        menu.Items.Clear();
+        menu.IsEnabled = vm.CanCopyToCollection();
+        if (!menu.IsEnabled)
+        {
+            return;
+        }
+
+        var newCollectionItem = new MenuItem { Header = "New Collection…" };
+        newCollectionItem.Click += (_, _) => vm.CopySelectionToNewCollection();
+        menu.Items.Add(newCollectionItem);
+
+        var destinations = vm.GetCopyToCollectionDestinations();
+        if (destinations.Count == 0)
+        {
+            return;
+        }
+
+        menu.Items.Add(new Separator());
+        foreach (var collection in destinations)
+        {
+            var item = new MenuItem { Header = collection.Name };
+            item.Click += (_, _) => vm.CopySelectionToCollection(collection);
+            menu.Items.Add(item);
         }
     }
 
@@ -734,6 +787,8 @@ public partial class MainWindow : Window
             CommandParameter = node,
             InputGestureText = "Ctrl+C"
         });
+
+        menu.Items.Add(BuildCopyToCollectionMenuItem(vm));
 
         menu.Items.Add(new MenuItem
         {

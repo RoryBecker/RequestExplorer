@@ -72,13 +72,17 @@
                             SnapsToDevicePixels="True">
                         <Grid>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"
+                                <ColumnDefinition x:Name="IconColumn"
+                                                  Width="Auto"
                                                   SharedSizeGroup="MenuIconColumn"
                                                   MinWidth="16" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto"
+                                <ColumnDefinition x:Name="HeaderColumn"
+                                                  Width="*" />
+                                <ColumnDefinition x:Name="GestureColumn"
+                                                  Width="Auto"
                                                   SharedSizeGroup="MenuGestureColumn" />
-                                <ColumnDefinition Width="14" />
+                                <ColumnDefinition x:Name="ArrowColumn"
+                                                  Width="14" />
                             </Grid.ColumnDefinitions>
 
                             <ContentPresenter x:Name="Icon"
@@ -136,6 +140,7 @@
                                         BorderThickness="1"
                                         Padding="2"
                                         MinWidth="150"
+                                        Grid.IsSharedSizeScope="True"
                                         SnapsToDevicePixels="True">
                                     <StackPanel IsItemsHost="True"
                                                 KeyboardNavigation.DirectionalNavigation="Cycle" />
@@ -148,6 +153,13 @@
                             <Setter TargetName="Arrow" Property="Visibility" Value="Collapsed" />
                             <Setter TargetName="Gesture" Property="Visibility" Value="Collapsed" />
                             <Setter TargetName="Icon" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="IconColumn" Property="Width" Value="0" />
+                            <Setter TargetName="IconColumn" Property="MinWidth" Value="0" />
+                            <Setter TargetName="IconColumn" Property="SharedSizeGroup" Value="{x:Null}" />
+                            <Setter TargetName="HeaderColumn" Property="Width" Value="Auto" />
+                            <Setter TargetName="GestureColumn" Property="Width" Value="0" />
+                            <Setter TargetName="GestureColumn" Property="SharedSizeGroup" Value="{x:Null}" />
+                            <Setter TargetName="ArrowColumn" Property="Width" Value="0" />
                             <Setter TargetName="PART_Popup" Property="Placement" Value="Bottom" />
                             <Setter TargetName="PART_Popup" Property="VerticalOffset" Value="0" />
                             <Setter Property="Padding" Value="10,4" />
@@ -156,6 +168,13 @@
                             <Setter TargetName="Arrow" Property="Visibility" Value="Collapsed" />
                             <Setter TargetName="Gesture" Property="Visibility" Value="Collapsed" />
                             <Setter TargetName="Icon" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="IconColumn" Property="Width" Value="0" />
+                            <Setter TargetName="IconColumn" Property="MinWidth" Value="0" />
+                            <Setter TargetName="IconColumn" Property="SharedSizeGroup" Value="{x:Null}" />
+                            <Setter TargetName="HeaderColumn" Property="Width" Value="Auto" />
+                            <Setter TargetName="GestureColumn" Property="Width" Value="0" />
+                            <Setter TargetName="GestureColumn" Property="SharedSizeGroup" Value="{x:Null}" />
+                            <Setter TargetName="ArrowColumn" Property="Width" Value="0" />
                             <Setter TargetName="PART_Popup" Property="Visibility" Value="Collapsed" />
                             <Setter Property="Padding" Value="10,4" />
                         </Trigger>

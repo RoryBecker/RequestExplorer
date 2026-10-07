@@ -10,7 +10,7 @@ using RequestExplorer.ViewModels;
 
 namespace RequestExplorer;
 
-/// <summary>Handles tree drag visuals and drop targeting; moves complete only on drop.</summary>
+/// <summary>Handles tree drag visuals and drop targeting; moves complete only on drop (or via right-drag menu).</summary>
 internal sealed class TreeDragDropController
 {
     private readonly TreeView _tree;
@@ -22,6 +22,7 @@ internal sealed class TreeDragDropController
     private TreeNodeViewModel? _dragSource;
     private bool _dragging;
     private bool _didCompleteDrag;
+    private bool _dragIsRightButton;
     private TreeNodeViewModel? _hoverToggleTarget;
     private TreeNodeViewModel? _currentIndicatorNode;
     private TreeDropPlacement? _currentPlacement;
@@ -40,8 +41,10 @@ internal sealed class TreeDragDropController
 
         _tree.AllowDrop = true;
         _tree.PreviewMouseLeftButtonDown += Tree_OnPreviewMouseLeftButtonDown;
+        _tree.PreviewMouseRightButtonDown += Tree_OnPreviewMouseRightButtonDown;
         _tree.PreviewMouseMove += Tree_OnPreviewMouseMove;
         _tree.PreviewMouseLeftButtonUp += Tree_OnPreviewMouseLeftButtonUp;
+        _tree.PreviewMouseRightButtonUp += Tree_OnPreviewMouseRightButtonUp;
         _tree.DragOver += Tree_OnDragOver;
         _tree.DragLeave += Tree_OnDragLeave;
         _tree.Drop += Tree_OnDrop;
@@ -86,20 +89,42 @@ internal sealed class TreeDragDropController
 
     private void Tree_OnQueryContinueDrag(object sender, QueryContinueDragEventArgs e)
     {
-        if (!e.EscapePressed)
+        if (e.EscapePressed)
+        {
+            e.Action = DragAction.Cancel;
+            e.Handled = true;
+            ClearIndicators();
+            StopHoverToggle();
+            _dragSource = null;
+            return;
+        }
+
+        if (!_dragIsRightButton)
         {
             return;
         }
 
-        e.Action = DragAction.Cancel;
-        ClearIndicators();
-        StopHoverToggle();
-        _dragSource = null;
+        // Default WPF logic cancels when the left button is up; keep right-drags alive until RMB release.
+        e.Action = (e.KeyStates & DragDropKeyStates.RightMouseButton) != 0
+            ? DragAction.Continue
+            : DragAction.Drop;
+        e.Handled = true;
     }
 
     private void Tree_OnPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
+        PrimeDrag(e, rightButton: false);
+    }
+
+    private void Tree_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        PrimeDrag(e, rightButton: true);
+    }
+
+    private void PrimeDrag(MouseButtonEventArgs e, bool rightButton)
+    {
         _didCompleteDrag = false;
+        _dragIsRightButton = rightButton;
         if (FindAncestor<ButtonBase>(e.OriginalSource as DependencyObject) is not null)
         {
             _dragSource = null;
@@ -120,16 +145,35 @@ internal sealed class TreeDragDropController
 
     private void Tree_OnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        _dragSource = null;
-        _dragging = false;
+        if (!_dragging && !_dragIsRightButton)
+        {
+            _dragSource = null;
+            _dragging = false;
+        }
+    }
+
+    private void Tree_OnPreviewMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_dragging && _dragIsRightButton)
+        {
+            _dragSource = null;
+            _dragging = false;
+        }
     }
 
     private void Tree_OnPreviewMouseMove(object sender, MouseEventArgs e)
     {
         if (_dragging
             || _dragSource is null
-            || e.LeftButton != MouseButtonState.Pressed
             || FindAncestor<ButtonBase>(e.OriginalSource as DependencyObject) is not null)
+        {
+            return;
+        }
+
+        var buttonPressed = _dragIsRightButton
+            ? e.RightButton == MouseButtonState.Pressed
+            : e.LeftButton == MouseButtonState.Pressed;
+        if (!buttonPressed)
         {
             return;
         }
@@ -144,6 +188,7 @@ internal sealed class TreeDragDropController
         _dragging = true;
         _didCompleteDrag = true;
         var source = _dragSource!;
+        var rightDrag = _dragIsRightButton;
         try
         {
             var vm = _getVm();
@@ -153,7 +198,10 @@ internal sealed class TreeDragDropController
             data.SetData(typeof(TreeNodeDragPayload), payload);
             data.SetData(typeof(TreeNodeViewModel), source);
             data.SetData(source.GetType(), source);
-            DragDrop.DoDragDrop(_tree, data, DragDropEffects.Move);
+            var effects = rightDrag
+                ? DragDropEffects.Move | DragDropEffects.Copy
+                : DragDropEffects.Move;
+            DragDrop.DoDragDrop(_tree, data, effects);
         }
         finally
         {
@@ -193,6 +241,7 @@ internal sealed class TreeDragDropController
         var source = payload.Primary;
         var targetItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
         var position = e.GetPosition(_tree);
+        var allowed = AllowedDropEffects();
 
         if (targetItem?.DataContext is TreeNodeViewModel target)
         {
@@ -208,7 +257,7 @@ internal sealed class TreeDragDropController
 
             ShowIndicator(target, placement.Value);
             UpdateHoverToggle(placement == TreeDropPlacement.Into ? target : null);
-            e.Effects = DragDropEffects.Move;
+            e.Effects = allowed;
             e.Handled = true;
             return;
         }
@@ -218,7 +267,7 @@ internal sealed class TreeDragDropController
         {
             ShowRootIndicator();
             UpdateHoverToggle(null);
-            e.Effects = DragDropEffects.Move;
+            e.Effects = allowed;
             e.Handled = true;
             return;
         }
@@ -231,7 +280,7 @@ internal sealed class TreeDragDropController
             {
                 ShowIndicator(last, TreeDropPlacement.After);
                 UpdateHoverToggle(null);
-                e.Effects = DragDropEffects.Move;
+                e.Effects = allowed;
                 e.Handled = true;
                 return;
             }
@@ -242,6 +291,11 @@ internal sealed class TreeDragDropController
         ClearIndicators();
         UpdateHoverToggle(null);
     }
+
+    private DragDropEffects AllowedDropEffects() =>
+        _dragIsRightButton
+            ? DragDropEffects.Move | DragDropEffects.Copy
+            : DragDropEffects.Move;
 
     private void Tree_OnDragLeave(object sender, DragEventArgs e)
     {
@@ -281,6 +335,9 @@ internal sealed class TreeDragDropController
             placement = TreeDropPlacement.Root;
         }
 
+        var dropPoint = e.GetPosition(_tree);
+        var rightDrag = _dragIsRightButton;
+
         ClearIndicators();
         StopHoverToggle();
 
@@ -290,8 +347,43 @@ internal sealed class TreeDragDropController
             return;
         }
 
-        vm.TryMoveNodes(payload.Nodes, target, placement.Value);
+        if (rightDrag)
+        {
+            ShowRightDropMenu(vm, payload, target, placement.Value, dropPoint);
+        }
+        else
+        {
+            vm.TryMoveNodes(payload.Nodes, target, placement.Value);
+        }
+
         e.Handled = true;
+    }
+
+    private void ShowRightDropMenu(
+        MainViewModel vm,
+        TreeNodeDragPayload payload,
+        TreeNodeViewModel? target,
+        TreeDropPlacement placement,
+        Point dropPointInTree)
+    {
+        var menu = new ContextMenu();
+        var copyItem = new MenuItem { Header = "Copy" };
+        var moveItem = new MenuItem { Header = "Move" };
+        var cancelItem = new MenuItem { Header = "Cancel" };
+
+        copyItem.Click += (_, _) => vm.TryCopyNodes(payload.Nodes, target, placement);
+        moveItem.Click += (_, _) => vm.TryMoveNodes(payload.Nodes, target, placement);
+        cancelItem.Click += (_, _) => { };
+
+        menu.Items.Add(copyItem);
+        menu.Items.Add(moveItem);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(cancelItem);
+
+        menu.Placement = PlacementMode.RelativePoint;
+        menu.PlacementTarget = _tree;
+        menu.PlacementRectangle = new Rect(dropPointInTree, new Size(0, 0));
+        menu.IsOpen = true;
     }
 
     private void FileDropHost_OnDragOver(object sender, DragEventArgs e)

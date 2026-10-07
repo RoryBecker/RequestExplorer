@@ -623,6 +623,19 @@ public partial class MainWindow : Window
 
     private void CollectionTree_OnContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
+        // Right-drag ends with RMB release; suppress the normal tree menu so Copy/Move/Cancel can show.
+        if (_treeDragDrop.DidCompleteDrag)
+        {
+            e.Handled = true;
+            if (CollectionTreeContextMenu is not null)
+            {
+                CollectionTreeContextMenu.IsOpen = false;
+            }
+
+            _treeDragDrop.ResetDidCompleteDrag();
+            return;
+        }
+
         if (DataContext is not MainViewModel vm)
         {
             return;

@@ -3811,6 +3811,216 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
     }
 
+    /// <summary>Copies one or more nodes to the drop target (does not remove the source).</summary>
+    public bool TryCopyNodes(
+        IReadOnlyList<TreeNodeViewModel> sources,
+        TreeNodeViewModel? target,
+        TreeDropPlacement placement)
+    {
+        var batch = PruneRedundantDescendants(sources.Where(s => s is not null).Distinct().ToList());
+        if (batch.Count == 0)
+        {
+            return false;
+        }
+
+        batch = OrderBatchForMove(batch);
+        var undoSteps = new List<IUndoAction>();
+        var pasted = new List<TreeNodeViewModel>();
+        int? nextRootIndex = null;
+        int? nextBesideIndex = null;
+
+        foreach (var source in batch)
+        {
+            var clone = TryCopyNodeCore(source, target, placement, ref nextRootIndex, ref nextBesideIndex);
+            if (clone is null)
+            {
+                continue;
+            }
+
+            pasted.Add(clone);
+            undoSteps.Add(CreateRemoveAction(clone, $"Copy '{source.Name}'"));
+        }
+
+        if (pasted.Count == 0)
+        {
+            return false;
+        }
+
+        RecordUndo(new CompositeUndoAction(
+            pasted.Count == 1
+                ? $"Copy '{pasted[0].Name}'"
+                : $"Copy {pasted.Count} items",
+            undoSteps,
+            selectAfter: pasted,
+            selectAfterInverse: batch));
+
+        ReplaceSelection(pasted, pasted[0]);
+        SelectedNode = pasted[0];
+        foreach (var node in pasted)
+        {
+            RefreshRowLayoutAfterMove(node);
+        }
+
+        StatusMessage = pasted.Count == 1
+            ? $"Copied '{pasted[0].Name}' (Ctrl+S to persist)"
+            : $"Copied {pasted.Count} items (Ctrl+S to persist)";
+        return true;
+    }
+
+    private TreeNodeViewModel? TryCopyNodeCore(
+        TreeNodeViewModel source,
+        TreeNodeViewModel? target,
+        TreeDropPlacement placement,
+        ref int? nextRootIndex,
+        ref int? nextBesideIndex)
+    {
+        if (placement == TreeDropPlacement.Root || (target is null && placement == TreeDropPlacement.Root))
+        {
+            nextRootIndex ??= 0;
+            var clone = CopyToRoot(source, nextRootIndex.Value);
+            if (clone is not null)
+            {
+                nextRootIndex++;
+            }
+
+            return clone;
+        }
+
+        if (target is null)
+        {
+            return null;
+        }
+
+        if (ReferenceEquals(source, target) || IsUnder(target, source))
+        {
+            return null;
+        }
+
+        return placement switch
+        {
+            TreeDropPlacement.Into when target is CollectionNodeViewModel or FolderNodeViewModel =>
+                CloneNodeIntoParent(source, target),
+            TreeDropPlacement.Before => CopyBeside(source, target, after: false, ref nextRootIndex, ref nextBesideIndex),
+            TreeDropPlacement.After => CopyBeside(source, target, after: true, ref nextRootIndex, ref nextBesideIndex),
+            _ => null
+        };
+    }
+
+    private TreeNodeViewModel? CopyToRoot(TreeNodeViewModel source, int index)
+    {
+        PrepareNodeForExport(source);
+        CollectionNodeViewModel? node = source switch
+        {
+            CollectionNodeViewModel collection =>
+                CollectionTreeMapper.ToViewModel(TreeNodeCloneService.CloneCollection(collection.Model)),
+            FolderNodeViewModel folder =>
+                CollectionTreeMapper.ToViewModel(TreeNodeCloneService.WrapInNewCollection(folder.Model)),
+            RequestNodeViewModel request =>
+                CollectionTreeMapper.ToViewModel(TreeNodeCloneService.WrapInNewCollection(request.Model)),
+            _ => null
+        };
+
+        if (node is null)
+        {
+            return null;
+        }
+
+        WireUndoRecorders(node);
+        index = Math.Clamp(index, 0, Collections.Count);
+        Collections.Insert(index, node);
+        node.IsExpanded = true;
+        MarkSubtreeDirty(node);
+        return node;
+    }
+
+    private TreeNodeViewModel? CopyBeside(
+        TreeNodeViewModel source,
+        TreeNodeViewModel target,
+        bool after,
+        ref int? nextRootIndex,
+        ref int? nextBesideIndex)
+    {
+        if (target is CollectionNodeViewModel && target.Parent is null)
+        {
+            // Sibling of a root collection → new top-level collection.
+            if (nextRootIndex is null)
+            {
+                var index = Collections.IndexOf((CollectionNodeViewModel)target);
+                if (index < 0)
+                {
+                    index = Collections.Count;
+                }
+
+                if (after)
+                {
+                    index++;
+                }
+
+                nextRootIndex = index;
+            }
+
+            var rootClone = CopyToRoot(source, nextRootIndex.Value);
+            if (rootClone is not null)
+            {
+                nextRootIndex++;
+            }
+
+            return rootClone;
+        }
+
+        var parent = target.Parent;
+        if (parent is not (CollectionNodeViewModel or FolderNodeViewModel))
+        {
+            return null;
+        }
+
+        var clone = CreateDetachedClone(source);
+        if (clone is null)
+        {
+            return null;
+        }
+
+        if (nextBesideIndex is null)
+        {
+            var insertAt = parent.Children.IndexOf(target);
+            if (insertAt < 0)
+            {
+                insertAt = parent.Children.Count;
+            }
+            else if (after)
+            {
+                insertAt++;
+            }
+
+            nextBesideIndex = insertAt;
+        }
+
+        AttachToModel(parent, clone, nextBesideIndex.Value);
+        parent.InsertChild(clone, nextBesideIndex.Value);
+        MarkSubtreeDirty(clone);
+        nextBesideIndex++;
+        return clone;
+    }
+
+    private TreeNodeViewModel? CreateDetachedClone(TreeNodeViewModel source)
+    {
+        PrepareNodeForExport(source);
+        switch (source)
+        {
+            case RequestNodeViewModel request:
+                return CreatePastedRequestNode(TreeNodeCloneService.CloneRequest(request.Model));
+            case FolderNodeViewModel folder:
+                CollectionTreeMapper.SyncFolder(folder);
+                return CreatePastedFolderNode(TreeNodeCloneService.CloneFolder(folder.Model));
+            case CollectionNodeViewModel collection:
+                CollectionTreeMapper.SyncModelFromView(collection);
+                // Copying a collection beside/into a non-root target becomes a folder.
+                return CreatePastedFolderNode(TreeNodeCloneService.CollectionAsFolder(collection.Model));
+            default:
+                return null;
+        }
+    }
+
     /// <summary>Moves a node on drop. Returns true when the tree changed.</summary>
     public bool TryMoveNode(TreeNodeViewModel source, TreeNodeViewModel? target, TreeDropPlacement placement) =>
         TryMoveNodes([source], target, placement);

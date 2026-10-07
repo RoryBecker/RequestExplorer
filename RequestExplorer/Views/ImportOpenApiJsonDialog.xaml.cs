@@ -23,6 +23,12 @@ public partial class ImportOpenApiJsonDialog : Window
 
     public string JsonText => EditorBox.Text ?? string.Empty;
 
+    public void SetImportTargetDescription(string description)
+    {
+        SubtitleText.Text =
+            $"Paste an OpenAPI 3.x or Swagger 2.0 JSON document. {description}";
+    }
+
     private void Format_Click(object sender, RoutedEventArgs e)
     {
         ClearError();

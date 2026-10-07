@@ -19,11 +19,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0"
+        <TextBlock x:Name="SubtitleText"
+                   Grid.Row="0"
                    Margin="0,0,0,8"
                    Foreground="{DynamicResource App.MutedBrush}"
                    TextWrapping="Wrap"
-                   Text="Paste an OpenAPI 3.x or Swagger 2.0 JSON document. Apply creates a new top-level collection." />
+                   Text="Paste an OpenAPI 3.x or Swagger 2.0 JSON document." />
 
         <TextBox x:Name="EditorBox"
                  Grid.Row="1"

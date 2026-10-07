@@ -81,7 +81,7 @@ From a collection or folder **…** menu:
 - **Export to Postman…**
 - **Export to Postman (Flatten)…** (variables inlined)
 - **Import Postman Collection(s)…** into that container
-- **Import from OpenAPI JSON…** — paste OpenAPI 3.x / Swagger 2.0 JSON to create a new collection
+- **Import from OpenAPI JSON…** — paste OpenAPI 3.x / Swagger 2.0 JSON; creates a folder under the selected collection/folder, or a new top-level collection when opened on empty tree space
 
 ### Undo, backups & settings
 

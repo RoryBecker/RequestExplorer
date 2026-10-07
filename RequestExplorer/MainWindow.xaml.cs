@@ -595,25 +595,29 @@ public partial class MainWindow : Window
     private void CollectionTree_OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
     {
         var treeItem = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject);
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
         if (treeItem?.DataContext is not TreeNodeViewModel node)
         {
+            // Background / empty-area click: clear selection so node-scoped commands don't fire.
+            vm.SelectedNode = null;
             return;
         }
 
         treeItem.Focus();
         treeItem.IsSelected = true;
 
-        if (DataContext is MainViewModel vm)
+        // Keep multi-select when right-clicking inside the current selection.
+        if (vm.IsNodeInSelection(node))
         {
-            // Keep multi-select when right-clicking inside the current selection.
-            if (vm.IsNodeInSelection(node))
-            {
-                vm.SelectedNode = node;
-            }
-            else
-            {
-                vm.SelectOnly(node);
-            }
+            vm.SelectedNode = node;
+        }
+        else
+        {
+            vm.SelectOnly(node);
         }
     }
 
@@ -624,7 +628,97 @@ public partial class MainWindow : Window
             return;
         }
 
-        PopulateCopyToCollectionMenu(CopyToCollectionMenuItem, vm);
+        var onNode = FindAncestor<TreeViewItem>(e.OriginalSource as DependencyObject) is not null
+                     || vm.SelectedNode is not null;
+        ApplyTreeContextMenuNodeFilter(onNode);
+        if (onNode)
+        {
+            PopulateCopyToCollectionMenu(CopyToCollectionMenuItem, vm);
+        }
+    }
+
+    private void ApplyTreeContextMenuNodeFilter(bool onNode)
+    {
+        if (CollectionTreeContextMenu is null)
+        {
+            return;
+        }
+
+        foreach (var item in CollectionTreeContextMenu.Items)
+        {
+            var requiresNode = item switch
+            {
+                FrameworkElement fe => Equals(fe.Tag, "Node"),
+                _ => false
+            };
+
+            var visibility = !requiresNode || onNode ? Visibility.Visible : Visibility.Collapsed;
+            switch (item)
+            {
+                case MenuItem menuItem:
+                    menuItem.Visibility = visibility;
+                    break;
+                case Separator separator:
+                    separator.Visibility = visibility;
+                    break;
+            }
+        }
+
+        CollapseOrphanTreeContextSeparators();
+    }
+
+    private void CollapseOrphanTreeContextSeparators()
+    {
+        if (CollectionTreeContextMenu is null)
+        {
+            return;
+        }
+
+        var items = CollectionTreeContextMenu.Items;
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (items[i] is not Separator separator || separator.Visibility != Visibility.Visible)
+            {
+                continue;
+            }
+
+            var hasVisibleBefore = false;
+            for (var j = i - 1; j >= 0; j--)
+            {
+                if (items[j] is FrameworkElement { Visibility: Visibility.Visible } before
+                    && before is not Separator)
+                {
+                    hasVisibleBefore = true;
+                    break;
+                }
+
+                if (items[j] is FrameworkElement { Visibility: Visibility.Visible })
+                {
+                    break;
+                }
+            }
+
+            var hasVisibleAfter = false;
+            for (var j = i + 1; j < items.Count; j++)
+            {
+                if (items[j] is FrameworkElement { Visibility: Visibility.Visible } after
+                    && after is not Separator)
+                {
+                    hasVisibleAfter = true;
+                    break;
+                }
+
+                if (items[j] is FrameworkElement { Visibility: Visibility.Visible })
+                {
+                    break;
+                }
+            }
+
+            if (!hasVisibleBefore || !hasVisibleAfter)
+            {
+                separator.Visibility = Visibility.Collapsed;
+            }
+        }
     }
 
     private static void PopulateCopyToCollectionMenu(MenuItem menu, MainViewModel vm)

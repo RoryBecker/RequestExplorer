@@ -3209,56 +3209,25 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [RelayCommand]
     private void ImportOpenApiJson()
     {
+        var containerTarget = ResolveOpenApiImportContainer(SelectedNode);
         var dialog = new Views.ImportOpenApiJsonDialog
         {
             Owner = Application.Current?.MainWindow
         };
+        dialog.SetImportTargetDescription(containerTarget is null
+            ? "Creates a new top-level collection."
+            : $"Creates a new folder under '{containerTarget.Name}'.");
 
         dialog.TryApply = json =>
         {
             try
             {
-                var model = OpenApiCollectionMapper.FromJson(json);
-                model.Id = Guid.NewGuid();
-                if (string.IsNullOrWhiteSpace(model.Name))
+                if (containerTarget is null)
                 {
-                    model.Name = "OpenAPI Import";
+                    return ImportOpenApiAsTopLevelCollection(json);
                 }
 
-                var previousSelection = _selectedNodes.Count > 0
-                    ? _selectedNodes.ToList()
-                    : SelectedNode is null ? [] : new List<TreeNodeViewModel> { SelectedNode };
-
-                _suppressUndoRecording = true;
-                _suppressCollectionOrderPersist = true;
-                CollectionNodeViewModel node;
-                try
-                {
-                    node = CollectionTreeMapper.ToViewModel(model);
-                    WireUndoRecorders(node);
-                    Collections.Add(node);
-                    CollapseSubtree(node);
-                    node.IsExpanded = true;
-                    MarkSubtreeDirty(node);
-                    ReplaceSelection([node], node);
-                    SelectedNode = node;
-                }
-                finally
-                {
-                    _suppressCollectionOrderPersist = false;
-                    _suppressUndoRecording = false;
-                    PersistCollectionOrder();
-                }
-
-                RecordUndo(new CompositeUndoAction(
-                    $"Import OpenAPI '{node.Name}'",
-                    [CreateRemoveAction(node, $"Import OpenAPI '{node.Name}'")],
-                    selectAfter: [node],
-                    selectAfterInverse: previousSelection));
-
-                OnPropertyChanged(nameof(HasAnyDirty));
-                StatusMessage = $"Imported OpenAPI collection '{node.Name}' (Ctrl+S to persist)";
-                return (true, null);
+                return ImportOpenApiAsFolderUnder(containerTarget, json);
             }
             catch (JsonException ex)
             {
@@ -3271,6 +3240,99 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         };
 
         dialog.ShowDialog();
+    }
+
+    private static TreeNodeViewModel? ResolveOpenApiImportContainer(TreeNodeViewModel? node)
+    {
+        if (node is CollectionNodeViewModel or FolderNodeViewModel)
+        {
+            return node;
+        }
+
+        if (node is RequestNodeViewModel request
+            && request.Parent is CollectionNodeViewModel or FolderNodeViewModel)
+        {
+            return request.Parent;
+        }
+
+        return null;
+    }
+
+    private (bool ok, string? error) ImportOpenApiAsTopLevelCollection(string json)
+    {
+        var model = OpenApiCollectionMapper.FromJson(json);
+        model.Id = Guid.NewGuid();
+        if (string.IsNullOrWhiteSpace(model.Name))
+        {
+            model.Name = "OpenAPI Import";
+        }
+
+        var previousSelection = _selectedNodes.Count > 0
+            ? _selectedNodes.ToList()
+            : SelectedNode is null ? [] : new List<TreeNodeViewModel> { SelectedNode };
+
+        _suppressUndoRecording = true;
+        _suppressCollectionOrderPersist = true;
+        CollectionNodeViewModel node;
+        try
+        {
+            node = CollectionTreeMapper.ToViewModel(model);
+            WireUndoRecorders(node);
+            Collections.Add(node);
+            CollapseSubtree(node);
+            node.IsExpanded = true;
+            MarkSubtreeDirty(node);
+            ReplaceSelection([node], node);
+            SelectedNode = node;
+        }
+        finally
+        {
+            _suppressCollectionOrderPersist = false;
+            _suppressUndoRecording = false;
+            PersistCollectionOrder();
+        }
+
+        RecordUndo(new CompositeUndoAction(
+            $"Import OpenAPI '{node.Name}'",
+            [CreateRemoveAction(node, $"Import OpenAPI '{node.Name}'")],
+            selectAfter: [node],
+            selectAfterInverse: previousSelection));
+
+        OnPropertyChanged(nameof(HasAnyDirty));
+        StatusMessage = $"Imported OpenAPI collection '{node.Name}' (Ctrl+S to persist)";
+        return (true, null);
+    }
+
+    private (bool ok, string? error) ImportOpenApiAsFolderUnder(TreeNodeViewModel target, string json)
+    {
+        if (target is not (CollectionNodeViewModel or FolderNodeViewModel))
+        {
+            return (false, "OpenAPI folder import requires a collection or folder target.");
+        }
+
+        var folder = OpenApiCollectionMapper.FromJsonAsFolder(json);
+        folder.Id = Guid.NewGuid();
+        if (string.IsNullOrWhiteSpace(folder.Name))
+        {
+            folder.Name = "OpenAPI Import";
+        }
+
+        var child = AttachImportedFolder(target, folder);
+        target.IsExpanded = true;
+        target.IsDirty = true;
+        CollapseSubtree(child);
+        MarkSubtreeDirty(child);
+
+        RecordUndo(new CompositeUndoAction(
+            $"Import OpenAPI '{child.Name}' into '{target.Name}'",
+            [CreateRemoveAction(child, $"Import OpenAPI '{child.Name}' into '{target.Name}'")],
+            selectAfter: [child],
+            selectAfterInverse: [target]));
+
+        SelectedNode = child;
+        OnPropertyChanged(nameof(HasAnyDirty));
+        StatusMessage = $"Imported OpenAPI folder '{child.Name}' into '{target.Name}' (Ctrl+S to persist)";
+        return (true, null);
     }
 
     private FolderNodeViewModel AttachImportedFolder(TreeNodeViewModel node, FolderDefinition importedFolder)

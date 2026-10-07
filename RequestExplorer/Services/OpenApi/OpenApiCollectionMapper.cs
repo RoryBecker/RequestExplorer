@@ -40,6 +40,20 @@ public static class OpenApiCollectionMapper
         }
     }
 
+    public static FolderDefinition FromJsonAsFolder(string json)
+    {
+        var collection = FromJson(json);
+        return new FolderDefinition
+        {
+            Id = Guid.NewGuid(),
+            Name = collection.Name,
+            Variables = collection.Variables,
+            Folders = collection.Folders,
+            Requests = collection.Requests,
+            ChildOrder = collection.ChildOrder
+        };
+    }
+
     public static CollectionDefinition FromJson(string json)
     {
         using var doc = JsonDocument.Parse(json);

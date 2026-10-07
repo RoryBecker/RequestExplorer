@@ -562,38 +562,39 @@
                         </TreeView.ItemContainerStyle>
 
                         <TreeView.ContextMenu>
-                            <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" />
-                                <MenuItem Header="{Binding RunAllRequestsMenuHeader}" Command="{Binding RunAllRequestsCommand}" />
+                            <ContextMenu x:Name="CollectionTreeContextMenu"
+                                         DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" Tag="Node" />
+                                <MenuItem Header="{Binding RunAllRequestsMenuHeader}" Command="{Binding RunAllRequestsCommand}" Tag="Node" />
                                 <Separator />
                                 <MenuItem Header="Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S" />
                                 <MenuItem Header="Save All" Command="{Binding SaveAllCommand}" InputGestureText="Ctrl+Shift+S" />
                                 <Separator />
                                 <MenuItem Header="New Collection" Command="{Binding AddCollectionCommand}" />
-                                <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" />
-                                <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" />
-                                <MenuItem Header="Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" />
+                                <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" Tag="Node" />
+                                <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" Tag="Node" />
+                                <MenuItem Header="Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" Tag="Node" />
                                 <MenuItem Header="Add Demo Collections" Command="{Binding RecreateDemoCollectionsCommand}" />
+                                <Separator Tag="Node" />
+                                <MenuItem Header="Expand All Children" Command="{Binding ExpandChildrenCommand}" Tag="Node" />
+                                <MenuItem Header="Collapse All Children" Command="{Binding CollapseChildrenCommand}" Tag="Node" />
                                 <Separator />
-                                <MenuItem Header="Expand All Children" Command="{Binding ExpandChildrenCommand}" />
-                                <MenuItem Header="Collapse All Children" Command="{Binding CollapseChildrenCommand}" />
-                                <Separator />
-                                <MenuItem Header="Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
-                                <MenuItem x:Name="CopyToCollectionMenuItem" Header="Copy to Collection" />
-                                <MenuItem Header="Paste" Command="{Binding SmartPasteCommand}" InputGestureText="Ctrl+V" />
+                                <MenuItem Header="Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" Tag="Node" />
+                                <MenuItem x:Name="CopyToCollectionMenuItem" Header="Copy to Collection" Tag="Node" />
+                                <MenuItem Header="Paste" Command="{Binding SmartPasteCommand}" InputGestureText="Ctrl+V" Tag="Node" />
                                 <MenuItem Header="Paste at Top Level" Command="{Binding PasteAtRootCommand}" />
+                                <Separator Tag="Node" />
+                                <MenuItem Header="Move Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" Tag="Node" />
+                                <MenuItem Header="Move Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" Tag="Node" />
+                                <MenuItem Header="Move to New Sub-folder…" Command="{Binding MoveToNewSubFolderCommand}" Tag="Node" />
+                                <Separator Tag="Node" />
+                                <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" Tag="Node" />
+                                <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" Tag="Node" />
                                 <Separator />
-                                <MenuItem Header="Move Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
-                                <MenuItem Header="Move Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />
-                                <MenuItem Header="Move to New Sub-folder…" Command="{Binding MoveToNewSubFolderCommand}" />
-                                <Separator />
-                                <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
-                                <MenuItem Header="Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
-                                <Separator />
-                                <MenuItem Header="Edit as JSON…" Command="{Binding EditAsJsonCommand}" />
-                                <MenuItem Header="Export to Postman…" Command="{Binding ExportNodeCommand}" />
-                                <MenuItem Header="Export to Postman (Flatten)…" Command="{Binding ExportNodeFlattenedCommand}" />
-                                <MenuItem Header="Import Postman Collection(s)…" Command="{Binding ImportIntoNodeCommand}" />
+                                <MenuItem Header="Edit as JSON…" Command="{Binding EditAsJsonCommand}" Tag="Node" />
+                                <MenuItem Header="Export to Postman…" Command="{Binding ExportNodeCommand}" Tag="Node" />
+                                <MenuItem Header="Export to Postman (Flatten)…" Command="{Binding ExportNodeFlattenedCommand}" Tag="Node" />
+                                <MenuItem Header="Import Postman Collection(s)…" Command="{Binding ImportIntoNodeCommand}" Tag="Node" />
                                 <MenuItem Header="Import from OpenAPI JSON…" Command="{Binding ImportOpenApiJsonCommand}" />
                             </ContextMenu>
                         </TreeView.ContextMenu>

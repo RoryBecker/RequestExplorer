@@ -59,26 +59,44 @@ public static class KeyValueGridVariableMenus
             return;
         }
 
-        grid.ContextMenu ??= new ContextMenu();
-        ClearMoveItems(grid.ContextMenu);
-
-        var item = GetPrimaryRow(grid);
-        if (item is null || !item.HasKey)
+        try
         {
-            return;
+            grid.ContextMenu ??= new ContextMenu();
+            ClearMoveItems(grid.ContextMenu);
+
+            var item = GetPrimaryRow(grid);
+            if (item is null || !item.HasKey)
+            {
+                return;
+            }
+
+            if (grid.DataContext is RequestNodeViewModel request
+                && TryGetRequestListKind(grid, request, out var listKind))
+            {
+                AddRequestMoveMenus(grid.ContextMenu, request, listKind, item);
+                return;
+            }
+
+            if (grid.DataContext is ContainerNodeViewModel container
+                && ReferenceEquals(UnwrapItemsSource(grid.ItemsSource), container.Variables))
+            {
+                AddVariableMoveMenus(grid.ContextMenu, container, item);
+            }
         }
-
-        if (grid.DataContext is RequestNodeViewModel request
-            && TryGetRequestListKind(grid, request, out var listKind))
+        catch
         {
-            AddRequestMoveMenus(grid.ContextMenu, request, listKind, item);
-            return;
-        }
-
-        if (grid.DataContext is ContainerNodeViewModel container
-            && ReferenceEquals(UnwrapItemsSource(grid.ItemsSource), container.Variables))
-        {
-            AddVariableMoveMenus(grid.ContextMenu, container, item);
+            // Never let move-menu wiring crash the grid right-click.
+            try
+            {
+                if (grid.ContextMenu is not null)
+                {
+                    ClearMoveItems(grid.ContextMenu);
+                }
+            }
+            catch
+            {
+                // ignore
+            }
         }
     }
 
@@ -217,7 +235,7 @@ public static class KeyValueGridVariableMenus
 
     private static KeyValueItemViewModel? GetPrimaryRow(DataGrid grid)
     {
-        var selected = grid.SelectedItems.OfType<KeyValueItemViewModel>()
+        var selected = KeyValueGridSelection.SnapshotSelectedRows(grid)
             .FirstOrDefault(i => i.HasKey);
         if (selected is not null)
         {
@@ -277,13 +295,9 @@ public static class KeyValueGridVariableMenus
             return;
         }
 
-        if (menu.Items[^1] is Separator)
+        // Only reuse a separator we own — never retag clipboard/other separators.
+        if (menu.Items[^1] is Separator { Tag: string tag } && tag == MoveMenuTag)
         {
-            if (menu.Items[^1] is Separator sep)
-            {
-                sep.Tag = MoveMenuTag;
-            }
-
             return;
         }
 

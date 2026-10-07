@@ -400,6 +400,12 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         }
     }
 
+    /// <summary>Sets the address without recording a per-keystroke undo (caller records as needed).</summary>
+    public void ApplyAddress(string value)
+    {
+        Address = value ?? string.Empty;
+    }
+
     private void RecordBodyUndo(RequestBodyField field, string? oldValue, string description)
     {
         if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)

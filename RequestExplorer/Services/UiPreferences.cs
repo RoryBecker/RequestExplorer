@@ -50,6 +50,12 @@ public sealed class UiPreferences
     /// <summary>Tree node ids (collections/folders/requests) that were expanded when preferences were last saved.</summary>
     public List<Guid> ExpandedTreeNodeIds { get; set; } = [];
 
+    /// <summary>Id of the selected tree node when preferences were last saved; null if none.</summary>
+    public Guid? SelectedTreeNodeId { get; set; }
+
+    /// <summary>Vertical scroll offset of the collection tree (NaN = unset).</summary>
+    public double TreeScrollVerticalOffset { get; set; } = double.NaN;
+
     /// <summary>Max concurrent requests for Run All (clamped 1–10 when applied).</summary>
     public int RunAllMaxThreads { get; set; } = 1;
 

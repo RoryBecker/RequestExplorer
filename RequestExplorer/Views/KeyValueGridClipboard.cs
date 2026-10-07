@@ -87,19 +87,13 @@ public static class KeyValueGridClipboard
         }
 
         // Right-click does not select by default; select the row under the cursor first.
+        // Keep an existing multi-selection when the clicked row is already selected (copy/move).
         if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject) is { Item: KeyValueItemViewModel item })
         {
-            if (!grid.SelectedItems.Contains(item))
-            {
-                if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
-                {
-                    grid.SelectedItems.Clear();
-                }
-
-                grid.SelectedItems.Add(item);
-            }
-
-            grid.CurrentItem = item;
+            KeyValueGridSelection.SelectForContextMenu(
+                grid,
+                item,
+                addWithControl: Keyboard.Modifiers.HasFlag(ModifierKeys.Control));
         }
     }
 
@@ -110,21 +104,28 @@ public static class KeyValueGridClipboard
             return;
         }
 
-        EnsureContextMenu(grid);
-
-        var canCopy = GetCopyableRows(grid).Count > 0;
-        var canPaste = CanPasteInto(grid);
-
-        foreach (var item in grid.ContextMenu.Items.OfType<MenuItem>())
+        try
         {
-            if (Equals(item.Tag, "kv-copy"))
+            EnsureContextMenu(grid);
+
+            var canCopy = GetCopyableRows(grid).Count > 0;
+            var canPaste = CanPasteInto(grid);
+
+            foreach (var item in grid.ContextMenu.Items.OfType<MenuItem>().ToList())
             {
-                item.IsEnabled = canCopy;
+                if (Equals(item.Tag, "kv-copy"))
+                {
+                    item.IsEnabled = canCopy;
+                }
+                else if (Equals(item.Tag, "kv-paste"))
+                {
+                    item.IsEnabled = canPaste;
+                }
             }
-            else if (Equals(item.Tag, "kv-paste"))
-            {
-                item.IsEnabled = canPaste;
-            }
+        }
+        catch
+        {
+            // Never let clipboard menu wiring crash the grid right-click.
         }
     }
 
@@ -259,7 +260,7 @@ public static class KeyValueGridClipboard
 
     private static List<KeyValueItemViewModel> GetCopyableRows(DataGrid grid)
     {
-        var selected = grid.SelectedItems.OfType<KeyValueItemViewModel>()
+        var selected = KeyValueGridSelection.SnapshotSelectedRows(grid)
             .Where(i => i.HasContent)
             .ToList();
         if (selected.Count > 0)

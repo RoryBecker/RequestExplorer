@@ -43,6 +43,7 @@ public partial class MainWindow : Window
     {
         ApplyUiPreferences();
         SyncQuickExportColumns();
+        ScheduleTreeSessionRestore();
         if (DataContext is MainViewModel vm)
         {
             // Phase E (C2): backup after UI is shown, not before first paint.
@@ -58,6 +59,7 @@ public partial class MainWindow : Window
         {
             _subscribedVm.PropertyChanged -= ViewModel_OnPropertyChanged;
             _subscribedVm.TreeRevealRequested -= ViewModel_OnTreeRevealRequested;
+            _subscribedVm.TreeSessionRestoreRequested -= ViewModel_OnTreeSessionRestoreRequested;
             _subscribedVm.PendingEditCommitRequested -= ViewModel_OnPendingEditCommitRequested;
             _subscribedVm = null;
         }
@@ -67,14 +69,116 @@ public partial class MainWindow : Window
             _subscribedVm = vm;
             _subscribedVm.PropertyChanged += ViewModel_OnPropertyChanged;
             _subscribedVm.TreeRevealRequested += ViewModel_OnTreeRevealRequested;
+            _subscribedVm.TreeSessionRestoreRequested += ViewModel_OnTreeSessionRestoreRequested;
             _subscribedVm.PendingEditCommitRequested += ViewModel_OnPendingEditCommitRequested;
             _quickExportWidth = SanitizeQuickExportWidth(vm.UiPreferences.QuickExportWidth);
             if (IsLoaded)
             {
                 ApplyUiPreferences();
                 SyncQuickExportColumns();
+                ScheduleTreeSessionRestore();
             }
         }
+    }
+
+    private void ViewModel_OnTreeSessionRestoreRequested()
+    {
+        if (IsLoaded)
+        {
+            ScheduleTreeSessionRestore();
+        }
+    }
+
+    private void ScheduleTreeSessionRestore()
+    {
+        // Wait until the tree has containers and a measured ScrollViewer.
+        Dispatcher.BeginInvoke(
+            RestoreTreeSessionState,
+            System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+    }
+
+    private void RestoreTreeSessionState()
+    {
+        if (_subscribedVm is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _subscribedVm.TryRestoreSelectedTreeNode();
+            CollectionTree.UpdateLayout();
+
+            var offset = _subscribedVm.UiPreferences.TreeScrollVerticalOffset;
+            if (double.IsNaN(offset) || offset < 0)
+            {
+                return;
+            }
+
+            ApplyTreeScrollOffset(offset, allowRetry: true);
+        }
+        catch
+        {
+            // Missing nodes, unloaded visuals, or bad offsets — leave the tree as-is.
+        }
+    }
+
+    private void ApplyTreeScrollOffset(double offset, bool allowRetry)
+    {
+        var scroll = FindTreeScrollViewer();
+        if (scroll is null)
+        {
+            if (allowRetry)
+            {
+                Dispatcher.BeginInvoke(
+                    () => ApplyTreeScrollOffset(offset, allowRetry: false),
+                    System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            }
+
+            return;
+        }
+
+        var max = Math.Max(0, scroll.ScrollableHeight);
+        if (allowRetry && max < offset && offset > 0)
+        {
+            // Virtualized tree may not know its full extent yet.
+            Dispatcher.BeginInvoke(
+                () => ApplyTreeScrollOffset(offset, allowRetry: false),
+                System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+
+        scroll.ScrollToVerticalOffset(Math.Clamp(offset, 0, Math.Max(0, scroll.ScrollableHeight)));
+    }
+
+    private ScrollViewer? FindTreeScrollViewer()
+    {
+        CollectionTree.ApplyTemplate();
+        return FindDescendant<ScrollViewer>(CollectionTree);
+    }
+
+    private static T? FindDescendant<T>(DependencyObject? root) where T : DependencyObject
+    {
+        if (root is null)
+        {
+            return null;
+        }
+
+        if (root is T match)
+        {
+            return match;
+        }
+
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var found = FindDescendant<T>(VisualTreeHelper.GetChild(root, i));
+            if (found is not null)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private void ViewModel_OnPendingEditCommitRequested()
@@ -230,6 +334,12 @@ public partial class MainWindow : Window
         {
             prefs.RequestPaneHeight = RequestRow.ActualHeight;
             prefs.ResponsePaneHeight = ResponseRow.ActualHeight;
+        }
+
+        var scroll = FindTreeScrollViewer();
+        if (scroll is not null)
+        {
+            prefs.TreeScrollVerticalOffset = scroll.VerticalOffset;
         }
 
         CaptureWindowBounds();

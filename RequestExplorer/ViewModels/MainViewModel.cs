@@ -116,6 +116,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.TreeFilterIncludeName = TreeFilterIncludeName;
         UiPreferences.TreeFilterIncludeUrl = TreeFilterIncludeUrl;
         CaptureExpandedTreeNodes();
+        CaptureSelectedTreeNode();
         _uiPreferencesService.Save(UiPreferences);
     }
 
@@ -128,6 +129,92 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         UiPreferences.ExpandedTreeNodeIds = ids;
+    }
+
+    private void CaptureSelectedTreeNode()
+    {
+        if (SelectedNode is not null && TryGetNodeId(SelectedNode, out var id))
+        {
+            UiPreferences.SelectedTreeNodeId = id;
+        }
+        else
+        {
+            UiPreferences.SelectedTreeNodeId = null;
+        }
+    }
+
+    /// <summary>
+    /// Restores the last selected tree node from preferences.
+    /// Returns false when the id is missing or the node no longer exists.
+    /// </summary>
+    public bool TryRestoreSelectedTreeNode()
+    {
+        try
+        {
+            var id = UiPreferences.SelectedTreeNodeId;
+            if (id is null || id == Guid.Empty)
+            {
+                return false;
+            }
+
+            var node = FindNodeById(id.Value);
+            if (node is null)
+            {
+                return false;
+            }
+
+            ExpandAncestors(node);
+            SelectOnly(node);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Raised after the workspace tree is loaded so the UI can restore selection/scroll.</summary>
+    public event Action? TreeSessionRestoreRequested;
+
+    private TreeNodeViewModel? FindNodeById(Guid id)
+    {
+        foreach (var collection in Collections)
+        {
+            var match = FindNodeById(collection, id);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static TreeNodeViewModel? FindNodeById(TreeNodeViewModel node, Guid id)
+    {
+        if (TryGetNodeId(node, out var nodeId) && nodeId == id)
+        {
+            return node;
+        }
+
+        foreach (var child in node.Children)
+        {
+            var match = FindNodeById(child, id);
+            if (match is not null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static void ExpandAncestors(TreeNodeViewModel node)
+    {
+        for (var parent = node.Parent; parent is not null; parent = parent.Parent)
+        {
+            parent.IsExpanded = true;
+        }
     }
 
     private static void CollectExpandedNodeIds(TreeNodeViewModel node, List<Guid> ids)
@@ -1313,6 +1400,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         PersistCollectionOrder();
+        TreeSessionRestoreRequested?.Invoke();
     }
 
     private void PersistCollectionOrder()

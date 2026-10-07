@@ -143,33 +143,40 @@ public static class KeyValueGridClipboard
             return;
         }
 
-        // Right-click does not select by default; select the row under the cursor first.
-        // Keep an existing multi-selection when the clicked row is already selected (copy/move).
-        if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject) is not { } row)
+        try
         {
-            return;
+            // Right-click does not select by default; select the row under the cursor first.
+            // Keep an existing multi-selection when the clicked row is already selected (copy/move).
+            if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject) is not { } row)
+            {
+                return;
+            }
+
+            switch (row.Item)
+            {
+                case KeyValueItemViewModel item:
+                    KeyValueGridSelection.SelectForContextMenu(
+                        grid,
+                        item,
+                        addWithControl: Keyboard.Modifiers.HasFlag(ModifierKeys.Control));
+                    break;
+                case InheritedVariableRow inherited:
+                    try
+                    {
+                        grid.SelectedItem = inherited;
+                        grid.CurrentItem = inherited;
+                    }
+                    catch
+                    {
+                        // ignore selection failures
+                    }
+
+                    break;
+            }
         }
-
-        switch (row.Item)
+        catch
         {
-            case KeyValueItemViewModel item:
-                KeyValueGridSelection.SelectForContextMenu(
-                    grid,
-                    item,
-                    addWithControl: Keyboard.Modifiers.HasFlag(ModifierKeys.Control));
-                break;
-            case InheritedVariableRow inherited:
-                try
-                {
-                    grid.SelectedItem = inherited;
-                    grid.CurrentItem = inherited;
-                }
-                catch
-                {
-                    // ignore selection failures
-                }
-
-                break;
+            // Never crash the context menu on an unexpected visual-tree / selection edge case.
         }
     }
 
@@ -460,9 +467,40 @@ public static class KeyValueGridClipboard
                 return match;
             }
 
-            current = VisualTreeHelper.GetParent(current);
+            current = GetParentSafe(current);
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// <see cref="VisualTreeHelper.GetParent"/> throws InvalidOperationException when the
+    /// object is not a Visual/Visual3D (e.g. some content elements under DataGrid cells).
+    /// </summary>
+    private static DependencyObject? GetParentSafe(DependencyObject? current)
+    {
+        if (current is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            if (current is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D)
+            {
+                return VisualTreeHelper.GetParent(current);
+            }
+        }
+        catch (InvalidOperationException)
+        {
+            // Fall through to logical parent.
+        }
+
+        return current switch
+        {
+            FrameworkContentElement content => content.Parent,
+            FrameworkElement fe => fe.Parent,
+            _ => LogicalTreeHelper.GetParent(current)
+        };
     }
 }

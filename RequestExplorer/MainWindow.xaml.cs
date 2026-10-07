@@ -29,6 +29,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         PreviewKeyDown += MainWindow_OnPreviewKeyDown;
         PreviewKeyUp += MainWindow_OnPreviewKeyUp;
+        PreviewMouseDown += MainWindow_OnPreviewMouseDown;
         Loaded += MainWindow_OnLoaded;
         SizeChanged += (_, _) => CaptureWindowBounds();
         LocationChanged += (_, _) => CaptureWindowBounds();
@@ -384,6 +385,25 @@ public partial class MainWindow : Window
                && left < work.Right - 40
                && bottom > work.Top + 40
                && top < work.Bottom - 40;
+    }
+
+    private void MainWindow_OnPreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton is not (MouseButton.XButton1 or MouseButton.XButton2))
+        {
+            return;
+        }
+
+        if (DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        var forward = e.ChangedButton == MouseButton.XButton2;
+        if (vm.TryNavigateTreeFromMouse(forward))
+        {
+            e.Handled = true;
+        }
     }
 
     private void MainWindow_OnPreviewKeyDown(object sender, KeyEventArgs e)

@@ -198,10 +198,31 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     protected override string? GetSearchUrl() => Address;
 
+    /// <summary>Address with <c>{{variables}}</c> substituted from the parent chain (read-only preview).</summary>
+    public string ResolvedAddress
+    {
+        get
+        {
+            var scope = VariableResolver.BuildScope(this);
+            return VariableResolver.Substitute(Address, scope);
+        }
+    }
+
+    /// <summary>True when resolution changed the address (tokens were substituted).</summary>
+    public bool ShowsResolvedAddress =>
+        !string.Equals(Address ?? string.Empty, ResolvedAddress, StringComparison.Ordinal);
+
+    public void NotifyResolvedAddressChanged()
+    {
+        OnPropertyChanged(nameof(ResolvedAddress));
+        OnPropertyChanged(nameof(ShowsResolvedAddress));
+    }
+
     partial void OnAddressChanged(string value)
     {
         Model.Address = value;
         OnPropertyChanged(nameof(SearchText));
+        NotifyResolvedAddressChanged();
         if (_syncingUrlAndParams)
         {
             return;

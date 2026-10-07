@@ -51,6 +51,7 @@
                 <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource App.GridLineBrush}" />
                 <Setter Property="RowBackground" Value="{DynamicResource App.PanelBrush}" />
                 <Setter Property="AlternatingRowBackground" Value="{DynamicResource App.SubtlePanelBrush}" />
+                <Setter Property="CanUserResizeColumns" Value="True" />
             </Style>
 
             <Style TargetType="TreeView">

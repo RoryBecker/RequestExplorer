@@ -257,14 +257,32 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     {
         RefreshDefinedVariablesGlyph();
         RefreshInheritedVariables();
+        NotifyDescendantResolvedAddresses();
+    }
+
+    private void NotifyDescendantResolvedAddresses()
+    {
+        foreach (var child in Children)
+        {
+            switch (child)
+            {
+                case RequestNodeViewModel request:
+                    request.NotifyResolvedAddressChanged();
+                    break;
+                case ContainerNodeViewModel container:
+                    container.NotifyDescendantResolvedAddresses();
+                    break;
+            }
+        }
     }
 
     public void RefreshInheritedVariables()
     {
         InheritedVariables.Clear();
 
+        // Only enabled locals shadow ancestors — disabled rows stay out of the chain.
         var localKeys = new HashSet<string>(
-            Variables.Where(v => v.HasKey).Select(v => v.Key.Trim()),
+            Variables.Where(v => v.IsEnabled && v.HasKey).Select(v => v.Key.Trim()),
             StringComparer.OrdinalIgnoreCase);
 
         // Farthest ancestor first: collect chain then reverse.
@@ -291,7 +309,8 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
                         key,
                         v.Value ?? string.Empty,
                         ancestor.Name,
-                        localKeys.Contains(key));
+                        localKeys.Contains(key),
+                        ancestor);
                 });
 
             foreach (var row in rows)

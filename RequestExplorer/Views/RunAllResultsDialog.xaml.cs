@@ -274,7 +274,8 @@ public partial class RunAllResultsDialog : Window
         double initialWidth = double.NaN,
         double initialHeight = double.NaN,
         double initialLeft = double.NaN,
-        double initialTop = double.NaN)
+        double initialTop = double.NaN,
+        IReadOnlyDictionary<string, double>? initialColumnWidths = null)
     {
         InitializeComponent();
         Title = title;
@@ -290,6 +291,7 @@ public partial class RunAllResultsDialog : Window
         MaxThreadsBox.SelectedItem = Math.Clamp(initialMaxThreads, 1, 10);
         CheckTimingBox.IsChecked = initialCheckTiming;
         ApplyWindowBounds(initialWidth, initialHeight, initialLeft, initialTop);
+        ApplyColumnWidths(initialColumnWidths);
         _view = (ListCollectionView)CollectionViewSource.GetDefaultView(rows);
         _view.CustomSort = _comparer;
         ResultsGrid.ItemsSource = _view;
@@ -325,6 +327,56 @@ public partial class RunAllResultsDialog : Window
         left = Left;
         top = Top;
     }
+
+    /// <summary>Captures current column pixel widths keyed by header text.</summary>
+    public Dictionary<string, double> CaptureColumnWidths()
+    {
+        var widths = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        foreach (var column in ResultsGrid.Columns)
+        {
+            var key = GetColumnKey(column);
+            if (key is null)
+            {
+                continue;
+            }
+
+            var width = column.ActualWidth;
+            if (width < 24)
+            {
+                width = column.Width.IsAbsolute ? column.Width.Value : 24;
+            }
+
+            widths[key] = width;
+        }
+
+        return widths;
+    }
+
+    private void ApplyColumnWidths(IReadOnlyDictionary<string, double>? widths)
+    {
+        if (widths is null || widths.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var column in ResultsGrid.Columns)
+        {
+            var key = GetColumnKey(column);
+            if (key is null || !widths.TryGetValue(key, out var width) || width < 24)
+            {
+                continue;
+            }
+
+            column.Width = new DataGridLength(width);
+        }
+    }
+
+    private static string? GetColumnKey(DataGridColumn column) =>
+        column.Header switch
+        {
+            string text when !string.IsNullOrWhiteSpace(text) => text.Trim(),
+            _ => null
+        };
 
     private void ApplyWindowBounds(double width, double height, double left, double top)
     {

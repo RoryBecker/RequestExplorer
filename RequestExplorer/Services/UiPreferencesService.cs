@@ -39,6 +39,9 @@ public sealed class UiPreferencesService
             var prefs = JsonSerializer.Deserialize<UiPreferences>(json, JsonOptions) ?? new UiPreferences();
             prefs.QuickExportWrapByFormat ??= new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             prefs.ExpandedTreeNodeIds ??= [];
+            prefs.RunAllColumnWidths = prefs.RunAllColumnWidths is null
+                ? new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, double>(prefs.RunAllColumnWidths, StringComparer.OrdinalIgnoreCase);
             return prefs;
         }
         catch

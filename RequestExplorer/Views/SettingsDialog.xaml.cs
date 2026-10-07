@@ -11,6 +11,7 @@ public partial class SettingsDialog : Window
         Preferences = preferences;
         DevModeCheck.IsChecked = preferences.DevModeIgnoreTimeout;
         TimeoutBox.Text = Math.Clamp(preferences.RequestTimeoutSeconds, 1, 3600).ToString();
+        MouseTreeNavCheck.IsChecked = preferences.EnableMouseTreeNavigation;
         BackupOnStartupCheck.IsChecked = preferences.BackupOnStartup;
         RetentionBox.Text = WorkspaceBackupService.ClampRetention(preferences.BackupRetentionCount).ToString();
         BackupsPathBlock.Text = string.IsNullOrWhiteSpace(backupsDirectory)
@@ -24,6 +25,8 @@ public partial class SettingsDialog : Window
     public bool DevModeIgnoreTimeout => DevModeCheck.IsChecked == true;
 
     public int RequestTimeoutSeconds { get; private set; } = 30;
+
+    public bool EnableMouseTreeNavigation => MouseTreeNavCheck.IsChecked == true;
 
     public bool BackupOnStartup => BackupOnStartupCheck.IsChecked == true;
 

@@ -183,6 +183,20 @@
                          Background="Transparent"
                          DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
 
+                    <!-- Tree selection back / forward -->
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding NavigateTreeBackCommand}"
+                            ToolTip="Back to previous node (Mouse Back)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE72B;" />
+                    </Button>
+                    <Button Style="{StaticResource ToolbarIconButton}"
+                            Command="{Binding NavigateTreeForwardCommand}"
+                            ToolTip="Forward to next node (Mouse Forward)">
+                        <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE72A;" />
+                    </Button>
+
+                    <Separator />
+
                     <!-- Undo split -->
                     <Button Style="{StaticResource ToolbarIconButton}"
                             Command="{Binding UndoCommand}"

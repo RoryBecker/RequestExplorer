@@ -12,6 +12,7 @@ namespace RequestExplorer.Views;
 
 /// <summary>
 /// Ctrl+C / Ctrl+V and context-menu copy/paste of key/value rows across Params, Headers, and Variables grids.
+/// Also provides Copy Name / Copy Value for the focused row (including inherited-variable grids).
 /// </summary>
 public static class KeyValueGridClipboard
 {
@@ -61,22 +62,78 @@ public static class KeyValueGridClipboard
     private static void EnsureContextMenu(DataGrid grid)
     {
         grid.ContextMenu ??= new ContextMenu();
-        if (grid.ContextMenu.Items.OfType<MenuItem>().Any(m => Equals(m.Tag, "kv-copy")))
+        var menu = grid.ContextMenu;
+        var existing = menu.Items.OfType<MenuItem>().Select(m => m.Tag).ToHashSet();
+
+        if (!existing.Contains("kv-copy-name"))
+        {
+            var insertAt = IndexOfFirstRowClipboardItem(menu);
+            menu.Items.Insert(insertAt, CreateMenuItem("Copy _Name", "kv-copy-name", () => CopyField(grid, copyValue: false)));
+            menu.Items.Insert(insertAt + 1, CreateMenuItem("Copy _Value", "kv-copy-value", () => CopyField(grid, copyValue: true)));
+        }
+
+        existing = menu.Items.OfType<MenuItem>().Select(m => m.Tag).ToHashSet();
+        if (!existing.Contains("kv-goto-definition"))
+        {
+            var insertAt = IndexOfFirstRowClipboardItem(menu);
+            // Place after Copy Name/Value when those were just inserted above.
+            var nameIndex = IndexOfTaggedMenuItem(menu, "kv-copy-value");
+            if (nameIndex >= 0)
+            {
+                insertAt = nameIndex + 1;
+            }
+
+            menu.Items.Insert(
+                insertAt,
+                CreateMenuItem("Go to _Definition", "kv-goto-definition", () => GoToDefinition(grid)));
+        }
+
+        existing = menu.Items.OfType<MenuItem>().Select(m => m.Tag).ToHashSet();
+        if (existing.Contains("kv-copy"))
         {
             return;
         }
 
-        if (grid.ContextMenu.Items.Count > 0)
+        if (menu.Items.Count > 0 && menu.Items[^1] is not Separator)
         {
-            grid.ContextMenu.Items.Add(new Separator());
+            menu.Items.Add(new Separator { Tag = "kv-clipboard-sep" });
         }
 
-        var copy = new MenuItem { Header = "Copy rows", Tag = "kv-copy", InputGestureText = "Ctrl+C" };
-        copy.Click += (_, _) => CopyRows(grid);
-        var paste = new MenuItem { Header = "Paste rows", Tag = "kv-paste", InputGestureText = "Ctrl+V" };
-        paste.Click += (_, _) => PasteRows(grid);
-        grid.ContextMenu.Items.Add(copy);
-        grid.ContextMenu.Items.Add(paste);
+        menu.Items.Add(CreateMenuItem("Copy rows", "kv-copy", () => CopyRows(grid), "Ctrl+C"));
+        menu.Items.Add(CreateMenuItem("Paste rows", "kv-paste", () => PasteRows(grid), "Ctrl+V"));
+    }
+
+    private static MenuItem CreateMenuItem(string header, string tag, Action onClick, string? gesture = null)
+    {
+        var item = new MenuItem { Header = header, Tag = tag, InputGestureText = gesture };
+        item.Click += (_, _) => onClick();
+        return item;
+    }
+
+    private static int IndexOfFirstRowClipboardItem(ContextMenu menu)
+    {
+        for (var i = 0; i < menu.Items.Count; i++)
+        {
+            if (menu.Items[i] is MenuItem { Tag: string tag } && tag is "kv-copy" or "kv-paste")
+            {
+                return i;
+            }
+        }
+
+        return menu.Items.Count;
+    }
+
+    private static int IndexOfTaggedMenuItem(ContextMenu menu, string tag)
+    {
+        for (var i = 0; i < menu.Items.Count; i++)
+        {
+            if (menu.Items[i] is MenuItem item && Equals(item.Tag, tag))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static void OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -88,12 +145,31 @@ public static class KeyValueGridClipboard
 
         // Right-click does not select by default; select the row under the cursor first.
         // Keep an existing multi-selection when the clicked row is already selected (copy/move).
-        if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject) is { Item: KeyValueItemViewModel item })
+        if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject) is not { } row)
         {
-            KeyValueGridSelection.SelectForContextMenu(
-                grid,
-                item,
-                addWithControl: Keyboard.Modifiers.HasFlag(ModifierKeys.Control));
+            return;
+        }
+
+        switch (row.Item)
+        {
+            case KeyValueItemViewModel item:
+                KeyValueGridSelection.SelectForContextMenu(
+                    grid,
+                    item,
+                    addWithControl: Keyboard.Modifiers.HasFlag(ModifierKeys.Control));
+                break;
+            case InheritedVariableRow inherited:
+                try
+                {
+                    grid.SelectedItem = inherited;
+                    grid.CurrentItem = inherited;
+                }
+                catch
+                {
+                    // ignore selection failures
+                }
+
+                break;
         }
     }
 
@@ -108,19 +184,41 @@ public static class KeyValueGridClipboard
         {
             EnsureContextMenu(grid);
 
-            var canCopy = GetCopyableRows(grid).Count > 0;
+            var canCopyRows = GetCopyableRows(grid).Count > 0;
             var canPaste = CanPasteInto(grid);
+            var canCopyField = TryGetPrimaryNameValue(grid, out _, out _);
+            var isInherited = IsInheritedVariablesGrid(grid);
+            var canGoToDefinition = isInherited && TryGetInheritedSelection(grid, out _);
+
+            // Inherited grids only need Name/Value + Go to Definition; hide row copy/paste there.
+            var showRowClipboard = !isInherited;
 
             foreach (var item in grid.ContextMenu.Items.OfType<MenuItem>().ToList())
             {
                 if (Equals(item.Tag, "kv-copy"))
                 {
-                    item.IsEnabled = canCopy;
+                    item.Visibility = showRowClipboard ? Visibility.Visible : Visibility.Collapsed;
+                    item.IsEnabled = canCopyRows;
                 }
                 else if (Equals(item.Tag, "kv-paste"))
                 {
+                    item.Visibility = showRowClipboard ? Visibility.Visible : Visibility.Collapsed;
                     item.IsEnabled = canPaste;
                 }
+                else if (Equals(item.Tag, "kv-copy-name") || Equals(item.Tag, "kv-copy-value"))
+                {
+                    item.IsEnabled = canCopyField;
+                }
+                else if (Equals(item.Tag, "kv-goto-definition"))
+                {
+                    item.Visibility = isInherited ? Visibility.Visible : Visibility.Collapsed;
+                    item.IsEnabled = canGoToDefinition;
+                }
+            }
+
+            foreach (var sep in grid.ContextMenu.Items.OfType<Separator>().Where(s => Equals(s.Tag, "kv-clipboard-sep")).ToList())
+            {
+                sep.Visibility = showRowClipboard ? Visibility.Visible : Visibility.Collapsed;
             }
         }
         catch
@@ -128,6 +226,10 @@ public static class KeyValueGridClipboard
             // Never let clipboard menu wiring crash the grid right-click.
         }
     }
+
+    private static bool IsInheritedVariablesGrid(DataGrid grid) =>
+        grid.DataContext is ContainerNodeViewModel container
+        && ReferenceEquals(UnwrapItemsSource(grid.ItemsSource), container.InheritedVariables);
 
     private static void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -165,6 +267,79 @@ public static class KeyValueGridClipboard
     {
         var cell = FindAncestor<DataGridCell>(source);
         return cell is { IsEditing: true } && Keyboard.FocusedElement is TextBox;
+    }
+
+    private static void CopyField(DataGrid grid, bool copyValue)
+    {
+        if (!TryGetPrimaryNameValue(grid, out var name, out var value))
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(copyValue ? value : name);
+        }
+        catch
+        {
+            // Clipboard can be locked by another process.
+        }
+    }
+
+    private static void GoToDefinition(DataGrid grid)
+    {
+        if (!TryGetInheritedSelection(grid, out var inherited)
+            || Application.Current?.MainWindow?.DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        vm.GoToVariableDefinition(inherited);
+    }
+
+    private static bool TryGetInheritedSelection(DataGrid grid, out InheritedVariableRow row)
+    {
+        row = null!;
+        if (grid.SelectedItem is InheritedVariableRow selected)
+        {
+            row = selected;
+            return true;
+        }
+
+        if (grid.CurrentItem is InheritedVariableRow current)
+        {
+            row = current;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetPrimaryNameValue(DataGrid grid, out string name, out string value)
+    {
+        name = string.Empty;
+        value = string.Empty;
+
+        foreach (var row in KeyValueGridSelection.SnapshotSelectedRows(grid))
+        {
+            name = row.Key ?? string.Empty;
+            value = row.Value ?? string.Empty;
+            return true;
+        }
+
+        switch (grid.CurrentItem ?? grid.SelectedItem)
+        {
+            case KeyValueItemViewModel kv:
+                name = kv.Key ?? string.Empty;
+                value = kv.Value ?? string.Empty;
+                return true;
+            case InheritedVariableRow inherited:
+                name = inherited.Key ?? string.Empty;
+                value = inherited.Value ?? string.Empty;
+                return true;
+            default:
+                return false;
+        }
     }
 
     private static bool CopyRows(DataGrid grid)

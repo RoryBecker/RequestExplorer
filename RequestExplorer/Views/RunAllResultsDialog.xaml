@@ -198,6 +198,7 @@
                   IsReadOnly="True"
                   CanUserAddRows="False"
                   CanUserDeleteRows="False"
+                  CanUserResizeColumns="True"
                   CanUserSortColumns="True"
                   HeadersVisibility="Column"
                   GridLinesVisibility="Horizontal"

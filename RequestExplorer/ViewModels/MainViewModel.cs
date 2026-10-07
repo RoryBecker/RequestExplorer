@@ -25,10 +25,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private readonly UiPreferencesService _uiPreferencesService;
     private readonly WorkspaceBackupService _backups;
     private readonly UndoStack _history = new();
+    private readonly TreeNavigationHistory _treeNavigation = new();
     private CancellationTokenSource? _sendCts;
     private bool _isApplyingHistory;
     /// <summary>Blocks incidental undo records (e.g. binding writes while selecting imported nodes).</summary>
     private bool _suppressUndoRecording;
+    /// <summary>True while applying back/forward tree navigation (do not re-record).</summary>
+    private bool _isNavigatingTreeHistory;
     private int _backupBusy;
 
     public MainViewModel()
@@ -575,9 +578,124 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         OnPropertyChanged(nameof(SelectionSummary));
         OnPropertyChanged(nameof(RunAllRequestsMenuHeader));
         RefreshQuickExport();
+        RecordTreeNavigation(newValue);
     }
 
     public bool IsNodeInSelection(TreeNodeViewModel node) => _selectedNodes.Contains(node);
+
+    public bool CanNavigateTreeBack => _treeNavigation.CanGoBack;
+
+    public bool CanNavigateTreeForward => _treeNavigation.CanGoForward;
+
+    private void RecordTreeNavigation(TreeNodeViewModel? node)
+    {
+        if (_isNavigatingTreeHistory || _isApplyingHistory || node is null)
+        {
+            return;
+        }
+
+        if (!TryGetNodeId(node, out var id))
+        {
+            return;
+        }
+
+        _treeNavigation.NavigateTo(id);
+        NotifyTreeNavigationCanExecuteChanged();
+    }
+
+    private void NotifyTreeNavigationCanExecuteChanged()
+    {
+        OnPropertyChanged(nameof(CanNavigateTreeBack));
+        OnPropertyChanged(nameof(CanNavigateTreeForward));
+        NavigateTreeBackCommand.NotifyCanExecuteChanged();
+        NavigateTreeForwardCommand.NotifyCanExecuteChanged();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanNavigateTreeBackExecute))]
+    private void NavigateTreeBack() => NavigateTreeHistory(forward: false);
+
+    private bool CanNavigateTreeBackExecute() => _treeNavigation.CanGoBack;
+
+    [RelayCommand(CanExecute = nameof(CanNavigateTreeForwardExecute))]
+    private void NavigateTreeForward() => NavigateTreeHistory(forward: true);
+
+    private bool CanNavigateTreeForwardExecute() => _treeNavigation.CanGoForward;
+
+    /// <summary>Applies back/forward when mouse XButtons are enabled in settings.</summary>
+    public bool TryNavigateTreeFromMouse(bool forward)
+    {
+        if (!UiPreferences.EnableMouseTreeNavigation)
+        {
+            return false;
+        }
+
+        if (forward)
+        {
+            if (!_treeNavigation.CanGoForward)
+            {
+                return false;
+            }
+
+            NavigateTreeForward();
+        }
+        else
+        {
+            if (!_treeNavigation.CanGoBack)
+            {
+                return false;
+            }
+
+            NavigateTreeBack();
+        }
+
+        return true;
+    }
+
+    private void NavigateTreeHistory(bool forward)
+    {
+        _isNavigatingTreeHistory = true;
+        try
+        {
+            if (!(forward
+                    ? _treeNavigation.TryGoForward(out var id)
+                    : _treeNavigation.TryGoBack(out id)))
+            {
+                return;
+            }
+
+            while (true)
+            {
+                var node = FindNodeById(id);
+                if (node is not null)
+                {
+                    ExpandAncestors(node);
+                    SelectOnly(node);
+                    TreeRevealRequested?.Invoke([node]);
+                    return;
+                }
+
+                // Node was deleted/reloaded — drop the dead entry and keep walking.
+                _treeNavigation.RemoveCurrent();
+                if (forward)
+                {
+                    // Removal shifts the next forward entry into the current slot.
+                    if (!_treeNavigation.TryGetCurrent(out id))
+                    {
+                        return;
+                    }
+                }
+                else if (!_treeNavigation.TryGoBack(out id))
+                {
+                    return;
+                }
+            }
+        }
+        finally
+        {
+            _isNavigatingTreeHistory = false;
+            NotifyTreeNavigationCanExecuteChanged();
+        }
+    }
 
     /// <summary>Raised after undo/redo restores tree nodes that should be scrolled into view.</summary>
     public event Action<IReadOnlyList<TreeNodeViewModel>>? TreeRevealRequested;
@@ -596,6 +714,17 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         _selectionAnchor = node;
+    }
+
+    /// <summary>Selects the container that defines an inherited variable and scrolls it into view.</summary>
+    public void GoToVariableDefinition(InheritedVariableRow row)
+    {
+        var target = row.SourceContainer;
+        ExpandAncestors(target);
+        target.IsExpanded = true;
+        SelectOnly(target);
+        TreeRevealRequested?.Invoke([target]);
+        StatusMessage = $"Showing definition of '{row.Key}' on '{target.Name}'";
     }
 
     public void ToggleSelection(TreeNodeViewModel node)
@@ -2247,7 +2376,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             initialWidth: UiPreferences.RunAllWindowWidth,
             initialHeight: UiPreferences.RunAllWindowHeight,
             initialLeft: UiPreferences.RunAllWindowLeft,
-            initialTop: UiPreferences.RunAllWindowTop)
+            initialTop: UiPreferences.RunAllWindowTop,
+            initialColumnWidths: UiPreferences.RunAllColumnWidths)
         {
             Owner = Application.Current?.MainWindow
         };
@@ -2273,6 +2403,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.RunAllWindowHeight = height;
         UiPreferences.RunAllWindowLeft = left;
         UiPreferences.RunAllWindowTop = top;
+        UiPreferences.RunAllColumnWidths = dialog.CaptureColumnWidths();
         PersistUiPreferences();
 
         if (dialog.NavigatedNode is { } target)
@@ -3083,6 +3214,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         UiPreferences.RequestTimeoutSeconds = dialog.RequestTimeoutSeconds;
         UiPreferences.DevModeIgnoreTimeout = dialog.DevModeIgnoreTimeout;
+        UiPreferences.EnableMouseTreeNavigation = dialog.EnableMouseTreeNavigation;
         UiPreferences.BackupOnStartup = dialog.BackupOnStartup;
         UiPreferences.BackupRetentionCount =
             WorkspaceBackupService.ClampRetention(dialog.BackupRetentionCount);
@@ -5468,6 +5600,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         OnPropertyChanged(nameof(HasTreeClipboard));
         _history.Clear();
         RefreshHistoryMenus();
+        _treeNavigation.Clear();
+        NotifyTreeNavigationCanExecuteChanged();
 
         // New disk collections (absent from priorOrder) are prepended by ApplyCollectionOrder.
         LoadWorkspace(priorOrder);

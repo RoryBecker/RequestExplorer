@@ -71,6 +71,15 @@ public sealed class UiPreferences
 
     public double RunAllWindowTop { get; set; } = double.NaN;
 
+    /// <summary>Run All results grid column widths keyed by column header text.</summary>
+    public Dictionary<string, double> RunAllColumnWidths { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// When true, mouse XButton1/XButton2 (4th/5th buttons) navigate tree selection history.
+    /// Toolbar back/forward remain available either way.
+    /// </summary>
+    public bool EnableMouseTreeNavigation { get; set; } = true;
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

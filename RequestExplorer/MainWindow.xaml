@@ -594,6 +594,7 @@
                                 <MenuItem Header="Export to Postman…" Command="{Binding ExportNodeCommand}" />
                                 <MenuItem Header="Export to Postman (Flatten)…" Command="{Binding ExportNodeFlattenedCommand}" />
                                 <MenuItem Header="Import Postman Collection(s)…" Command="{Binding ImportIntoNodeCommand}" />
+                                <MenuItem Header="Import from OpenAPI JSON…" Command="{Binding ImportOpenApiJsonCommand}" />
                             </ContextMenu>
                         </TreeView.ContextMenu>
 

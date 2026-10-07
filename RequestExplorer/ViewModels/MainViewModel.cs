@@ -12,6 +12,7 @@ using Microsoft.Win32;
 using RequestExplorer.Models;
 using RequestExplorer.Services;
 using RequestExplorer.Services.Export;
+using RequestExplorer.Services.OpenApi;
 using RequestExplorer.Services.Postman;
 using RequestExplorer.Services.Undo;
 
@@ -3204,6 +3205,73 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private bool CanImportIntoNode(TreeNodeViewModel? node) =>
         (node ?? SelectedNode) is CollectionNodeViewModel or FolderNodeViewModel;
+
+    [RelayCommand]
+    private void ImportOpenApiJson()
+    {
+        var dialog = new Views.ImportOpenApiJsonDialog
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        dialog.TryApply = json =>
+        {
+            try
+            {
+                var model = OpenApiCollectionMapper.FromJson(json);
+                model.Id = Guid.NewGuid();
+                if (string.IsNullOrWhiteSpace(model.Name))
+                {
+                    model.Name = "OpenAPI Import";
+                }
+
+                var previousSelection = _selectedNodes.Count > 0
+                    ? _selectedNodes.ToList()
+                    : SelectedNode is null ? [] : new List<TreeNodeViewModel> { SelectedNode };
+
+                _suppressUndoRecording = true;
+                _suppressCollectionOrderPersist = true;
+                CollectionNodeViewModel node;
+                try
+                {
+                    node = CollectionTreeMapper.ToViewModel(model);
+                    WireUndoRecorders(node);
+                    Collections.Add(node);
+                    CollapseSubtree(node);
+                    node.IsExpanded = true;
+                    MarkSubtreeDirty(node);
+                    ReplaceSelection([node], node);
+                    SelectedNode = node;
+                }
+                finally
+                {
+                    _suppressCollectionOrderPersist = false;
+                    _suppressUndoRecording = false;
+                    PersistCollectionOrder();
+                }
+
+                RecordUndo(new CompositeUndoAction(
+                    $"Import OpenAPI '{node.Name}'",
+                    [CreateRemoveAction(node, $"Import OpenAPI '{node.Name}'")],
+                    selectAfter: [node],
+                    selectAfterInverse: previousSelection));
+
+                OnPropertyChanged(nameof(HasAnyDirty));
+                StatusMessage = $"Imported OpenAPI collection '{node.Name}' (Ctrl+S to persist)";
+                return (true, null);
+            }
+            catch (JsonException ex)
+            {
+                return (false, $"Invalid JSON: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message);
+            }
+        };
+
+        dialog.ShowDialog();
+    }
 
     private FolderNodeViewModel AttachImportedFolder(TreeNodeViewModel node, FolderDefinition importedFolder)
     {

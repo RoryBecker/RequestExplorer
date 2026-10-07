@@ -723,6 +723,18 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         ExpandAncestors(target);
         target.IsExpanded = true;
         SelectOnly(target);
+
+        var item = row.SourceItem;
+        if (item is null || target.IndexOfVariable(item) < 0)
+        {
+            item = target.FindVariableByKey(row.Key);
+        }
+
+        // Defer until the Variables grid has loaded for the newly selected container.
+        Application.Current?.Dispatcher.BeginInvoke(
+            () => target.SelectedVariable = item,
+            DispatcherPriority.Loaded);
+
         TreeRevealRequested?.Invoke([target]);
         StatusMessage = $"Showing definition of '{row.Key}' on '{target.Name}'";
     }

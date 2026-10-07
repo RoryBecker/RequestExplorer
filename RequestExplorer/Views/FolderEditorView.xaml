@@ -203,7 +203,9 @@
                                Foreground="{DynamicResource App.MutedBrush}"
                                Text="LOCAL" />
                     <DataGrid Style="{StaticResource KeyValueGrid}"
-                              ItemsSource="{Binding Variables}">
+                              ItemsSource="{Binding Variables}"
+                              SelectedItem="{Binding SelectedVariable, Mode=TwoWay}"
+                              views:KeyValueGridSelectionSync.BringSelectedIntoView="True">
                         <DataGrid.Columns>
                             <DataGridTemplateColumn Header="On"
                                                     Width="44"

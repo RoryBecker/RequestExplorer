@@ -38,6 +38,7 @@ public static class KeyValueGridClipboard
 
         grid.PreviewKeyDown -= OnPreviewKeyDown;
         grid.PreviewMouseRightButtonDown -= OnPreviewMouseRightButtonDown;
+        grid.MouseDoubleClick -= OnMouseDoubleClick;
         grid.ContextMenuOpening -= OnContextMenuOpening;
         grid.Loaded -= OnGridLoaded;
 
@@ -45,6 +46,7 @@ public static class KeyValueGridClipboard
         {
             grid.PreviewKeyDown += OnPreviewKeyDown;
             grid.PreviewMouseRightButtonDown += OnPreviewMouseRightButtonDown;
+            grid.MouseDoubleClick += OnMouseDoubleClick;
             grid.ContextMenuOpening += OnContextMenuOpening;
             grid.Loaded += OnGridLoaded;
             EnsureContextMenu(grid);
@@ -291,6 +293,33 @@ public static class KeyValueGridClipboard
         {
             // Clipboard can be locked by another process.
         }
+    }
+
+    private static void OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not DataGrid grid || !IsInheritedVariablesGrid(grid))
+        {
+            return;
+        }
+
+        // Prefer the row under the cursor; fall back to current selection.
+        InheritedVariableRow? row = null;
+        if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject) is { Item: InheritedVariableRow underCursor })
+        {
+            row = underCursor;
+        }
+        else if (TryGetInheritedSelection(grid, out var selected))
+        {
+            row = selected;
+        }
+
+        if (row is null || Application.Current?.MainWindow?.DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        vm.GoToVariableDefinition(row);
+        e.Handled = true;
     }
 
     private static void GoToDefinition(DataGrid grid)

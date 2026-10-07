@@ -55,6 +55,10 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     [ObservableProperty]
     private string _variablesTooltip = string.Empty;
 
+    /// <summary>Selected row in the Local Variables grid (also used by Go to Definition).</summary>
+    [ObservableProperty]
+    private KeyValueItemViewModel? _selectedVariable;
+
     public void AttachUndoRecorder(IUndoRecorder recorder) => _undoRecorder = recorder;
 
     public IUndoRecorder? UndoRecorder => _undoRecorder;
@@ -310,7 +314,8 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
                         v.Value ?? string.Empty,
                         ancestor.Name,
                         localKeys.Contains(key),
-                        ancestor);
+                        ancestor,
+                        v);
                 });
 
             foreach (var row in rows)

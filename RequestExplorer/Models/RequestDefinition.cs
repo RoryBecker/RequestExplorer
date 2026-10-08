@@ -15,8 +15,14 @@ public sealed class RequestDefinition
     /// <summary>HTTP status code expected on success (used by Run All expectations).</summary>
     public int ExpectedStatusCode { get; set; } = 200;
 
-    /// <summary>When true, response body must exactly match <see cref="ExpectedBody"/>.</summary>
+    /// <summary>When true, response body is checked against <see cref="ExpectedBody"/>.</summary>
     public bool ExpectBodyEnabled { get; set; }
+
+    /// <summary>
+    /// When true with <see cref="ExpectBodyEnabled"/>, the body must contain
+    /// <see cref="ExpectedBody"/>; otherwise it must match exactly.
+    /// </summary>
+    public bool ExpectBodyContains { get; set; }
 
     public string ExpectedBody { get; set; } = string.Empty;
 

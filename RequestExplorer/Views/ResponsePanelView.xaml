@@ -266,7 +266,7 @@
                     <TextBlock Margin="0,0,0,12"
                                TextWrapping="Wrap"
                                Foreground="{DynamicResource App.MutedBrush}"
-                               Text="Define what a successful response looks like for this request. Run All marks Met only when every enabled check passes. Status code is always checked; body and timing are optional." />
+                               Text="Define what a successful response looks like for this request. Run All marks Met only when every enabled check passes. Status code is always checked; body and timing are optional. With Contains checked, the body must include the expected text rather than match it exactly." />
 
                     <DockPanel Margin="0,0,0,12" LastChildFill="False">
                         <TextBlock DockPanel.Dock="Left"
@@ -319,12 +319,19 @@
                             Background="{DynamicResource App.BorderBrush}"
                             SnapsToDevicePixels="True" />
 
-                    <DockPanel Margin="0,0,0,6" LastChildFill="True">
+                    <DockPanel Margin="0,0,0,6" LastChildFill="False">
                         <CheckBox DockPanel.Dock="Left"
                                   VerticalAlignment="Center"
                                   Margin="0,0,12,0"
                                   Content="Body content"
                                   IsChecked="{Binding ExpectBodyEnabled, Mode=TwoWay}" />
+                        <CheckBox DockPanel.Dock="Left"
+                                  VerticalAlignment="Center"
+                                  Margin="0,0,12,0"
+                                  Content="Contains"
+                                  IsEnabled="{Binding ExpectBodyEnabled}"
+                                  IsChecked="{Binding ExpectBodyContains, Mode=TwoWay}"
+                                  ToolTip="When checked, the response body must contain this text; otherwise it must match exactly" />
                         <Button DockPanel.Dock="Right"
                                 Padding="8,2"
                                 Margin="8,0,0,0"
@@ -332,14 +339,28 @@
                                 ToolTip="Copy the last successful response body and enable this check"
                                 Command="{Binding CopyExpectedBodyFromLastRunCommand}" />
                     </DockPanel>
-                    <TextBox MinHeight="120"
+                    <TextBox x:Name="ExpectedBodyTextBox"
+                             MinHeight="120"
                              AcceptsReturn="True"
                              TextWrapping="Wrap"
                              VerticalScrollBarVisibility="Auto"
                              FontFamily="Consolas"
                              FontSize="12"
                              IsEnabled="{Binding ExpectBodyEnabled}"
-                             Text="{Binding ExpectedBody, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                             Text="{Binding ExpectedBody, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                        <TextBox.ContextMenu>
+                            <ContextMenu Opened="ExpectedBodyMenu_OnOpened">
+                                <MenuItem Header="Cu_t" Command="ApplicationCommands.Cut" />
+                                <MenuItem Header="Cop_y" Command="ApplicationCommands.Copy" />
+                                <MenuItem Header="_Paste" Command="ApplicationCommands.Paste" />
+                                <Separator />
+                                <MenuItem x:Name="KeepExpectedBodySelectionMenuItem"
+                                          Header="Crop to _Selection"
+                                          Click="KeepExpectedBodySelection_OnClick"
+                                          ToolTip="Replace the expected body with only the highlighted text" />
+                            </ContextMenu>
+                        </TextBox.ContextMenu>
+                    </TextBox>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

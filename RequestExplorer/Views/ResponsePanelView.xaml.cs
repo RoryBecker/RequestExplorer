@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Controls;
 using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Views;
@@ -119,5 +120,33 @@ public partial class ResponsePanelView
         {
             BodyTextBox.ScrollToLine(line);
         }
+    }
+
+    private void ExpectedBodyMenu_OnOpened(object sender, RoutedEventArgs e)
+    {
+        if (KeepExpectedBodySelectionMenuItem is null)
+        {
+            return;
+        }
+
+        var box = sender is ContextMenu { PlacementTarget: TextBox target }
+            ? target
+            : ExpectedBodyTextBox;
+        KeepExpectedBodySelectionMenuItem.IsEnabled = box is not null && box.SelectionLength > 0;
+    }
+
+    private void KeepExpectedBodySelection_OnClick(object sender, RoutedEventArgs e)
+    {
+        var box = sender is MenuItem { Parent: ContextMenu { PlacementTarget: TextBox target } }
+            ? target
+            : ExpectedBodyTextBox;
+        if (box is null || box.SelectionLength <= 0)
+        {
+            return;
+        }
+
+        var kept = box.SelectedText;
+        box.Text = kept;
+        box.CaretIndex = kept.Length;
     }
 }

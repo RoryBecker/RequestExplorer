@@ -55,7 +55,10 @@ public static class RequestExpectations
         if (bodyChecked)
         {
             var actual = result.Succeeded ? (result.Body ?? string.Empty) : string.Empty;
-            bodyFailed = !string.Equals(actual, request.ExpectedBody ?? string.Empty, StringComparison.Ordinal);
+            var expected = request.ExpectedBody ?? string.Empty;
+            bodyFailed = request.ExpectBodyContains
+                ? !actual.Contains(expected, StringComparison.Ordinal)
+                : !string.Equals(actual, expected, StringComparison.Ordinal);
         }
 
         var timingChecked = includeTimingChecks && request.ExpectTimingEnabled;

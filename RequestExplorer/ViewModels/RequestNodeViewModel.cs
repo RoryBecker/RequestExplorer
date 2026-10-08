@@ -36,6 +36,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             ? model.ExpectedStatusCode
             : 200;
         _expectBodyEnabled = model.ExpectBodyEnabled;
+        _expectBodyContains = model.ExpectBodyContains;
         _expectedBody = model.ExpectedBody ?? string.Empty;
         if (!model.ExpectTimingEnabled && model.ExpectedTimingMilliseconds <= 0)
         {
@@ -154,6 +155,9 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     [ObservableProperty]
     private bool _expectBodyEnabled;
+
+    [ObservableProperty]
+    private bool _expectBodyContains;
 
     [ObservableProperty]
     private string _expectedBody = string.Empty;
@@ -294,6 +298,17 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         }
 
         Model.ExpectBodyEnabled = value;
+        MarkDirty();
+    }
+
+    partial void OnExpectBodyContainsChanged(bool value)
+    {
+        if (Model.ExpectBodyContains == value)
+        {
+            return;
+        }
+
+        Model.ExpectBodyContains = value;
         MarkDirty();
     }
 

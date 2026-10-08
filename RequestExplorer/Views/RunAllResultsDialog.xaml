@@ -240,7 +240,7 @@
                                     ElementStyle="{StaticResource ExpectationGlyphCellStyle}">
                     <DataGridTextColumn.HeaderStyle>
                         <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
-                            <Setter Property="ToolTip" Value="Body expectation match (blank when body check is off)" />
+                            <Setter Property="ToolTip" Value="Body expectation match or contains (blank when body check is off)" />
                             <Setter Property="HorizontalContentAlignment" Value="Center" />
                         </Style>
                     </DataGridTextColumn.HeaderStyle>

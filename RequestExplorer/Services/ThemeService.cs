@@ -51,6 +51,8 @@ public static class ThemeService
                 window.InvalidateVisual();
             }
         }
+
+        WindowTitleBarTheme.ApplyToAllWindows(isDark);
     }
 
     private static void SetBrush(ResourceDictionary resources, string key, Color color)

@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using RequestExplorer.Services;
 
 namespace RequestExplorer;
 
@@ -8,5 +9,6 @@ public partial class App : Application
     {
         base.OnStartup(e);
         EscapeCancel.Register();
+        WindowTitleBarTheme.Register();
     }
 }

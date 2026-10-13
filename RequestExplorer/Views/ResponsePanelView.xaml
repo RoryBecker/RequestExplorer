@@ -339,6 +339,39 @@
                                 ToolTip="Copy the last successful response body and enable this check"
                                 Command="{Binding CopyExpectedBodyFromLastRunCommand}" />
                     </DockPanel>
+                    <DockPanel Margin="0,0,0,4"
+                               LastChildFill="True"
+                               IsEnabled="{Binding ExpectBodyEnabled}">
+                        <TextBlock DockPanel.Dock="Left"
+                                   Text="Find"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,6,0"
+                                   Foreground="{DynamicResource App.MutedBrush}" />
+                        <StackPanel DockPanel.Dock="Right"
+                                    Orientation="Horizontal"
+                                    Margin="4,0,0,0">
+                            <Button Padding="8,2"
+                                    Margin="0,0,2,0"
+                                    ToolTip="Previous match"
+                                    Click="ExpectedBodyFindPrevious_OnClick">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70E;" />
+                            </Button>
+                            <Button Padding="8,2"
+                                    ToolTip="Next match"
+                                    Click="ExpectedBodyFindNext_OnClick">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70D;" />
+                            </Button>
+                        </StackPanel>
+                        <TextBlock x:Name="ExpectedBodyFindStatusText"
+                                   DockPanel.Dock="Right"
+                                   MinWidth="72"
+                                   Margin="8,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource App.MutedBrush}" />
+                        <TextBox x:Name="ExpectedBodyFindBox"
+                                 VerticalContentAlignment="Center"
+                                 TextChanged="ExpectedBodyFindBox_OnTextChanged" />
+                    </DockPanel>
                     <TextBox x:Name="ExpectedBodyTextBox"
                              MinHeight="120"
                              AcceptsReturn="True"
@@ -347,7 +380,8 @@
                              FontFamily="Consolas"
                              FontSize="12"
                              IsEnabled="{Binding ExpectBodyEnabled}"
-                             Text="{Binding ExpectedBody, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                             Text="{Binding ExpectedBody, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             TextChanged="ExpectedBodyTextBox_OnTextChanged">
                         <TextBox.ContextMenu>
                             <ContextMenu Opened="ExpectedBodyMenu_OnOpened">
                                 <MenuItem Header="Cu_t" Command="ApplicationCommands.Cut" />

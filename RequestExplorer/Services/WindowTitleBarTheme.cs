@@ -23,8 +23,8 @@ public static class WindowTitleBarTheme
 
         EventManager.RegisterClassHandler(
             typeof(Window),
-            FrameworkElement.SourceInitializedEvent,
-            new RoutedEventHandler(OnWindowSourceInitialized));
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(OnWindowLoaded));
         _classHandlerRegistered = true;
     }
 
@@ -65,7 +65,7 @@ public static class WindowTitleBarTheme
         DwmSetWindowAttribute(hwnd, DwmwaTextColor, ref text, sizeof(uint));
     }
 
-    private static void OnWindowSourceInitialized(object sender, RoutedEventArgs e)
+    private static void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
         if (sender is Window window)
         {

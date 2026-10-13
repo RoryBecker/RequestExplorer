@@ -9,6 +9,7 @@ public partial class ResponsePanelView
 {
     private ResponseViewModel? _subscribedResponse;
     private bool _isReady;
+    private int _expectedBodyFindFromIndex;
 
     public ResponsePanelView()
     {
@@ -148,5 +149,128 @@ public partial class ResponsePanelView
         var kept = box.SelectedText;
         box.Text = kept;
         box.CaretIndex = kept.Length;
+        _expectedBodyFindFromIndex = 0;
+        UpdateExpectedBodyFindStatus();
+    }
+
+    private void ExpectedBodyFindBox_OnTextChanged(object sender, TextChangedEventArgs e)
+    {
+        _expectedBodyFindFromIndex = 0;
+        UpdateExpectedBodyFindStatus();
+    }
+
+    private void ExpectedBodyTextBox_OnTextChanged(object sender, TextChangedEventArgs e)
+    {
+        UpdateExpectedBodyFindStatus();
+    }
+
+    private void ExpectedBodyFindNext_OnClick(object sender, RoutedEventArgs e) =>
+        MoveExpectedBodyFind(1);
+
+    private void ExpectedBodyFindPrevious_OnClick(object sender, RoutedEventArgs e) =>
+        MoveExpectedBodyFind(-1);
+
+    private void MoveExpectedBodyFind(int direction)
+    {
+        if (ExpectedBodyFindBox is null || ExpectedBodyTextBox is null)
+        {
+            return;
+        }
+
+        var query = ExpectedBodyFindBox.Text ?? string.Empty;
+        var text = ExpectedBodyTextBox.Text ?? string.Empty;
+        if (string.IsNullOrEmpty(query) || text.Length == 0)
+        {
+            UpdateExpectedBodyFindStatus();
+            return;
+        }
+
+        const StringComparison comparison = StringComparison.OrdinalIgnoreCase;
+        int found;
+        if (direction >= 0)
+        {
+            var start = Math.Clamp(_expectedBodyFindFromIndex, 0, text.Length);
+            found = text.IndexOf(query, start, comparison);
+            if (found < 0 && start > 0)
+            {
+                found = text.IndexOf(query, 0, comparison);
+            }
+        }
+        else
+        {
+            var start = Math.Clamp(_expectedBodyFindFromIndex - 1, 0, Math.Max(0, text.Length - 1));
+            found = start >= 0 && text.Length > 0
+                ? text.LastIndexOf(query, start, comparison)
+                : -1;
+            if (found < 0 && _expectedBodyFindFromIndex > 0)
+            {
+                found = text.LastIndexOf(query, text.Length - 1, comparison);
+            }
+        }
+
+        if (found < 0)
+        {
+            if (ExpectedBodyFindStatusText is not null)
+            {
+                ExpectedBodyFindStatusText.Text = "No matches";
+            }
+
+            return;
+        }
+
+        ExpectedBodyTextBox.Focus();
+        ExpectedBodyTextBox.Select(found, query.Length);
+        var line = ExpectedBodyTextBox.GetLineIndexFromCharacterIndex(found);
+        if (line >= 0)
+        {
+            ExpectedBodyTextBox.ScrollToLine(line);
+        }
+
+        _expectedBodyFindFromIndex = direction >= 0 ? found + query.Length : found;
+        UpdateExpectedBodyFindStatus(found);
+    }
+
+    private void UpdateExpectedBodyFindStatus(int? currentIndex = null)
+    {
+        if (ExpectedBodyFindBox is null
+            || ExpectedBodyTextBox is null
+            || ExpectedBodyFindStatusText is null)
+        {
+            return;
+        }
+
+        var query = ExpectedBodyFindBox.Text ?? string.Empty;
+        var text = ExpectedBodyTextBox.Text ?? string.Empty;
+        if (string.IsNullOrEmpty(query))
+        {
+            ExpectedBodyFindStatusText.Text = string.Empty;
+            return;
+        }
+
+        var count = 0;
+        var index = 0;
+        var matchOrdinal = 0;
+        while (index < text.Length)
+        {
+            var found = text.IndexOf(query, index, StringComparison.OrdinalIgnoreCase);
+            if (found < 0)
+            {
+                break;
+            }
+
+            count++;
+            if (currentIndex is int cur && found == cur)
+            {
+                matchOrdinal = count;
+            }
+
+            index = found + Math.Max(1, query.Length);
+        }
+
+        ExpectedBodyFindStatusText.Text = count == 0
+            ? "No matches"
+            : matchOrdinal > 0
+                ? $"{matchOrdinal} of {count}"
+                : $"{count} match{(count == 1 ? string.Empty : "es")}";
     }
 }

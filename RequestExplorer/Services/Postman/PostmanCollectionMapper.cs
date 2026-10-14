@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using RequestExplorer.Models;
 using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Services.Postman;
 

@@ -3,7 +3,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using RequestExplorer.Services;
 
-namespace RequestExplorer.ViewModels;
+namespace RequestExplorer.ViewModels.Nodes;
 
 public enum TreeNodeKind
 {

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using RequestExplorer.Services;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Views;
 

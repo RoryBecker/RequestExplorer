@@ -1,5 +1,6 @@
 using RequestExplorer.Services.Undo;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Services.Variables;
 

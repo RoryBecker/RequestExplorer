@@ -1,7 +1,7 @@
 using System.Collections.Specialized;
 using RequestExplorer.Models;
 
-namespace RequestExplorer.ViewModels;
+namespace RequestExplorer.ViewModels.Nodes;
 
 public sealed class CollectionNodeViewModel : ContainerNodeViewModel
 {

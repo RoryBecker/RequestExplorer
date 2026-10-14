@@ -10,6 +10,7 @@ using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using RequestExplorer.Services;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Views;
 

@@ -7,8 +7,9 @@ using RequestExplorer.Models;
 using RequestExplorer.Services;
 using RequestExplorer.Services.Undo;
 using RequestExplorer.Services.Variables;
+using RequestExplorer.ViewModels;
 
-namespace RequestExplorer.ViewModels;
+namespace RequestExplorer.ViewModels.Nodes;
 
 public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueListSortHost
 {

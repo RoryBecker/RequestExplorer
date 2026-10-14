@@ -4,6 +4,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Threading;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Views;
 

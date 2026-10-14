@@ -18,6 +18,7 @@ using RequestExplorer.Services.Preferences;
 using RequestExplorer.Services.Themes;
 using RequestExplorer.Services.Undo;
 using RequestExplorer.Services.Variables;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.ViewModels;
 

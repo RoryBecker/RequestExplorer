@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using System.Windows;
 using RequestExplorer.Models;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Services;
 

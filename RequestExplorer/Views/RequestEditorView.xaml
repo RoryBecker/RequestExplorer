@@ -1,7 +1,7 @@
 <UserControl x:Class="RequestExplorer.Views.RequestEditorView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:RequestExplorer.ViewModels"
+             xmlns:vm="clr-namespace:RequestExplorer.ViewModels.Nodes"
              xmlns:views="clr-namespace:RequestExplorer.Views">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />

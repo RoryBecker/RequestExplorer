@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:vm="clr-namespace:RequestExplorer.ViewModels"
+        xmlns:nodes="clr-namespace:RequestExplorer.ViewModels.Nodes"
         xmlns:views="clr-namespace:RequestExplorer.Views"
         xmlns:conv="clr-namespace:RequestExplorer.Converters"
         mc:Ignorable="d"
@@ -31,7 +32,7 @@
             <Setter Property="CornerRadius" Value="1" />
             <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static vm:TreeDropIndicator.Before}">
+                <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static nodes:TreeDropIndicator.Before}">
                     <Setter Property="Visibility" Value="Visible" />
                 </DataTrigger>
             </Style.Triggers>
@@ -44,7 +45,7 @@
             <Setter Property="CornerRadius" Value="1" />
             <Setter Property="Visibility" Value="Collapsed" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static vm:TreeDropIndicator.After}">
+                <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static nodes:TreeDropIndicator.After}">
                     <Setter Property="Visibility" Value="Visible" />
                 </DataTrigger>
             </Style.Triggers>
@@ -56,7 +57,7 @@
             <Setter Property="Padding" Value="2,0" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Style.Triggers>
-                <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static vm:TreeDropIndicator.Into}">
+                <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static nodes:TreeDropIndicator.Into}">
                     <Setter Property="Background" Value="{DynamicResource App.DropIntoBrush}" />
                 </DataTrigger>
             </Style.Triggers>
@@ -614,7 +615,7 @@
                         </TreeView.ContextMenu>
 
                         <TreeView.Resources>
-                            <HierarchicalDataTemplate DataType="{x:Type vm:CollectionNodeViewModel}"
+                            <HierarchicalDataTemplate DataType="{x:Type nodes:CollectionNodeViewModel}"
                                                       ItemsSource="{Binding Children}">
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <Border Style="{StaticResource TreeDropBeforeLine}" />
@@ -646,7 +647,7 @@
                                 </StackPanel>
                             </HierarchicalDataTemplate>
 
-                            <HierarchicalDataTemplate DataType="{x:Type vm:FolderNodeViewModel}"
+                            <HierarchicalDataTemplate DataType="{x:Type nodes:FolderNodeViewModel}"
                                                       ItemsSource="{Binding Children}">
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <Border Style="{StaticResource TreeDropBeforeLine}" />
@@ -677,7 +678,7 @@
                                 </StackPanel>
                             </HierarchicalDataTemplate>
 
-                            <DataTemplate DataType="{x:Type vm:RequestNodeViewModel}">
+                            <DataTemplate DataType="{x:Type nodes:RequestNodeViewModel}">
                                 <StackPanel HorizontalAlignment="Stretch">
                                     <Border Style="{StaticResource TreeDropBeforeLine}" />
                                     <Border Style="{StaticResource TreeDropIntoHighlight}">

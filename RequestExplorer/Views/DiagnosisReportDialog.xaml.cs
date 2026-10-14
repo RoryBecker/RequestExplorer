@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Views;
 

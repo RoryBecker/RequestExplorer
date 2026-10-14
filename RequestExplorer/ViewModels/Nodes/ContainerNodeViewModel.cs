@@ -7,8 +7,9 @@ using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
 using RequestExplorer.Services;
 using RequestExplorer.Services.Undo;
+using RequestExplorer.ViewModels;
 
-namespace RequestExplorer.ViewModels;
+namespace RequestExplorer.ViewModels.Nodes;
 
 /// <summary>Collection or folder that can define scoped key/value variables.</summary>
 public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyValueListSortHost

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.ViewModels;
 

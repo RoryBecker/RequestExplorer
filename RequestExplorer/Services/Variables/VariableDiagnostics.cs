@@ -1,6 +1,7 @@
 using System.Text;
 using RequestExplorer.Models;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Services.Variables;
 

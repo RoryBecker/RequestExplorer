@@ -5,6 +5,7 @@ using RequestExplorer.Services;
 using RequestExplorer.Services.Undo;
 using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Views;
 

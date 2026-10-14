@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using RequestExplorer.Services;
 using RequestExplorer.Services.Postman;
 using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer;
 

@@ -1,7 +1,7 @@
 using RequestExplorer.Services.Undo;
 using RequestExplorer.ViewModels;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Variables;
 
 /// <summary>
 /// Relocates key/value rows between Params/Headers and Variables scopes without renaming or rewriting values.

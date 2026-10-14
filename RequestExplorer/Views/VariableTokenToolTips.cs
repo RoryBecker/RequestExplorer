@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using RequestExplorer.Services;
+using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Views;

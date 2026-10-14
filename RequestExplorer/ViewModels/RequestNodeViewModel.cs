@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
 using RequestExplorer.Services;
 using RequestExplorer.Services.Undo;
+using RequestExplorer.Services.Variables;
 
 namespace RequestExplorer.ViewModels;
 

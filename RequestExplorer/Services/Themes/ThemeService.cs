@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Media;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Themes;
 
 /// <summary>Applies light/dark colors to shared <c>App.*</c> brushes in application resources.</summary>
 public static class ThemeService

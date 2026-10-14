@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using RequestExplorer.Services;
 using RequestExplorer.Services.Undo;
+using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Views;

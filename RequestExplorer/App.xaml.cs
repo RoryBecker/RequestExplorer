@@ -1,5 +1,5 @@
 ﻿using System.Windows;
-using RequestExplorer.Services;
+using RequestExplorer.Services.Themes;
 
 namespace RequestExplorer;
 

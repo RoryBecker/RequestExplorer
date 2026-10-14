@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using RequestExplorer.Models;
 using RequestExplorer.Services.Postman;
+using RequestExplorer.Services.Variables;
 
 namespace RequestExplorer.Services.Export;
 

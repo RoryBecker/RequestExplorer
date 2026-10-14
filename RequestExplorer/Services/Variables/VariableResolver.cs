@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 using RequestExplorer.Models;
 using RequestExplorer.ViewModels;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Variables;
 
 /// <summary>
 /// Resolves <c>{{variable}}</c> tokens using enabled variables from the request's

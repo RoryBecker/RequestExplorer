@@ -1,4 +1,4 @@
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Preferences;
 
 public sealed class UiPreferences
 {

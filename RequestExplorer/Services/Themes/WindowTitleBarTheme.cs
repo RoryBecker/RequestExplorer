@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Themes;
 
 /// <summary>Applies Windows immersive dark/light title-bar chrome to WPF windows.</summary>
 public static class WindowTitleBarTheme

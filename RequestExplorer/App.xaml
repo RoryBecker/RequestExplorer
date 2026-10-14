@@ -5,9 +5,9 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="Themes/MenuAndTabs.xaml" />
-                <ResourceDictionary Source="Themes/Inputs.xaml" />
-                <ResourceDictionary Source="Themes/ScrollBars.xaml" />
+                <ResourceDictionary Source="Controls/MenuAndTabs.xaml" />
+                <ResourceDictionary Source="Controls/Inputs.xaml" />
+                <ResourceDictionary Source="Controls/ScrollBars.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <SolidColorBrush x:Key="App.SurfaceBrush" Color="#FFF7F8FA" />

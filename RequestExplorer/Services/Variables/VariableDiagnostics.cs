@@ -2,7 +2,7 @@ using System.Text;
 using RequestExplorer.Models;
 using RequestExplorer.ViewModels;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Variables;
 
 public sealed class DisabledVariableHint
 {

@@ -1,5 +1,6 @@
 using System.Windows;
 using RequestExplorer.Services;
+using RequestExplorer.Services.Preferences;
 
 namespace RequestExplorer.Views;
 

@@ -9,6 +9,7 @@
         xmlns:conv="clr-namespace:RequestExplorer.Converters"
         mc:Ignorable="d"
         Title="RequestExplorer"
+        Icon="pack://application:,,,/Assets/app.ico"
         Height="720"
         Width="1200"
         MinHeight="480"
@@ -111,12 +112,14 @@
         <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveCommand}" />
         <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{Binding SaveAllCommand}" />
         <KeyBinding Key="N" Modifiers="Ctrl+Shift" Command="{Binding AddCollectionCommand}" />
-        <KeyBinding Key="Enter" Modifiers="Ctrl" Command="{Binding SendRequestCommand}" />
+        <KeyBinding Key="N" Modifiers="Ctrl" Command="{Binding NewItemCommand}" />
+        <KeyBinding Key="X" Modifiers="Alt" Command="{Binding SendRequestCommand}" />
         <KeyBinding Key="D" Modifiers="Ctrl" Command="{Binding DuplicateNodeCommand}" />
         <KeyBinding Key="C" Modifiers="Ctrl" Command="{Binding CopyNodeCommand}" />
         <KeyBinding Key="V" Modifiers="Ctrl" Command="{Binding SmartPasteCommand}" />
         <KeyBinding Key="F2" Command="{Binding RenameNodeCommand}" />
         <KeyBinding Key="Delete" Command="{Binding DeleteNodeCommand}" />
+        <KeyBinding Key="Insert" Command="{Binding InsertFolderAboveCommand}" />
         <KeyBinding Key="Up" Modifiers="Alt" Command="{Binding MoveNodeUpCommand}" />
         <KeyBinding Key="Down" Modifiers="Alt" Command="{Binding MoveNodeDownCommand}" />
     </Window.InputBindings>
@@ -142,9 +145,11 @@
                 <MenuItem Header="{Binding UndoMenuHeader}" Command="{Binding UndoCommand}" InputGestureText="Ctrl+Z" />
                 <MenuItem Header="{Binding RedoMenuHeader}" Command="{Binding RedoCommand}" InputGestureText="Ctrl+Y" />
                 <Separator />
+                <MenuItem Header="_New…" Command="{Binding NewItemCommand}" InputGestureText="Ctrl+N" />
                 <MenuItem Header="New _Collection" Command="{Binding AddCollectionCommand}" InputGestureText="Ctrl+Shift+N" />
                 <MenuItem Header="New _Folder" Command="{Binding AddFolderCommand}" />
                 <MenuItem Header="New _Request" Command="{Binding AddRequestCommand}" />
+                <MenuItem Header="_Insert Folder Above" Command="{Binding InsertFolderAboveCommand}" InputGestureText="Ins" />
                 <MenuItem Header="_Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" />
                 <Separator />
                 <MenuItem Header="_Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" />
@@ -152,6 +157,7 @@
                 <MenuItem Header="Paste at _Top Level" Command="{Binding PasteAtRootCommand}" />
                 <Separator />
                 <MenuItem Header="_Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" />
+                <MenuItem Header="Focus _Tree" Click="FocusTree_OnClick" InputGestureText="Ctrl+T" />
                 <MenuItem Header="Move _Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
                 <MenuItem Header="Move _Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />
                 <MenuItem Header="Move to New _Sub-folder…" Command="{Binding MoveToNewSubFolderCommand}" />
@@ -160,7 +166,7 @@
                 <MenuItem Header="Edit as _JSON…" Command="{Binding EditAsJsonCommand}" />
             </MenuItem>
             <MenuItem Header="_Request">
-                <MenuItem Header="_Send" Command="{Binding SendRequestCommand}" InputGestureText="Ctrl+Enter" />
+                <MenuItem Header="_Send" Command="{Binding SendRequestCommand}" InputGestureText="Alt+X" />
                 <MenuItem Header="{Binding RunAllRequestsMenuHeader}" Command="{Binding RunAllRequestsCommand}" />
                 <MenuItem Header="_Cancel" Command="{Binding CancelSendCommand}" />
             </MenuItem>
@@ -284,7 +290,7 @@
                     </Button>
                     <Button Style="{StaticResource ToolbarIconButton}"
                             Command="{Binding AddRequestCommand}"
-                            ToolTip="New request under selection">
+                            ToolTip="New request under selection (Ctrl+N)">
                         <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE8A5;" />
                     </Button>
                     <Button Style="{StaticResource ToolbarIconButton}"
@@ -328,7 +334,7 @@
 
                     <Button Style="{StaticResource ToolbarIconButton}"
                             Command="{Binding SendRequestCommand}"
-                            ToolTip="Send request (Ctrl+Enter)">
+                            ToolTip="Send request (Alt+X)">
                         <TextBlock Style="{StaticResource ToolbarIconText}" Text="&#xE724;" />
                     </Button>
                     <Button Style="{StaticResource ToolbarIconButton}"
@@ -585,9 +591,11 @@
                                 <MenuItem Header="Save" Command="{Binding SaveCommand}" InputGestureText="Ctrl+S" />
                                 <MenuItem Header="Save All" Command="{Binding SaveAllCommand}" InputGestureText="Ctrl+Shift+S" />
                                 <Separator />
+                                <MenuItem Header="New…" Command="{Binding NewItemCommand}" InputGestureText="Ctrl+N" />
                                 <MenuItem Header="New Collection" Command="{Binding AddCollectionCommand}" />
                                 <MenuItem Header="New Folder" Command="{Binding AddFolderCommand}" Tag="Node" />
                                 <MenuItem Header="New Request" Command="{Binding AddRequestCommand}" Tag="Node" />
+                                <MenuItem Header="Insert Folder Above" Command="{Binding InsertFolderAboveCommand}" InputGestureText="Ins" Tag="Node" />
                                 <MenuItem Header="Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" Tag="Node" />
                                 <MenuItem Header="Add Demo Collections" Command="{Binding RecreateDemoCollectionsCommand}" />
                                 <Separator Tag="Node" />

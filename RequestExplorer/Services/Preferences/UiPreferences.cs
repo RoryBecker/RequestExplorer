@@ -80,6 +80,11 @@ public sealed class UiPreferences
     /// </summary>
     public bool EnableMouseTreeNavigation { get; set; } = true;
 
+    /// <summary>
+    /// Last kind chosen in the New dialog (Collection, Folder, or Request).
+    /// </summary>
+    public string LastNewItemKind { get; set; } = "Request";
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

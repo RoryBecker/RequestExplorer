@@ -47,7 +47,7 @@ dotnet publish RequestExplorer -c Release -r win-x64 --self-contained true -o .\
 
 - Verbs: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
 - URL, raw body (with content type), query params, headers (per-row on/off), and auth (None, Bearer, Basic, API Key)
-- **Send** (**Ctrl+Enter**) and **Cancel** for in-flight requests
+- **Send** (**Alt+X**) and **Cancel** for in-flight requests
 - Unsaved changes show `*` on the request and ancestors — **Ctrl+S** saves the current collection
 
 ### Response pane
@@ -97,15 +97,17 @@ From a collection or folder **…** menu:
 |----------|--------|
 | Ctrl+S | Save current collection |
 | Ctrl+Shift+S | Save all collections |
-| Ctrl+Enter | Send selected request |
+| Alt+X | Send selected request |
+| Ctrl+N | New… (collection / folder / request) |
 | Ctrl+Shift+N | New collection |
 | Ctrl+D | Duplicate selected node |
 | Ctrl+C / Ctrl+V | Copy / paste tree nodes |
 | Ctrl+Z / Ctrl+Y | Undo / redo |
 | F2 | Rename |
+| Ctrl+T | Focus selected tree node |
 | Del | Delete |
 | Alt+↑ / Alt+↓ | Move among siblings |
-| Esc | Close dialogs / cancel prompts |
+| Esc | Clear text selection, or focus selected tree node |
 
 ## Where your data lives
 

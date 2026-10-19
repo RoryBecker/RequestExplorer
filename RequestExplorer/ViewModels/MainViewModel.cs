@@ -377,6 +377,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyPropertyChangedFor(nameof(IsFolderSelected))]
     [NotifyPropertyChangedFor(nameof(IsNodeSelected))]
     [NotifyCanExecuteChangedFor(nameof(AddFolderCommand))]
+    [NotifyCanExecuteChangedFor(nameof(InsertFolderAboveCommand))]
     [NotifyCanExecuteChangedFor(nameof(AddRequestCommand))]
     [NotifyCanExecuteChangedFor(nameof(RenameNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteNodeCommand))]
@@ -3866,6 +3867,47 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     [RelayCommand]
+    private void NewItem()
+    {
+        var initial = ParseLastNewItemKind(UiPreferences.LastNewItemKind);
+        if (!Views.NewItemDialog.TryPick(
+                Application.Current?.MainWindow,
+                initial,
+                canCreateFolder: CanAddFolder(),
+                canCreateRequest: CanAddRequest(),
+                out var kind))
+        {
+            return;
+        }
+
+        UiPreferences.LastNewItemKind = kind.ToString();
+        PersistUiPreferences();
+
+        switch (kind)
+        {
+            case Views.NewItemKind.Collection:
+                AddCollection();
+                break;
+            case Views.NewItemKind.Folder:
+                AddFolder();
+                break;
+            case Views.NewItemKind.Request:
+                AddRequest();
+                break;
+        }
+    }
+
+    private static Views.NewItemKind ParseLastNewItemKind(string? value)
+    {
+        if (Enum.TryParse<Views.NewItemKind>(value, ignoreCase: true, out var kind))
+        {
+            return kind;
+        }
+
+        return Views.NewItemKind.Request;
+    }
+
+    [RelayCommand]
     private void AddCollection()
     {
         if (!TryPromptName("New Collection", "Collection name:", "New Collection", out var name))
@@ -3885,7 +3927,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [RelayCommand(CanExecute = nameof(CanAddFolder))]
     private void AddFolder()
     {
-        if (SelectedNode is null || !CanAddFolder())
+        if (!TryGetContainerParent(out var parent))
         {
             return;
         }
@@ -3899,7 +3941,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         var node = new FolderNodeViewModel(model);
         node.AttachUndoRecorder(this);
 
-        switch (SelectedNode)
+        switch (parent)
         {
             case CollectionNodeViewModel collection:
                 collection.Model.Folders.Add(model);
@@ -3913,18 +3955,37 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 return;
         }
 
+        parent.IsExpanded = true;
         SelectedNode = node;
         RecordUndo(CreateRemoveAction(node, $"Add folder '{name}'"));
         StatusMessage = $"Created folder '{name}' (Ctrl+S to persist)";
     }
 
-    private bool CanAddFolder() =>
-        SelectedNode is CollectionNodeViewModel or FolderNodeViewModel;
+    private bool CanAddFolder() => TryGetContainerParent(out _);
+
+    [RelayCommand(CanExecute = nameof(CanInsertFolderAbove))]
+    private void InsertFolderAbove()
+    {
+        if (!TryWrapSelectionInNewFolder(
+                dialogTitle: "Insert Folder Above",
+                undoDescription: (name, batch) => $"Insert folder '{name}' above selection",
+                selectFolderAfter: true,
+                out var status))
+        {
+            return;
+        }
+
+        StatusMessage = status;
+    }
+
+    private bool CanInsertFolderAbove() =>
+        TryGetMoveToNewSubFolderTarget(out _, out _, out _)
+        && Keyboard.FocusedElement is not TextBox;
 
     [RelayCommand(CanExecute = nameof(CanAddRequest))]
     private void AddRequest()
     {
-        if (SelectedNode is null || !CanAddRequest())
+        if (!TryGetContainerParent(out var parent))
         {
             return;
         }
@@ -3938,12 +3999,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         {
             Name = name,
             Verb = HttpVerb.GET,
-            Address = "https://httpbin.org/get"
+            Address = name
         };
         var node = new RequestNodeViewModel(model);
         node.AttachUndoRecorder(this);
 
-        switch (SelectedNode)
+        switch (parent)
         {
             case CollectionNodeViewModel collection:
                 collection.Model.Requests.Add(model);
@@ -3957,13 +4018,35 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 return;
         }
 
+        parent.IsExpanded = true;
         SelectedNode = node;
         RecordUndo(CreateRemoveAction(node, $"Add request '{name}'"));
         StatusMessage = $"Created request '{name}' (Ctrl+S to persist)";
     }
 
-    private bool CanAddRequest() =>
-        SelectedNode is CollectionNodeViewModel or FolderNodeViewModel;
+    private bool CanAddRequest() => TryGetContainerParent(out _);
+
+    /// <summary>
+    /// Parent for a new folder/request: the selected collection/folder, or the parent of a selected request.
+    /// </summary>
+    private bool TryGetContainerParent(out TreeNodeViewModel parent)
+    {
+        parent = null!;
+        var container = SelectedNode switch
+        {
+            CollectionNodeViewModel or FolderNodeViewModel => SelectedNode,
+            RequestNodeViewModel request => request.Parent,
+            _ => null
+        };
+
+        if (container is not (CollectionNodeViewModel or FolderNodeViewModel))
+        {
+            return false;
+        }
+
+        parent = container;
+        return true;
+    }
 
     [RelayCommand(CanExecute = nameof(CanRenameNode))]
     private void RenameNode()
@@ -4449,19 +4532,47 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         MoveNodeUpCommand.NotifyCanExecuteChanged();
         MoveNodeDownCommand.NotifyCanExecuteChanged();
         MoveToNewSubFolderCommand.NotifyCanExecuteChanged();
+        InsertFolderAboveCommand.NotifyCanExecuteChanged();
     }
 
     [RelayCommand(CanExecute = nameof(CanMoveToNewSubFolder))]
     private void MoveToNewSubFolder()
     {
-        if (!TryGetMoveToNewSubFolderTarget(out var batch, out var parent, out var insertAt))
+        if (!TryWrapSelectionInNewFolder(
+                dialogTitle: "Move to New Sub-folder",
+                undoDescription: (name, batch) => batch.Count == 1
+                    ? $"Move '{batch[0].Name}' to new sub-folder '{name}'"
+                    : $"Move {batch.Count} items to new sub-folder '{name}'",
+                selectFolderAfter: false,
+                out var status))
         {
             return;
         }
 
-        if (!TryPromptName("Move to New Sub-folder", "Folder name:", "New Folder", out var name))
+        StatusMessage = status;
+    }
+
+    private bool CanMoveToNewSubFolder() =>
+        TryGetMoveToNewSubFolderTarget(out _, out _, out _);
+
+    /// <summary>
+    /// Creates a folder beside the selection and moves the selection into it (folder becomes parent).
+    /// </summary>
+    private bool TryWrapSelectionInNewFolder(
+        string dialogTitle,
+        Func<string, IReadOnlyList<TreeNodeViewModel>, string> undoDescription,
+        bool selectFolderAfter,
+        out string statusMessage)
+    {
+        statusMessage = string.Empty;
+        if (!TryGetMoveToNewSubFolderTarget(out var batch, out var parent, out var insertAt))
         {
-            return;
+            return false;
+        }
+
+        if (!TryPromptName(dialogTitle, "Folder name:", "New Folder", out var name))
+        {
+            return false;
         }
 
         var model = new FolderDefinition { Name = name };
@@ -4492,36 +4603,44 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         if (!movedAny)
         {
-            // Folder was created but nothing moved — remove it and abort.
             RemoveNodeCore(folder);
-            StatusMessage = "Could not move selection into a new sub-folder";
-            return;
+            statusMessage = "Could not move selection into a new folder";
+            return false;
         }
 
         undoSteps.Add(CreateRemoveAction(folder, $"Add folder '{name}'"));
         RecordUndo(new CompositeUndoAction(
-            batch.Count == 1
-                ? $"Move '{batch[0].Name}' to new sub-folder '{name}'"
-                : $"Move {batch.Count} items to new sub-folder '{name}'",
+            undoDescription(name, batch),
             undoSteps,
-            selectAfter: batch,
-            selectAfterInverse: batch));
+            selectAfter: selectFolderAfter ? [folder] : batch,
+            selectAfterInverse: selectFolderAfter ? [folder] : batch));
 
-        ReplaceSelection(batch, batch[0]);
-        SelectedNode = batch[0];
+        if (selectFolderAfter)
+        {
+            ReplaceSelection([folder], folder);
+            SelectedNode = folder;
+        }
+        else
+        {
+            ReplaceSelection(batch, batch[0]);
+            SelectedNode = batch[0];
+        }
+
         RefreshRowLayoutAfterMove(folder);
         foreach (var node in batch)
         {
             RefreshRowLayoutAfterMove(node);
         }
 
-        StatusMessage = batch.Count == 1
-            ? $"Moved '{batch[0].Name}' into new folder '{name}' (Ctrl+S to persist)"
-            : $"Moved {batch.Count} items into new folder '{name}' (Ctrl+S to persist)";
+        statusMessage = selectFolderAfter
+            ? (batch.Count == 1
+                ? $"Inserted folder '{name}' above '{batch[0].Name}' (Ctrl+S to persist)"
+                : $"Inserted folder '{name}' above {batch.Count} items (Ctrl+S to persist)")
+            : (batch.Count == 1
+                ? $"Moved '{batch[0].Name}' into new folder '{name}' (Ctrl+S to persist)"
+                : $"Moved {batch.Count} items into new folder '{name}' (Ctrl+S to persist)");
+        return true;
     }
-
-    private bool CanMoveToNewSubFolder() =>
-        TryGetMoveToNewSubFolderTarget(out _, out _, out _);
 
     /// <summary>
     /// Selection must be non-collection nodes that share one collection/folder parent.

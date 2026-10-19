@@ -419,6 +419,16 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.Key == Key.T && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            if (TryFocusSelectedTreeNode())
+            {
+                e.Handled = true;
+            }
+
+            return;
+        }
+
         if (e.Key != Key.Escape)
         {
             return;
@@ -433,7 +443,55 @@ public partial class MainWindow : Window
         if (_treeDragDrop.CancelPendingOrIndicators())
         {
             e.Handled = true;
+            return;
         }
+
+        if (TryClearFocusedTextSelection())
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (TryFocusSelectedTreeNode())
+        {
+            e.Handled = true;
+        }
+    }
+
+    private void FocusTree_OnClick(object sender, RoutedEventArgs e) =>
+        TryFocusSelectedTreeNode();
+
+    private bool TryFocusSelectedTreeNode()
+    {
+        if (DataContext is not MainViewModel { SelectedNode: { } selected })
+        {
+            return false;
+        }
+
+        return TryFocusTreeNode(selected);
+    }
+
+    /// <summary>
+    /// Clears a text selection in the focused editor. Returns true when something was highlighted.
+    /// </summary>
+    private static bool TryClearFocusedTextSelection()
+    {
+        if (Keyboard.FocusedElement is TextBox textBox && textBox.SelectionLength > 0)
+        {
+            var caret = textBox.SelectionStart;
+            textBox.SelectionLength = 0;
+            textBox.CaretIndex = caret;
+            return true;
+        }
+
+        if (Keyboard.FocusedElement is RichTextBox richText
+            && !richText.Selection.IsEmpty)
+        {
+            richText.Selection.Select(richText.Selection.Start, richText.Selection.Start);
+            return true;
+        }
+
+        return false;
     }
 
     private void MainWindow_OnPreviewKeyUp(object sender, KeyEventArgs e)
@@ -619,6 +677,15 @@ public partial class MainWindow : Window
         {
             TreeFilterBox.Focus();
             TreeFilterBox.CaretIndex = TreeFilterBox.Text?.Length ?? 0;
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Insert
+            && Keyboard.Modifiers == ModifierKeys.None
+            && vm.InsertFolderAboveCommand.CanExecute(null))
+        {
+            vm.InsertFolderAboveCommand.Execute(null);
             e.Handled = true;
             return;
         }

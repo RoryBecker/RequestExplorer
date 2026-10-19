@@ -136,7 +136,7 @@
                     Height="32"
                     Content="Send"
                     Style="{StaticResource PrimaryButton}"
-                    ToolTip="Send request (Ctrl+Enter)"
+                    ToolTip="Send request (Alt+X)"
                     Command="{Binding DataContext.SendRequestCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
 
             <Button Grid.Column="3"
@@ -294,7 +294,8 @@
                         <StackPanel Margin="0,16,0,0"
                                     Visibility="{Binding IsAuthBearer, Converter={StaticResource BoolToVis}}">
                             <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Bearer token" />
-                            <TextBox views:VariableTokenToolTips.IsEnabled="True"
+                            <TextBox x:Name="BearerTokenBox"
+                                     views:VariableTokenToolTips.IsEnabled="True"
                                      Text="{Binding BearerToken, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
 

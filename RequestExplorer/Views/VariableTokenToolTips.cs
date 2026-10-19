@@ -46,6 +46,12 @@ public static class VariableTokenToolTips
         {
             ClearTooltip(element);
         }
+
+        // Same fields also offer "Replace with {{variable}}" when selection matches a value.
+        if (element is TextBox)
+        {
+            ReplaceMatchingVariableMenu.SetIsEnabled(element, e.NewValue is true);
+        }
     }
 
     private static void OnMouseLeave(object sender, MouseEventArgs e)

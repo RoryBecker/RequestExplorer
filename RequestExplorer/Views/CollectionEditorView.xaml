@@ -106,7 +106,7 @@
             <TextBlock Margin="0,8,0,0"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource App.MutedBrush}"
-                       Text="Variables defined here are available to all requests in this collection via {{{{name}}}}. Closer folders override matching names." />
+                       Text="{}Variables defined here are available to all requests in this collection via {{name}}. Closer folders override matching names." />
         </StackPanel>
 
         <DockPanel Grid.Row="3" Margin="0,0,0,12">

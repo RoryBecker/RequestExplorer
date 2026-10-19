@@ -106,7 +106,7 @@
             <TextBlock Margin="0,8,0,0"
                        TextWrapping="Wrap"
                        Foreground="{DynamicResource App.MutedBrush}"
-                       Text="Variables defined here override matching names from parent folders or the collection when resolving {{{{name}}}}." />
+                       Text="{}Variables defined here override matching names from parent folders or the collection when resolving {{name}}." />
         </StackPanel>
 
         <DockPanel Grid.Row="3" Margin="0,0,0,12">

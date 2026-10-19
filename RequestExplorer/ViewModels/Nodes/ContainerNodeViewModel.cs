@@ -180,7 +180,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     }
 
     /// <summary>Pastes rows before the spare row. Returns how many rows were inserted.</summary>
-    public int PasteVariableRows(IReadOnlyList<KeyValueClipboardRow> rows)
+    public int PasteVariableRows(IReadOnlyList<KeyValueClipboardRow> rows, string operation = "Paste")
     {
         if (rows.Count == 0)
         {
@@ -206,7 +206,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             var vm = CreateVariableVm(model);
             var index = GetInsertBeforeSpareIndex(Variables);
             InsertVariableRow(vm, index);
-            undoRemoves.Add(new RemoveVariableRowAction(this, vm, index, $"Paste variable '{vm.Key}'"));
+            undoRemoves.Add(new RemoveVariableRowAction(this, vm, index, $"{operation} variable '{vm.Key}'"));
             inserted++;
         }
 
@@ -216,7 +216,9 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         }
 
         undoRemoves.Reverse();
-        var description = inserted == 1 ? "Paste variable row" : $"Paste {inserted} variable rows";
+        var description = inserted == 1
+            ? $"{operation} variable row"
+            : $"{operation} {inserted} variable rows";
         if (_undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
         {
             _undoRecorder.Record(new CompositeUndoAction(description, undoRemoves));

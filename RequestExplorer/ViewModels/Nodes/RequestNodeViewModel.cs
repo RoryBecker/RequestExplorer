@@ -606,7 +606,10 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         listKind == KeyValueListKind.Params ? Params.IndexOf(item) : Headers.IndexOf(item);
 
     /// <summary>Pastes rows before the spare row. Returns how many rows were inserted.</summary>
-    public int PasteKeyValueRows(KeyValueListKind listKind, IReadOnlyList<KeyValueClipboardRow> rows)
+    public int PasteKeyValueRows(
+        KeyValueListKind listKind,
+        IReadOnlyList<KeyValueClipboardRow> rows,
+        string operation = "Paste")
     {
         if (rows.Count == 0)
         {
@@ -643,7 +646,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
                     listKind,
                     vm,
                     index,
-                    $"Paste {label} '{vm.Key}'"));
+                    $"{operation} {label} '{vm.Key}'"));
             inserted++;
         }
 
@@ -655,8 +658,8 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         // Undo must remove last-inserted first so indices stay valid.
         undoRemoves.Reverse();
         var description = inserted == 1
-            ? $"Paste {label} row"
-            : $"Paste {inserted} {label} rows";
+            ? $"{operation} {label} row"
+            : $"{operation} {inserted} {label} rows";
         if (_undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
         {
             _undoRecorder.Record(new CompositeUndoAction(description, undoRemoves));

@@ -61,6 +61,31 @@ dotnet publish RequestExplorer -c Release -r win-x64 --self-contained true -o .\
 - Define variables on collections and folders; children inherit them (with source and shadowing shown)
 - Use `{{name}}` in URLs and other request fields
 - **Diagnose Variables** on a selection to find missing or disabled variables and jump to the affected nodes
+- Variable **values** may be dynamic recipes (see below); the stored value stays the recipe, and send/tooltips use the computed result
+
+#### Dynamic date values
+
+Set a variable’s **value** to a recipe instead of a fixed string. Reference it as usual with `{{name}}`. Default zone is **UTC**.
+
+| Value (recipe) | Meaning |
+|----------------|---------|
+| `@date(today)` | UTC calendar date today (`yyyy-MM-dd`) |
+| `@date(today-7d)` | UTC date seven days ago |
+| `@date(today+3d)` | UTC date three days ahead |
+| `@date(today-7d, yyyyMMdd)` | Same offset with a custom [.NET date format](https://learn.microsoft.com/dotnet/standard/base-types/custom-date-and-time-format-strings) |
+| `@date(today, local)` | Local calendar date |
+| `@date(now)` | UTC date-time (`yyyy-MM-ddTHH:mm:ssZ`) |
+| `@date(now-1d)` | UTC instant one day earlier |
+| `@date(now, local)` | Local date-time (no `Z` by default) |
+
+Example: key `weekAgo`, value `@date(today-7d)`, then use `{{weekAgo}}` in the URL or body.
+
+Notes:
+
+- Offsets are whole days only (`±Nd`).
+- Invalid recipes are left unchanged (the literal `@date(…)` text is kept).
+
+Full reference: [docs/VARIABLES.md](docs/VARIABLES.md).
 
 ### Expectations & Run All
 

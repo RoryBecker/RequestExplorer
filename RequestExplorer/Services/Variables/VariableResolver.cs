@@ -39,7 +39,7 @@ public static partial class VariableResolver
                     var key = item.Key.Trim();
                     if (!map.ContainsKey(key))
                     {
-                        map[key] = item.Value ?? string.Empty;
+                        map[key] = VariableValueRecipes.Resolve(item.Value);
                     }
                 }
             }
@@ -85,7 +85,7 @@ public static partial class VariableResolver
                     var key = item.Key.Trim();
                     if (!map.ContainsKey(key))
                     {
-                        map[key] = item.Value ?? string.Empty;
+                        map[key] = VariableValueRecipes.Resolve(item.Value);
                     }
                 }
             }

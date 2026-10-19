@@ -12,7 +12,7 @@ using RequestExplorer.ViewModels.Nodes;
 namespace RequestExplorer.Views;
 
 /// <summary>
-/// Ctrl+C / Ctrl+V and context-menu copy/paste of key/value rows across Params, Headers, and Variables grids.
+/// Ctrl+C / Ctrl+V and context-menu copy/paste/duplicate of key/value rows across Params, Headers, and Variables grids.
 /// Also provides Copy Name / Copy Value for the focused row (including inherited-variable grids).
 /// </summary>
 public static class KeyValueGridClipboard
@@ -104,6 +104,7 @@ public static class KeyValueGridClipboard
 
         menu.Items.Add(CreateMenuItem("Copy rows", "kv-copy", () => CopyRows(grid), "Ctrl+C"));
         menu.Items.Add(CreateMenuItem("Paste rows", "kv-paste", () => PasteRows(grid), "Ctrl+V"));
+        menu.Items.Add(CreateMenuItem("Duplicate row(s)", "kv-duplicate", () => DuplicateRows(grid)));
     }
 
     private static MenuItem CreateMenuItem(string header, string tag, Action onClick, string? gesture = null)
@@ -117,7 +118,8 @@ public static class KeyValueGridClipboard
     {
         for (var i = 0; i < menu.Items.Count; i++)
         {
-            if (menu.Items[i] is MenuItem { Tag: string tag } && tag is "kv-copy" or "kv-paste")
+            if (menu.Items[i] is MenuItem { Tag: string tag }
+                && tag is "kv-copy" or "kv-paste" or "kv-duplicate")
             {
                 return i;
             }
@@ -196,6 +198,7 @@ public static class KeyValueGridClipboard
 
             var canCopyRows = GetCopyableRows(grid).Count > 0;
             var canPaste = CanPasteInto(grid);
+            var canDuplicate = canCopyRows && TryGetPasteTarget(grid, out _, out _, out _);
             var canCopyField = TryGetPrimaryNameValue(grid, out _, out _);
             var isInherited = IsInheritedVariablesGrid(grid);
             var canGoToDefinition = isInherited && TryGetInheritedSelection(grid, out _);
@@ -214,6 +217,11 @@ public static class KeyValueGridClipboard
                 {
                     item.Visibility = showRowClipboard ? Visibility.Visible : Visibility.Collapsed;
                     item.IsEnabled = canPaste;
+                }
+                else if (Equals(item.Tag, "kv-duplicate"))
+                {
+                    item.Visibility = showRowClipboard ? Visibility.Visible : Visibility.Collapsed;
+                    item.IsEnabled = canDuplicate;
                 }
                 else if (Equals(item.Tag, "kv-copy-name") || Equals(item.Tag, "kv-copy-value"))
                 {
@@ -419,6 +427,44 @@ public static class KeyValueGridClipboard
         if (container is not null)
         {
             return container.PasteVariableRows(payload.Rows) > 0;
+        }
+
+        return false;
+    }
+
+    private static bool DuplicateRows(DataGrid grid)
+    {
+        var sourceRows = GetCopyableRows(grid);
+        if (sourceRows.Count == 0)
+        {
+            return false;
+        }
+
+        grid.CommitEdit(DataGridEditingUnit.Cell, true);
+        grid.CommitEdit(DataGridEditingUnit.Row, true);
+
+        if (!TryGetPasteTarget(grid, out var request, out var listKind, out var container))
+        {
+            return false;
+        }
+
+        var rows = sourceRows
+            .Select(r => new KeyValueClipboardRow
+            {
+                IsEnabled = r.IsEnabled,
+                Key = r.Key,
+                Value = r.Value
+            })
+            .ToList();
+
+        if (request is not null)
+        {
+            return request.PasteKeyValueRows(listKind, rows, operation: "Duplicate") > 0;
+        }
+
+        if (container is not null)
+        {
+            return container.PasteVariableRows(rows, operation: "Duplicate") > 0;
         }
 
         return false;

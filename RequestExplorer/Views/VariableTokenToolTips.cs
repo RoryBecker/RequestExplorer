@@ -117,10 +117,10 @@ public static class VariableTokenToolTips
         switch (element.DataContext)
         {
             case KeyValueItemViewModel kv when kv.HasKey:
-                tip = $"{kv.Key.Trim()} = {VariableResolver.Truncate(kv.Value, 64)}";
+                tip = $"{kv.Key.Trim()} = {VariableResolver.Truncate(VariableValueRecipes.Resolve(kv.Value), 64)}";
                 return true;
             case InheritedVariableRow inherited:
-                tip = $"{inherited.Key} = {VariableResolver.Truncate(inherited.Value, 64)}"
+                tip = $"{inherited.Key} = {VariableResolver.Truncate(VariableValueRecipes.Resolve(inherited.Value), 64)}"
                       + (string.IsNullOrEmpty(inherited.SourceName)
                           ? string.Empty
                           : $"  ({inherited.SourceName})");

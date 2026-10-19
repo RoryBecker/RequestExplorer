@@ -380,7 +380,7 @@ public static class KeyValueGridClipboard
                 return true;
             case InheritedVariableRow inherited:
                 name = inherited.Key ?? string.Empty;
-                value = inherited.Value ?? string.Empty;
+                value = inherited.VariableValue ?? string.Empty;
                 return true;
             default:
                 return false;

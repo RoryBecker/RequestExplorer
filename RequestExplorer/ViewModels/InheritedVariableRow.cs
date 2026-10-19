@@ -8,23 +8,24 @@ public sealed partial class InheritedVariableRow : ObservableObject
 {
     public InheritedVariableRow(
         string key,
-        string value,
         string sourceName,
         bool isShadowed,
         ContainerNodeViewModel sourceContainer,
         KeyValueItemViewModel sourceItem)
     {
         Key = key;
-        Value = value;
         SourceName = sourceName;
         IsShadowed = isShadowed;
         SourceContainer = sourceContainer;
         SourceItem = sourceItem;
+        SourceItem.PropertyChanged += OnSourceItemPropertyChanged;
     }
 
     public string Key { get; }
 
-    public string Value { get; }
+    /// <summary>Live value from the defining row (avoids stale snapshots / Path=Value binding issues).</summary>
+    public string VariableValue =>
+        SourceItem.Value ?? SourceItem.Model.Value ?? string.Empty;
 
     public string SourceName { get; }
 
@@ -37,4 +38,13 @@ public sealed partial class InheritedVariableRow : ObservableObject
     public KeyValueItemViewModel SourceItem { get; }
 
     public string StatusDisplay => IsShadowed ? "Overridden" : string.Empty;
+
+    private void OnSourceItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(KeyValueItemViewModel.Value)
+            or nameof(KeyValueItemViewModel.Key))
+        {
+            OnPropertyChanged(nameof(VariableValue));
+        }
+    }
 }

@@ -265,6 +265,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         RefreshDefinedVariablesGlyph();
         RefreshInheritedVariables();
         NotifyDescendantResolvedAddresses();
+        RefreshDescendantInheritedVariables();
     }
 
     private void NotifyDescendantResolvedAddresses()
@@ -283,6 +284,18 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         }
     }
 
+    private void RefreshDescendantInheritedVariables()
+    {
+        foreach (var child in Children)
+        {
+            if (child is ContainerNodeViewModel container)
+            {
+                container.RefreshInheritedVariables();
+                container.RefreshDescendantInheritedVariables();
+            }
+        }
+    }
+
     public void RefreshInheritedVariables()
     {
         InheritedVariables.Clear();
@@ -292,39 +305,42 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             Variables.Where(v => v.IsEnabled && v.HasKey).Select(v => v.Key.Trim()),
             StringComparer.OrdinalIgnoreCase);
 
-        // Farthest ancestor first: collect chain then reverse.
-        var ancestors = new List<ContainerNodeViewModel>();
+        // Nearest ancestor wins (same as VariableResolver.BuildScope) — one row per key.
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var rows = new List<InheritedVariableRow>();
+
         for (var node = Parent; node is not null; node = node.Parent)
         {
-            if (node is ContainerNodeViewModel container)
+            if (node is not ContainerNodeViewModel ancestor)
             {
-                ancestors.Add(container);
+                continue;
+            }
+
+            foreach (var variable in ancestor.Variables)
+            {
+                if (!variable.IsEnabled || !variable.HasKey)
+                {
+                    continue;
+                }
+
+                var key = variable.Key.Trim();
+                if (!seenKeys.Add(key))
+                {
+                    continue;
+                }
+
+                rows.Add(new InheritedVariableRow(
+                    key,
+                    ancestor.Name,
+                    localKeys.Contains(key),
+                    ancestor,
+                    variable));
             }
         }
 
-        ancestors.Reverse();
-
-        foreach (var ancestor in ancestors)
+        foreach (var row in rows.OrderBy(r => r.Key, StringComparer.OrdinalIgnoreCase))
         {
-            var rows = ancestor.Variables
-                .Where(v => v.IsEnabled && v.HasKey)
-                .OrderBy(v => v.Key, StringComparer.OrdinalIgnoreCase)
-                .Select(v =>
-                {
-                    var key = v.Key.Trim();
-                    return new InheritedVariableRow(
-                        key,
-                        v.Value ?? string.Empty,
-                        ancestor.Name,
-                        localKeys.Contains(key),
-                        ancestor,
-                        v);
-                });
-
-            foreach (var row in rows)
-            {
-                InheritedVariables.Add(row);
-            }
+            InheritedVariables.Add(row);
         }
 
         HasInheritedVariables = InheritedVariables.Count > 0;

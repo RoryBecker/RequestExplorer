@@ -10,6 +10,14 @@ RequestExplorer resolves `{{name}}` tokens from **enabled** variables on the req
 
 **Diagnose Variables** (tree context menu) reports missing or disabled names under the selection.
 
+### Hover tooltips
+
+| Where you hover | What you see |
+|-----------------|--------------|
+| Variable **name** (key) in Local or **Inherited** Variables grids | `name =` current calculated value (recipes such as `@date(today-7d)` are evaluated for the tooltip) |
+| Params / Headers **key** | That row’s value (recipes evaluated if present) |
+| A `{{name}}` token in URL, body, auth, etc. | That variable’s resolved value from scope |
+
 ## Dynamic value recipes
 
 A variable’s **stored value** can be a recipe. The grid keeps the recipe text; resolution turns it into a concrete string for scope, tooltips, and send.
@@ -75,7 +83,7 @@ If “now” (UTC) is `2026-10-19T15:30:00Z`, that becomes roughly:
 
 ### Behaviour notes
 
-- Recipes are evaluated when the variable scope is built (send, export, hover tooltips, “replace with `{{var}}`” matching).
+- Recipes are evaluated when the variable scope is built (send, export, name-column hover tooltips, “replace with `{{var}}`” matching).
 - If a recipe does not parse or the format string is invalid, the value is left as the original recipe text.
 - Plain values (anything that is not a recognised recipe) are unchanged.
 

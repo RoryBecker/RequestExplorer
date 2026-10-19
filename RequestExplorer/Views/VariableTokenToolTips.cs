@@ -21,6 +21,9 @@ public static class VariableTokenToolTips
             typeof(VariableTokenToolTips),
             new PropertyMetadata(false, OnIsEnabledChanged));
 
+    /// <summary>Only one cell tip at a time — prevents a prior row's tip (e.g. a resolved @date) from lingering.</summary>
+    private static FrameworkElement? _activeTipOwner;
+
     public static bool GetIsEnabled(DependencyObject obj) =>
         (bool)obj.GetValue(IsEnabledProperty);
 
@@ -36,15 +39,19 @@ public static class VariableTokenToolTips
 
         element.MouseMove -= OnMouseMove;
         element.MouseLeave -= OnMouseLeave;
+        element.DataContextChanged -= OnDataContextChanged;
 
         if (e.NewValue is true)
         {
+            // Avoid the post-close cooldown that skips tips when hopping between grid cells.
+            ToolTipService.SetBetweenShowDelay(element, 0);
             element.MouseMove += OnMouseMove;
             element.MouseLeave += OnMouseLeave;
+            element.DataContextChanged += OnDataContextChanged;
         }
         else
         {
-            ClearTooltip(element);
+            DetachTooltip(element);
         }
 
         // Same fields also offer "Replace with {{variable}}" when selection matches a value.
@@ -58,7 +65,16 @@ public static class VariableTokenToolTips
     {
         if (sender is FrameworkElement element)
         {
-            ClearTooltip(element);
+            HideTooltip(element);
+        }
+    }
+
+    private static void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        // DataGrid recycles cell visuals; drop the previous row's tip immediately.
+        if (sender is FrameworkElement element)
+        {
+            HideTooltip(element);
         }
     }
 
@@ -85,30 +101,110 @@ public static class VariableTokenToolTips
             // In the field but not on a specific token — list all refs in this text.
             tip = VariableResolver.FormatTokensTooltip(names, scope);
         }
-        else if (TryFormatRowItemTooltip(element, out var rowTip))
+        else if (IsHoveringNameColumn(element, text)
+                 && TryFormatRowItemTooltip(element, out var rowTip))
         {
-            // Param / header / variable key row: show that item's value.
+            // Name/key column only: show that row's calculated value (not Source/Value/Status).
             tip = rowTip;
         }
 
         if (string.IsNullOrEmpty(tip))
         {
-            ClearTooltip(element);
+            HideTooltip(element);
             return;
         }
 
-        if (!Equals(element.ToolTip as string, tip))
-        {
-            element.ToolTip = tip;
-        }
+        ShowTooltip(element, tip);
     }
 
-    private static void ClearTooltip(FrameworkElement element)
+    /// <summary>
+    /// True when this cell is the Key column (not Value / Status). Prefer the grid column
+    /// over text equality so recycled cells or Value==Key cannot show the wrong tip.
+    /// </summary>
+    private static bool IsHoveringNameColumn(FrameworkElement element, string displayedText)
     {
+        if (FindAncestor<DataGridCell>(element) is { Column: { } column })
+        {
+            return column.Header is string header
+                   && header.Equals("Key", StringComparison.OrdinalIgnoreCase)
+                   && element.DataContext is KeyValueItemViewModel or InheritedVariableRow;
+        }
+
+        return element.DataContext switch
+        {
+            KeyValueItemViewModel kv =>
+                string.Equals(displayedText, kv.Key ?? string.Empty, StringComparison.Ordinal),
+            InheritedVariableRow inherited =>
+                string.Equals(displayedText, inherited.Key ?? string.Empty, StringComparison.Ordinal),
+            _ => false
+        };
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? start)
+        where T : DependencyObject
+    {
+        for (DependencyObject? current = start; current is not null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (current is T match)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Updates tip content in place. Clearing <see cref="FrameworkElement.ToolTip"/> while a popup
+    /// is open (common when flicking across DataGrid rows) leaves ToolTipService unable to show
+    /// again until focus/mouse resets — so we keep a <see cref="ToolTip"/> instance and only hide it.
+    /// </summary>
+    private static void ShowTooltip(FrameworkElement element, string text)
+    {
+        if (_activeTipOwner is not null && !ReferenceEquals(_activeTipOwner, element))
+        {
+            HideTooltip(_activeTipOwner);
+        }
+
+        _activeTipOwner = element;
+
+        if (element.ToolTip is ToolTip existing)
+        {
+            if (!Equals(existing.Content as string, text))
+            {
+                existing.Content = text;
+            }
+
+            return;
+        }
+
+        element.ToolTip = new ToolTip { Content = text };
+    }
+
+    private static void HideTooltip(FrameworkElement element)
+    {
+        if (ReferenceEquals(_activeTipOwner, element))
+        {
+            _activeTipOwner = null;
+        }
+
+        if (element.ToolTip is ToolTip tip)
+        {
+            tip.IsOpen = false;
+            tip.Content = null;
+            return;
+        }
+
         if (element.ToolTip is string)
         {
             element.ToolTip = null;
         }
+    }
+
+    private static void DetachTooltip(FrameworkElement element)
+    {
+        HideTooltip(element);
+        element.ToolTip = null;
     }
 
     private static bool TryFormatRowItemTooltip(FrameworkElement element, out string? tip)
@@ -117,18 +213,19 @@ public static class VariableTokenToolTips
         switch (element.DataContext)
         {
             case KeyValueItemViewModel kv when kv.HasKey:
-                tip = $"{kv.Key.Trim()} = {VariableResolver.Truncate(VariableValueRecipes.Resolve(kv.Value), 64)}";
+                tip = $"{kv.Key.Trim()} = {FormatRowValue(kv.Value)}";
                 return true;
             case InheritedVariableRow inherited:
-                tip = $"{inherited.Key} = {VariableResolver.Truncate(VariableValueRecipes.Resolve(inherited.Value), 64)}"
-                      + (string.IsNullOrEmpty(inherited.SourceName)
-                          ? string.Empty
-                          : $"  ({inherited.SourceName})");
+                // Key = value only (no source suffix — that "(…)" was mistaken for data).
+                tip = $"{inherited.Key} = {FormatRowValue(inherited.VariableValue)}";
                 return true;
             default:
                 return false;
         }
     }
+
+    private static string FormatRowValue(string? stored) =>
+        VariableResolver.Truncate(VariableValueRecipes.Resolve(stored), 64);
 
     private static string GetText(FrameworkElement element) =>
         element switch

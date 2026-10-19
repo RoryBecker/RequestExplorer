@@ -62,6 +62,7 @@ dotnet publish RequestExplorer -c Release -r win-x64 --self-contained true -o .\
 - Use `{{name}}` in URLs and other request fields
 - **Diagnose Variables** on a selection to find missing or disabled variables and jump to the affected nodes
 - Variable **values** may be dynamic recipes (see below); the stored value stays the recipe, and send/tooltips use the computed result
+- Hover the **name** (key) of a variable in any Variables grid — including **Inherited** — to see a tooltip with the current calculated value (e.g. resolved `@date(…)` recipes). The same hover works on Params/Headers keys (shows that row’s value). Hovering `{{name}}` tokens in URL/body/auth fields shows each token’s resolved value.
 
 #### Dynamic date values
 

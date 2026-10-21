@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Threading;
 using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Views;
@@ -104,59 +103,28 @@ public partial class ResponsePanelView
 
     private void BodySearchBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key is not Key.Enter and not Key.Return)
-        {
-            return;
-        }
-
         if (_subscribedResponse is null)
         {
             return;
         }
 
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
-        {
-            _subscribedResponse.FindPreviousBodyMatchCommand.Execute(null);
-        }
-        else
-        {
-            _subscribedResponse.FindNextBodyMatchCommand.Execute(null);
-        }
-
-        e.Handled = true;
+        TextFindHighlight.TryHandleFindKeys(
+            e,
+            () => _subscribedResponse.FindNextBodyMatchCommand.Execute(null),
+            () => _subscribedResponse.FindPreviousBodyMatchCommand.Execute(null));
     }
 
     private void OnBodySearchSelectionRequested()
     {
-        if (_subscribedResponse is null || BodyTextBox is null)
+        if (_subscribedResponse is null)
         {
             return;
         }
 
-        var start = _subscribedResponse.BodySearchSelectStart;
-        var length = _subscribedResponse.BodySearchSelectLength;
-        if (length <= 0 || start < 0 || start + length > BodyTextBox.Text.Length)
-        {
-            BodyTextBox.Select(0, 0);
-            return;
-        }
-
-        // Defer so a Find-button click can release focus; WPF only paints selection on a focused TextBox.
-        Dispatcher.BeginInvoke(() =>
-        {
-            if (BodyTextBox is null)
-            {
-                return;
-            }
-
-            BodyTextBox.Focus();
-            BodyTextBox.Select(start, length);
-            var line = BodyTextBox.GetLineIndexFromCharacterIndex(start);
-            if (line >= 0)
-            {
-                BodyTextBox.ScrollToLine(line);
-            }
-        }, DispatcherPriority.Input);
+        TextFindHighlight.Apply(
+            BodyTextBox,
+            _subscribedResponse.BodySearchSelectStart,
+            _subscribedResponse.BodySearchSelectLength);
     }
 
     private void ExpectedBodyMenu_OnOpened(object sender, RoutedEventArgs e)
@@ -254,17 +222,13 @@ public partial class ResponsePanelView
             return;
         }
 
-        ExpectedBodyTextBox.Focus();
-        ExpectedBodyTextBox.Select(found, query.Length);
-        var line = ExpectedBodyTextBox.GetLineIndexFromCharacterIndex(found);
-        if (line >= 0)
-        {
-            ExpectedBodyTextBox.ScrollToLine(line);
-        }
-
+        TextFindHighlight.Apply(ExpectedBodyTextBox, found, query.Length);
         _expectedBodyFindFromIndex = direction >= 0 ? found + query.Length : found;
         UpdateExpectedBodyFindStatus(found);
     }
+
+    private void ExpectedBodyFindBox_OnPreviewKeyDown(object sender, KeyEventArgs e) =>
+        TextFindHighlight.TryHandleFindKeys(e, () => MoveExpectedBodyFind(1), () => MoveExpectedBodyFind(-1));
 
     private void UpdateExpectedBodyFindStatus(int? currentIndex = null)
     {

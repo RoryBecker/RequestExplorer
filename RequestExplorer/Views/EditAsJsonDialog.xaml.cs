@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using RequestExplorer.Services;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
@@ -152,11 +153,13 @@ public partial class EditAsJsonDialog : Window
             return;
         }
 
-        EditorBox.Focus();
-        EditorBox.Select(found, query.Length);
+        TextFindHighlight.Apply(EditorBox, found, query.Length);
         _findFromIndex = direction >= 0 ? found + query.Length : found;
         UpdateFindStatus(found);
     }
+
+    private void FindBox_OnPreviewKeyDown(object sender, KeyEventArgs e) =>
+        TextFindHighlight.TryHandleFindKeys(e, () => MoveFind(1), () => MoveFind(-1));
 
     private void UpdateFindStatus(int? currentIndex = null)
     {

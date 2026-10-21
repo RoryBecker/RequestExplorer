@@ -372,7 +372,8 @@
                                    Foreground="{DynamicResource App.MutedBrush}" />
                         <TextBox x:Name="ExpectedBodyFindBox"
                                  VerticalContentAlignment="Center"
-                                 TextChanged="ExpectedBodyFindBox_OnTextChanged" />
+                                 TextChanged="ExpectedBodyFindBox_OnTextChanged"
+                                 PreviewKeyDown="ExpectedBodyFindBox_OnPreviewKeyDown" />
                     </DockPanel>
                     <TextBox x:Name="ExpectedBodyTextBox"
                              MinHeight="120"
@@ -381,6 +382,7 @@
                              VerticalScrollBarVisibility="Auto"
                              FontFamily="Consolas"
                              FontSize="12"
+                             IsInactiveSelectionHighlightEnabled="True"
                              IsEnabled="{Binding ExpectBodyEnabled}"
                              Text="{Binding ExpectedBody, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                              TextChanged="ExpectedBodyTextBox_OnTextChanged">

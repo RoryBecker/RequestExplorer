@@ -11,7 +11,7 @@ public static class JsonCaretPath
     public static bool TryGetPath(string? json, int caretCharIndex, out string path)
     {
         path = "$";
-        if (string.IsNullOrWhiteSpace(json))
+        if (string.IsNullOrWhiteSpace(json) || !LooksLikeJson(json))
         {
             return false;
         }
@@ -124,6 +124,12 @@ public static class JsonCaretPath
 
         path = Build(stack);
         return true;
+    }
+
+    public static bool LooksLikeJson(string text)
+    {
+        var trimmed = text.AsSpan().TrimStart();
+        return trimmed.Length > 0 && trimmed[0] is '{' or '[';
     }
 
     private static void EnterValue(List<Frame> stack)

@@ -6,7 +6,8 @@ using RequestExplorer.Services;
 namespace RequestExplorer.Views;
 
 /// <summary>
-/// Adds "Copy JSON path" to a TextBox context menu when the caret/click is inside valid JSON.
+/// Adds "Copy JSON path" / "Copy XML path" to a TextBox context menu when the
+/// caret/click is inside valid JSON or XML.
 /// </summary>
 public static class JsonPathMenu
 {
@@ -51,7 +52,21 @@ public static class JsonPathMenu
         ClearPathItems(menu);
 
         var index = GetJsonIndex(textBox);
-        if (!JsonCaretPath.TryGetPath(textBox.Text, index, out var path))
+        var text = textBox.Text ?? string.Empty;
+        string? kind = null;
+        string? path = null;
+        if (JsonCaretPath.TryGetPath(text, index, out var jsonPath))
+        {
+            kind = "JSON";
+            path = jsonPath;
+        }
+        else if (XmlCaretPath.TryGetPath(text, index, out var xmlPath))
+        {
+            kind = "XML";
+            path = xmlPath;
+        }
+
+        if (kind is null || path is null)
         {
             return;
         }
@@ -64,7 +79,7 @@ public static class JsonPathMenu
         var captured = path;
         var item = new MenuItem
         {
-            Header = FormatHeader(captured),
+            Header = FormatHeader(kind, captured),
             Tag = MenuTag,
             ToolTip = captured
         };
@@ -96,12 +111,12 @@ public static class JsonPathMenu
         return textBox.CaretIndex;
     }
 
-    private static string FormatHeader(string path)
+    private static string FormatHeader(string kind, string path)
     {
         var shown = path.Length <= HeaderPathMaxChars
             ? path
             : path[..(HeaderPathMaxChars - 1)] + "…";
-        return $"Copy JSON path ({EscapeMnemonic(shown)})";
+        return $"Copy {kind} path ({EscapeMnemonic(shown)})";
     }
 
     private static string EscapeMnemonic(string value) =>

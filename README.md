@@ -14,7 +14,7 @@ dotnet build RequestExplorer.sln
 dotnet run --project RequestExplorer
 ```
 
-First launch with an empty workspace seeds a small **httpbin.org Demo** collection so you can try Send immediately.
+First launch with an empty workspace seeds a small **httpbin.org Demo** collection (HTTP methods, auth, XML/SOAP) so you can try Send immediately.
 
 ### Optional publish
 

@@ -120,6 +120,40 @@ public static class SampleDataFactory
 
         collection.Folders.Add(query);
 
+        var xml = new FolderDefinition { Name = "XML & SOAP" };
+        var getXml = Req("GET XML", HttpVerb.GET, "https://httpbin.org/xml");
+        getXml.Headers.Add(new KeyValueItem { Key = "Accept", Value = "application/xml" });
+        xml.Requests.Add(getXml);
+
+        var getNote = Req("GET note.xml", HttpVerb.GET, "https://www.w3schools.com/xml/note.xml");
+        getNote.Headers.Add(new KeyValueItem { Key = "Accept", Value = "application/xml, text/xml" });
+        xml.Requests.Add(getNote);
+
+        var soap = Req(
+            "SOAP NumberToWords",
+            HttpVerb.POST,
+            "https://www.dataaccess.com/webservicesserver/NumberConversion.wso",
+            body: """
+                <?xml version="1.0" encoding="utf-8"?>
+                <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                  <soap:Body>
+                    <NumberToWords xmlns="http://www.dataaccess.com/webservicesserver/">
+                      <ubiNum>42</ubiNum>
+                    </NumberToWords>
+                  </soap:Body>
+                </soap:Envelope>
+                """,
+            contentType: "text/xml; charset=utf-8");
+        soap.Headers.Add(new KeyValueItem
+        {
+            Key = "SOAPAction",
+            Value = "\"http://www.dataaccess.com/webservicesserver/NumberToWords\""
+        });
+        soap.Headers.Add(new KeyValueItem { Key = "Accept", Value = "text/xml" });
+        xml.Requests.Add(soap);
+
+        collection.Folders.Add(xml);
+
         return collection;
     }
 

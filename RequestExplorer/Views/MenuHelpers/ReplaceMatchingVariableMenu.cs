@@ -8,7 +8,7 @@ using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.MenuHelpers;
 
 /// <summary>
 /// When selected text matches a scoped variable's value, offers

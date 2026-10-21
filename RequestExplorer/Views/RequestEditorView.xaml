@@ -2,7 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:RequestExplorer.ViewModels.Nodes"
-             xmlns:views="clr-namespace:RequestExplorer.Views">
+             xmlns:views="clr-namespace:RequestExplorer.Views"
+             xmlns:gridHelpers="clr-namespace:RequestExplorer.Views.GridHelpers"
+             xmlns:menuHelpers="clr-namespace:RequestExplorer.Views.MenuHelpers">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
@@ -11,9 +13,9 @@
             <Setter Property="CanUserAddRows" Value="False" />
             <Setter Property="CanUserDeleteRows" Value="False" />
             <Setter Property="CanUserResizeColumns" Value="True" />
-            <Setter Property="views:KeyValueGridSorting.SpareAwareSort" Value="True" />
-            <Setter Property="views:KeyValueGridClipboard.EnableRowClipboard" Value="True" />
-            <Setter Property="views:KeyValueGridVariableMenus.EnableMoveMenus" Value="True" />
+            <Setter Property="gridHelpers:KeyValueGridSorting.SpareAwareSort" Value="True" />
+            <Setter Property="gridHelpers:KeyValueGridClipboard.EnableRowClipboard" Value="True" />
+            <Setter Property="menuHelpers:KeyValueGridVariableMenus.EnableMoveMenus" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />
             <Setter Property="HorizontalGridLinesBrush" Value="{DynamicResource App.GridLineBrush}" />
@@ -133,7 +135,7 @@
                      Height="32"
                      VerticalContentAlignment="Center"
                      views:VariableTokenToolTips.IsEnabled="True"
-                     views:UrlExtractAsVariableMenu.IsEnabled="True"
+                     menuHelpers:UrlExtractAsVariableMenu.IsEnabled="True"
                      Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" />
 
             <Button Grid.Column="2"
@@ -194,7 +196,7 @@
                              FontFamily="Consolas"
                              FontSize="12"
                              views:VariableTokenToolTips.IsEnabled="True"
-                             views:JsonPathMenu.IsEnabled="True"
+                             menuHelpers:JsonPathMenu.IsEnabled="True"
                              Text="{Binding BodyContent, UpdateSourceTrigger=PropertyChanged}" />
                 </DockPanel>
             </TabItem>

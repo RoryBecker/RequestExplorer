@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.GridHelpers;
 
 /// <summary>Scrolls the DataGrid's selected item into view when selection changes.</summary>
 public static class KeyValueGridSelectionSync

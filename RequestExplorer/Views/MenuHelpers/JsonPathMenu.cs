@@ -3,7 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using RequestExplorer.Services.CaretPath;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.MenuHelpers;
 
 /// <summary>
 /// Adds "Copy JSON path" / "Copy XML path" to a TextBox context menu when the

@@ -6,7 +6,7 @@ using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.MenuHelpers;
 
 /// <summary>
 /// Adds "Extract as Variable" to a TextBox context menu when text is selected

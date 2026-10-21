@@ -5,7 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using RequestExplorer.ViewModels;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.GridHelpers;
 
 /// <summary>
 /// DataGrid sorting that keeps blank-key (spare) rows last, and parks disabled

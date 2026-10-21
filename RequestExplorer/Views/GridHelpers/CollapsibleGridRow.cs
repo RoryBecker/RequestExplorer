@@ -3,7 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.GridHelpers;
 
 /// <summary>
 /// When an element in a grid row is hidden, collapses that row's height so a

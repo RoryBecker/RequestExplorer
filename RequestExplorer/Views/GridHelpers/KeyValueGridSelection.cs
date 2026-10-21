@@ -2,7 +2,7 @@ using System.Collections;
 using System.Windows.Controls;
 using RequestExplorer.ViewModels;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.GridHelpers;
 
 /// <summary>Safe multi-select helpers for key/value DataGrids.</summary>
 internal static class KeyValueGridSelection

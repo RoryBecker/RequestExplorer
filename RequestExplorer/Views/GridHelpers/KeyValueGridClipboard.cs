@@ -9,7 +9,7 @@ using RequestExplorer.Services.Undo;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.GridHelpers;
 
 /// <summary>
 /// Ctrl+C / Ctrl+V and context-menu copy/paste/duplicate of key/value rows across Params, Headers, and Variables grids.

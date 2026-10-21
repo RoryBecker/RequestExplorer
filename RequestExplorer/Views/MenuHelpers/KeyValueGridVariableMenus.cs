@@ -5,8 +5,9 @@ using RequestExplorer.Services.Undo;
 using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
+using RequestExplorer.Views.GridHelpers;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.MenuHelpers;
 
 /// <summary>
 /// Context-menu Move actions that relocate Params/Headers/Variables rows to named container targets.

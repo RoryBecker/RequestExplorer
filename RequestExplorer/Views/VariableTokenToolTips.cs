@@ -5,6 +5,7 @@ using System.Windows.Media;
 using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
+using RequestExplorer.Views.MenuHelpers;
 
 namespace RequestExplorer.Views;
 

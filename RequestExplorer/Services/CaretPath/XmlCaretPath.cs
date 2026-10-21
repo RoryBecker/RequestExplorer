@@ -2,7 +2,7 @@ using System.IO;
 using System.Text;
 using System.Xml;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.CaretPath;
 
 /// <summary>
 /// Maps a UTF-16 caret index in an XML document to an XPath such as

@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.CaretPath;
 
 /// <summary>
 /// Maps a UTF-16 caret index in a JSON document to a JSONPath such as <c>$.items[2].name</c>.

@@ -1,4 +1,4 @@
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Tree;
 
 /// <summary>Session-only back/forward history of tree node ids (browser-style).</summary>
 public sealed class TreeNavigationHistory

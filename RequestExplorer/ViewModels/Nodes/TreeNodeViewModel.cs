@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
-using RequestExplorer.Services;
+using RequestExplorer.Services.Tree;
 
 namespace RequestExplorer.ViewModels.Nodes;
 

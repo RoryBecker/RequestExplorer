@@ -1,4 +1,4 @@
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Tree;
 
 public enum TreeDropPlacement
 {

@@ -1,7 +1,7 @@
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Tree;
 
 /// <summary>Drag payload for one or more tree nodes moved together.</summary>
 public sealed class TreeNodeDragPayload

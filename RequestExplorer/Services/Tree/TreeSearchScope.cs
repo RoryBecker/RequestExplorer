@@ -1,4 +1,4 @@
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Tree;
 
 /// <summary>Which parts of a node contribute to <c>SearchText</c> for tree filtering.</summary>
 public readonly record struct TreeSearchScope(bool IncludeAncestors, bool IncludeName, bool IncludeUrl)

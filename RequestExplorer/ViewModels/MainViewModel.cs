@@ -16,6 +16,7 @@ using RequestExplorer.Services.OpenApi;
 using RequestExplorer.Services.Postman;
 using RequestExplorer.Services.Preferences;
 using RequestExplorer.Services.Themes;
+using RequestExplorer.Services.Tree;
 using RequestExplorer.Services.Undo;
 using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels.Nodes;

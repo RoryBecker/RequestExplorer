@@ -2,7 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using RequestExplorer.Models;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Tree;
 
 public static class TreeNodeCloneService
 {

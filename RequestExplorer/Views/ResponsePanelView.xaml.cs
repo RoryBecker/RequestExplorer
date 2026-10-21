@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Views;
@@ -140,13 +141,22 @@ public partial class ResponsePanelView
             return;
         }
 
-        // Keep caret in the Find box so the query can be typed in full.
-        BodyTextBox.Select(start, length);
-        var line = BodyTextBox.GetLineIndexFromCharacterIndex(start);
-        if (line >= 0)
+        // Defer so a Find-button click can release focus; WPF only paints selection on a focused TextBox.
+        Dispatcher.BeginInvoke(() =>
         {
-            BodyTextBox.ScrollToLine(line);
-        }
+            if (BodyTextBox is null)
+            {
+                return;
+            }
+
+            BodyTextBox.Focus();
+            BodyTextBox.Select(start, length);
+            var line = BodyTextBox.GetLineIndexFromCharacterIndex(start);
+            if (line >= 0)
+            {
+                BodyTextBox.ScrollToLine(line);
+            }
+        }, DispatcherPriority.Input);
     }
 
     private void ExpectedBodyMenu_OnOpened(object sender, RoutedEventArgs e)

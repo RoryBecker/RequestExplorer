@@ -7,7 +7,7 @@ using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 using RequestExplorer.Views.MenuHelpers;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.OtherHelpers;
 
 /// <summary>
 /// Hover tooltips for <c>{{variable}}</c> tokens (resolved value) and for

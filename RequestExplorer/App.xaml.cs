@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using RequestExplorer.Services.Themes;
+using RequestExplorer.Views.OtherHelpers;
 
 namespace RequestExplorer;
 

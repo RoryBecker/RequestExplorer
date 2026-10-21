@@ -4,7 +4,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.OtherHelpers;
 
 /// <summary>
 /// Commits in-progress editor state (titles, DataGrid cells, focused TextBox bindings)

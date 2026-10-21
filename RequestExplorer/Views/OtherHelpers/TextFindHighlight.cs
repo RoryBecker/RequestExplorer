@@ -2,7 +2,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Threading;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.OtherHelpers;
 
 /// <summary>
 /// Shared Find-in-text behavior: type the whole query first; Enter / next / previous

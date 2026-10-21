@@ -4,6 +4,7 @@ using System.Windows.Input;
 using RequestExplorer.Services.Tree;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
+using RequestExplorer.Views.OtherHelpers;
 
 namespace RequestExplorer.Views;
 

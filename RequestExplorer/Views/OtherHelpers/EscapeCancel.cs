@@ -3,7 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
-namespace RequestExplorer;
+namespace RequestExplorer.Views.OtherHelpers;
 
 /// <summary>Global Escape handling for open context menus.</summary>
 internal static class EscapeCancel

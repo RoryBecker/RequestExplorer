@@ -2,9 +2,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:RequestExplorer.ViewModels.Nodes"
-             xmlns:views="clr-namespace:RequestExplorer.Views"
              xmlns:gridHelpers="clr-namespace:RequestExplorer.Views.GridHelpers"
-             xmlns:menuHelpers="clr-namespace:RequestExplorer.Views.MenuHelpers">
+             xmlns:menuHelpers="clr-namespace:RequestExplorer.Views.MenuHelpers"
+             xmlns:otherHelpers="clr-namespace:RequestExplorer.Views.OtherHelpers">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
@@ -46,7 +46,7 @@
         <Style x:Key="KeyValueCellText" TargetType="TextBlock">
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Padding" Value="4,0" />
-            <Setter Property="views:VariableTokenToolTips.IsEnabled" Value="True" />
+            <Setter Property="otherHelpers:VariableTokenToolTips.IsEnabled" Value="True" />
         </Style>
 
         <Style x:Key="KeyValueCellEdit" TargetType="TextBox">
@@ -54,7 +54,7 @@
             <Setter Property="Padding" Value="4,0" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="views:VariableTokenToolTips.IsEnabled" Value="True" />
+            <Setter Property="otherHelpers:VariableTokenToolTips.IsEnabled" Value="True" />
         </Style>
     </UserControl.Resources>
 
@@ -134,7 +134,7 @@
             <TextBox Grid.Column="1"
                      Height="32"
                      VerticalContentAlignment="Center"
-                     views:VariableTokenToolTips.IsEnabled="True"
+                     otherHelpers:VariableTokenToolTips.IsEnabled="True"
                      menuHelpers:UrlExtractAsVariableMenu.IsEnabled="True"
                      Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -185,7 +185,7 @@
                         <TextBox Width="220"
                                  HorizontalAlignment="Left"
                                  VerticalContentAlignment="Center"
-                                 views:VariableTokenToolTips.IsEnabled="True"
+                                 otherHelpers:VariableTokenToolTips.IsEnabled="True"
                                  Text="{Binding BodyContentType, UpdateSourceTrigger=PropertyChanged}" />
                     </DockPanel>
                     <TextBox AcceptsReturn="True"
@@ -195,7 +195,7 @@
                              HorizontalScrollBarVisibility="Auto"
                              FontFamily="Consolas"
                              FontSize="12"
-                             views:VariableTokenToolTips.IsEnabled="True"
+                             otherHelpers:VariableTokenToolTips.IsEnabled="True"
                              menuHelpers:JsonPathMenu.IsEnabled="True"
                              Text="{Binding BodyContent, UpdateSourceTrigger=PropertyChanged}" />
                 </DockPanel>
@@ -304,7 +304,7 @@
                                     Visibility="{Binding IsAuthBearer, Converter={StaticResource BoolToVis}}">
                             <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Bearer token" />
                             <TextBox x:Name="BearerTokenBox"
-                                     views:VariableTokenToolTips.IsEnabled="True"
+                                     otherHelpers:VariableTokenToolTips.IsEnabled="True"
                                      Text="{Binding BearerToken, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
 
@@ -312,10 +312,10 @@
                                     Visibility="{Binding IsAuthBasic, Converter={StaticResource BoolToVis}}">
                             <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Username" />
                             <TextBox Margin="0,0,0,8"
-                                     views:VariableTokenToolTips.IsEnabled="True"
+                                     otherHelpers:VariableTokenToolTips.IsEnabled="True"
                                      Text="{Binding BasicUsername, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Password" />
-                            <TextBox views:VariableTokenToolTips.IsEnabled="True"
+                            <TextBox otherHelpers:VariableTokenToolTips.IsEnabled="True"
                                      Text="{Binding BasicPassword, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
 
@@ -323,11 +323,11 @@
                                     Visibility="{Binding IsAuthApiKey, Converter={StaticResource BoolToVis}}">
                             <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Key name" />
                             <TextBox Margin="0,0,0,8"
-                                     views:VariableTokenToolTips.IsEnabled="True"
+                                     otherHelpers:VariableTokenToolTips.IsEnabled="True"
                                      Text="{Binding ApiKeyName, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Key value" />
                             <TextBox Margin="0,0,0,8"
-                                     views:VariableTokenToolTips.IsEnabled="True"
+                                     otherHelpers:VariableTokenToolTips.IsEnabled="True"
                                      Text="{Binding ApiKeyValue, UpdateSourceTrigger=PropertyChanged}" />
                             <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Add to" />
                             <ComboBox Width="160"

@@ -7,6 +7,7 @@ using System.Windows.Media;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 using RequestExplorer.Views;
+using RequestExplorer.Views.OtherHelpers;
 
 namespace RequestExplorer;
 

@@ -6,7 +6,7 @@ using System.Windows.Threading;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
-namespace RequestExplorer.Views;
+namespace RequestExplorer.Views.OtherHelpers;
 
 internal static class TitleEditHelper
 {

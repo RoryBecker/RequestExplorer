@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Backup;
 
 public enum BackupReason
 {

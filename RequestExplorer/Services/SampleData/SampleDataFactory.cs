@@ -3,7 +3,7 @@ using RequestExplorer.Services.Tree;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.SampleData;
 
 public static class SampleDataFactory
 {

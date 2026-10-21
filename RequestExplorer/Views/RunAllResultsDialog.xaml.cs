@@ -8,7 +8,7 @@ using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
-using RequestExplorer.Services;
+using RequestExplorer.Services.RequestExpectation;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 

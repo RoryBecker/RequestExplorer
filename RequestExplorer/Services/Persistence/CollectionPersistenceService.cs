@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using RequestExplorer.Models;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.Persistence;
 
 public sealed class CollectionPersistenceService
 {

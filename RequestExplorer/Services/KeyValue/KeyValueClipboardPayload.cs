@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 using System.Windows;
 using RequestExplorer.Models;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.KeyValue;
 
 public sealed class KeyValueClipboardRow
 {

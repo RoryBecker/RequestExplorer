@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using RequestExplorer.Models;
 
-namespace RequestExplorer.Services;
+namespace RequestExplorer.Services.RequestExecution;
 
 public sealed class HttpRequestExecutor : IDisposable
 {

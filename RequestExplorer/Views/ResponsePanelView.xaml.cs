@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using RequestExplorer.ViewModels;
 
 namespace RequestExplorer.Views;
@@ -100,6 +101,30 @@ public partial class ResponsePanelView
         ExpectationsPanel.Visibility = showExpectations ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void BodySearchBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not Key.Enter and not Key.Return)
+        {
+            return;
+        }
+
+        if (_subscribedResponse is null)
+        {
+            return;
+        }
+
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            _subscribedResponse.FindPreviousBodyMatchCommand.Execute(null);
+        }
+        else
+        {
+            _subscribedResponse.FindNextBodyMatchCommand.Execute(null);
+        }
+
+        e.Handled = true;
+    }
+
     private void OnBodySearchSelectionRequested()
     {
         if (_subscribedResponse is null || BodyTextBox is null)
@@ -111,10 +136,11 @@ public partial class ResponsePanelView
         var length = _subscribedResponse.BodySearchSelectLength;
         if (length <= 0 || start < 0 || start + length > BodyTextBox.Text.Length)
         {
+            BodyTextBox.Select(0, 0);
             return;
         }
 
-        BodyTextBox.Focus();
+        // Keep caret in the Find box so the query can be typed in full.
         BodyTextBox.Select(start, length);
         var line = BodyTextBox.GetLineIndexFromCharacterIndex(start);
         if (line >= 0)

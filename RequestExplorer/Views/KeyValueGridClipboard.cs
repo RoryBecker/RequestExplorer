@@ -105,6 +105,7 @@ public static class KeyValueGridClipboard
         menu.Items.Add(CreateMenuItem("Copy rows", "kv-copy", () => CopyRows(grid), "Ctrl+C"));
         menu.Items.Add(CreateMenuItem("Paste rows", "kv-paste", () => PasteRows(grid), "Ctrl+V"));
         menu.Items.Add(CreateMenuItem("Duplicate row(s)", "kv-duplicate", () => DuplicateRows(grid)));
+        menu.Items.Add(CreateMenuItem("_Delete", "kv-delete", () => DeleteRows(grid), "Del"));
     }
 
     private static MenuItem CreateMenuItem(string header, string tag, Action onClick, string? gesture = null)
@@ -119,7 +120,7 @@ public static class KeyValueGridClipboard
         for (var i = 0; i < menu.Items.Count; i++)
         {
             if (menu.Items[i] is MenuItem { Tag: string tag }
-                && tag is "kv-copy" or "kv-paste" or "kv-duplicate")
+                && tag is "kv-copy" or "kv-paste" or "kv-duplicate" or "kv-delete")
             {
                 return i;
             }
@@ -223,6 +224,11 @@ public static class KeyValueGridClipboard
                     item.Visibility = showRowClipboard ? Visibility.Visible : Visibility.Collapsed;
                     item.IsEnabled = canDuplicate;
                 }
+                else if (Equals(item.Tag, "kv-delete"))
+                {
+                    item.Visibility = showRowClipboard ? Visibility.Visible : Visibility.Collapsed;
+                    item.IsEnabled = canCopyRows;
+                }
                 else if (Equals(item.Tag, "kv-copy-name") || Equals(item.Tag, "kv-copy-value"))
                 {
                     item.IsEnabled = canCopyField;
@@ -275,6 +281,16 @@ public static class KeyValueGridClipboard
         if (e.Key == Key.V && Keyboard.Modifiers == ModifierKeys.Control)
         {
             if (PasteRows(grid))
+            {
+                e.Handled = true;
+            }
+
+            return;
+        }
+
+        if (e.Key == Key.Delete && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            if (DeleteRows(grid))
             {
                 e.Handled = true;
             }
@@ -427,6 +443,52 @@ public static class KeyValueGridClipboard
         if (container is not null)
         {
             return container.PasteVariableRows(payload.Rows) > 0;
+        }
+
+        return false;
+    }
+
+    private static bool DeleteRows(DataGrid grid)
+    {
+        var rows = GetCopyableRows(grid);
+        if (rows.Count == 0)
+        {
+            return false;
+        }
+
+        grid.CommitEdit(DataGridEditingUnit.Cell, true);
+        grid.CommitEdit(DataGridEditingUnit.Row, true);
+
+        if (!TryGetPasteTarget(grid, out var request, out var listKind, out var container))
+        {
+            return false;
+        }
+
+        if (container is not null)
+        {
+            foreach (var row in rows)
+            {
+                container.RemoveVariableCommand.Execute(row);
+            }
+
+            return true;
+        }
+
+        if (request is not null)
+        {
+            foreach (var row in rows)
+            {
+                if (listKind == KeyValueListKind.Params)
+                {
+                    request.RemoveParamCommand.Execute(row);
+                }
+                else
+                {
+                    request.RemoveHeaderCommand.Execute(row);
+                }
+            }
+
+            return true;
         }
 
         return false;

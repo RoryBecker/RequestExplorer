@@ -666,6 +666,15 @@
                                                     MinHeight="22"
                                                     Margin="0,1"
                                                     VerticalAlignment="Center">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsExcludedFromAutoRun}" Value="True">
+                                                            <Setter Property="Opacity" Value="0.62" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
                                             <TextBlock FontFamily="Segoe MDL2 Assets"
                                                        Text="&#xE8B7;"
                                                        Margin="0,0,6,0"
@@ -681,7 +690,19 @@
                                                        Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
                                             <TextBlock Text="{Binding DisplayName}"
                                                        VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding AutoRunExclusionToolTip}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsExcludedFromAutoRun}" Value="True">
+                                                                <Setter Property="FontStyle" Value="Italic" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource App.MutedBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                         </StackPanel>
                                     </Border>
                                     <Border Style="{StaticResource TreeDropAfterLine}" />
@@ -696,6 +717,15 @@
                                                     MinHeight="22"
                                                     Margin="0,1"
                                                     VerticalAlignment="Center">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsExcludedFromAutoRun}" Value="True">
+                                                            <Setter Property="Opacity" Value="0.62" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
                                             <TextBlock Text="{Binding Verb}"
                                                        Margin="0,0,6,0"
                                                        FontWeight="SemiBold"
@@ -703,7 +733,19 @@
                                                        Foreground="{Binding Verb, Converter={StaticResource VerbBrush}}" />
                                             <TextBlock Text="{Binding DisplayName}"
                                                        VerticalAlignment="Center"
-                                                       TextTrimming="CharacterEllipsis" />
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding AutoRunExclusionToolTip}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsExcludedFromAutoRun}" Value="True">
+                                                                <Setter Property="FontStyle" Value="Italic" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource App.MutedBrush}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
                                         </StackPanel>
                                     </Border>
                                     <Border Style="{StaticResource TreeDropAfterLine}" />

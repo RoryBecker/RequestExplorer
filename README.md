@@ -91,7 +91,7 @@ Full reference: [docs/VARIABLES.md](docs/VARIABLES.md).
 ### Expectations & Run All
 
 - Per request: expected status code; optional max response time and exact body match
-- **Run All** runs every request under the selected collection, folder, or single request
+- **Run All** runs every request under the selected collection, folder, or single request. Folders/requests can **Opt out of auto run** (they still appear in the results as opted out; Diagnose Variables still includes them)
 - Results dialog: parallel threads (1–10), optional timing checks, sortable grid with Response / Body / Time / Met highlighting, stop remaining, and per-row rerun
 - Double-click a result row to select that request in the tree
 

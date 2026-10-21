@@ -52,6 +52,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
         _expectTimingEnabled = model.ExpectTimingEnabled;
         _expectedTimingMilliseconds = model.ExpectedTimingMilliseconds;
+        _optOutOfAutoRun = model.OptOutOfAutoRun;
 
         _trackDirty = false;
         foreach (var item in model.Params)
@@ -101,6 +102,8 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     public override TreeNodeKind Kind => TreeNodeKind.Request;
 
     public RequestDefinition Model { get; }
+
+    public override bool LocallyOptsOutOfAutoRun => OptOutOfAutoRun;
 
     public static Array VerbOptions { get; } = Enum.GetValues(typeof(HttpVerb));
     public static Array AuthTypeOptions { get; } = Enum.GetValues(typeof(AuthType));
@@ -169,6 +172,9 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     [ObservableProperty]
     private double _expectedTimingMilliseconds = 300;
+
+    [ObservableProperty]
+    private bool _optOutOfAutoRun;
 
     public bool IsAuthNone => AuthType == AuthType.None;
     public bool IsAuthBearer => AuthType == AuthType.Bearer;
@@ -279,6 +285,17 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     {
         Model.Authentication.ApiKeyLocation = value;
         MarkDirty();
+    }
+
+    partial void OnOptOutOfAutoRunChanged(bool value)
+    {
+        if (Model.OptOutOfAutoRun != value)
+        {
+            Model.OptOutOfAutoRun = value;
+            MarkDirty();
+        }
+
+        NotifyAutoRunExclusionChanged();
     }
 
     partial void OnExpectedStatusCodeChanged(int value)

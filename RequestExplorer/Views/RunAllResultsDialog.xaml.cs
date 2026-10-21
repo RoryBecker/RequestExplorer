@@ -36,6 +36,9 @@ public partial class RunAllRequestResultRow : ObservableObject
     /// <summary>Ancestor path above this request (excludes the request name).</summary>
     public string HierarchyDisplay { get; init; } = string.Empty;
 
+    /// <summary>True when this request (or an ancestor folder) opted out of auto run.</summary>
+    public bool IsOptedOut { get; init; }
+
     public string HierarchyPath => Request.HierarchyPath;
 
     [ObservableProperty]
@@ -272,6 +275,7 @@ public partial class RunAllResultsDialog : Window
         Func<RunAllRequestResultRow, Task>? rerunRowRequested = null,
         int initialMaxThreads = 1,
         bool initialCheckTiming = true,
+        bool initialHideOptedOut = false,
         double initialWidth = double.NaN,
         double initialHeight = double.NaN,
         double initialLeft = double.NaN,
@@ -291,11 +295,15 @@ public partial class RunAllResultsDialog : Window
 
         MaxThreadsBox.SelectedItem = Math.Clamp(initialMaxThreads, 1, 10);
         CheckTimingBox.IsChecked = initialCheckTiming;
+        HideOptedOutBox.IsChecked = initialHideOptedOut;
         ApplyWindowBounds(initialWidth, initialHeight, initialLeft, initialTop);
         ApplyColumnWidths(initialColumnWidths);
         _view = (ListCollectionView)CollectionViewSource.GetDefaultView(rows);
         _view.CustomSort = _comparer;
+        _view.Filter = FilterRow;
         ResultsGrid.ItemsSource = _view;
+        HideOptedOutBox.Checked += HideOptedOutBox_OnChanged;
+        HideOptedOutBox.Unchecked += HideOptedOutBox_OnChanged;
         ResultsGrid.Sorting += ResultsGrid_OnSorting;
         Closing += OnClosing;
         ApplySortIndicators();
@@ -417,6 +425,15 @@ public partial class RunAllResultsDialog : Window
 
     /// <summary>When true, timing expectations count toward Met for this run.</summary>
     public bool CheckTiming => CheckTimingBox.IsChecked == true;
+
+    /// <summary>When true, opted-out requests are hidden in the results grid.</summary>
+    public bool HideOptedOut => HideOptedOutBox.IsChecked == true;
+
+    private void HideOptedOutBox_OnChanged(object sender, RoutedEventArgs e) =>
+        _view.Refresh();
+
+    private bool FilterRow(object item) =>
+        item is RunAllRequestResultRow row && (!HideOptedOut || !row.IsOptedOut);
 
     /// <summary>Max concurrent requests for a pass (1–10).</summary>
     public int MaxThreads
@@ -627,6 +644,12 @@ public partial class RunAllResultsDialog : Window
     private void ResultsGrid_OnContextMenuOpening(object sender, ContextMenuEventArgs e)
     {
         if (!_finished || _rerunInFlight || _rerunRowRequested is null)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (FindRowItem(e.OriginalSource as DependencyObject) is RunAllRequestResultRow { IsOptedOut: true })
         {
             e.Handled = true;
         }

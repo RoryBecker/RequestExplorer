@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace RequestExplorer.Models;
 
 /// <summary>A WebRequest: verb, address, params, headers, auth, and optional body.</summary>
@@ -5,6 +7,10 @@ public sealed class RequestDefinition
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "New Request";
+
+    /// <summary>When true, this request is skipped by Run All (still diagnosed).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OptOutOfAutoRun { get; set; }
     public HttpVerb Verb { get; set; } = HttpVerb.GET;
     public string Address { get; set; } = string.Empty;
     public List<KeyValueItem> Params { get; set; } = [];

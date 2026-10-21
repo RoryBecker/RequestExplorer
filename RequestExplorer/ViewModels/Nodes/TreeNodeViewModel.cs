@@ -55,6 +55,7 @@ public abstract partial class TreeNodeViewModel : ObservableObject
             // Indent / row width depends on parent chain; force row layout refresh.
             OnPropertyChanged(nameof(RowLayoutToken));
             OnPropertyChanged(nameof(SearchText));
+            NotifyAutoRunExclusionChanged();
         }
     }
 
@@ -101,6 +102,43 @@ public abstract partial class TreeNodeViewModel : ObservableObject
     public bool ShowsDirtyMarker => IsDirty || ContainsDirtyDescendant;
 
     public string DisplayName => ShowsDirtyMarker ? $"{Name} *" : Name;
+
+    /// <summary>True when this folder/request itself opts out of Run All.</summary>
+    public virtual bool LocallyOptsOutOfAutoRun => false;
+
+    /// <summary>
+    /// True when this node or an ancestor folder/request opts out of Run All.
+    /// Collections never opt out themselves.
+    /// </summary>
+    public bool IsExcludedFromAutoRun
+    {
+        get
+        {
+            for (var node = this; node is not null; node = node.Parent)
+            {
+                if (node.LocallyOptsOutOfAutoRun)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public string? AutoRunExclusionToolTip =>
+        IsExcludedFromAutoRun ? "Opted out of auto run" : null;
+
+    public void NotifyAutoRunExclusionChanged()
+    {
+        OnPropertyChanged(nameof(LocallyOptsOutOfAutoRun));
+        OnPropertyChanged(nameof(IsExcludedFromAutoRun));
+        OnPropertyChanged(nameof(AutoRunExclusionToolTip));
+        foreach (var child in Children)
+        {
+            child.NotifyAutoRunExclusionChanged();
+        }
+    }
 
     /// <summary>
     /// Filterable text built from the active <see cref="SearchScope"/> components

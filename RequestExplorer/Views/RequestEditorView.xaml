@@ -82,6 +82,12 @@
                        Foreground="{DynamicResource App.WarnBrush}"
                        Visibility="{Binding IsDirty, Converter={StaticResource BoolToVis}}"
                        Text="Unsaved changes *  (Ctrl+S to save)" />
+            <CheckBox DockPanel.Dock="Right"
+                      Margin="12,0,12,0"
+                      VerticalAlignment="Center"
+                      Content="Opt out of auto run"
+                      ToolTip="Skip this request when using Run All Requests. Diagnose Variables still includes it."
+                      IsChecked="{Binding OptOutOfAutoRun}" />
         </DockPanel>
 
         <Grid Grid.Row="1" Margin="0,0,0,8">

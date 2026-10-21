@@ -62,6 +62,9 @@ public sealed class UiPreferences
     /// <summary>When true, Run All includes timing expectations in Met.</summary>
     public bool RunAllCheckTiming { get; set; } = true;
 
+    /// <summary>When true, Run All hides opted-out requests in the results grid.</summary>
+    public bool RunAllHideOptedOut { get; set; }
+
     /// <summary>Run All dialog size/position (NaN left/top = center on owner).</summary>
     public double RunAllWindowWidth { get; set; } = 860;
 

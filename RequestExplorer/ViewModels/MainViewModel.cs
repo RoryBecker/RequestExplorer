@@ -965,6 +965,14 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             OnPropertyChanged(nameof(HasAnyDirty));
         }
 
+        if (e.PropertyName is nameof(TreeNodeViewModel.IsExcludedFromAutoRun)
+            or nameof(FolderNodeViewModel.OptOutOfAutoRun)
+            or nameof(RequestNodeViewModel.OptOutOfAutoRun))
+        {
+            OnPropertyChanged(nameof(RunAllRequestsMenuHeader));
+            RunAllRequestsCommand.NotifyCanExecuteChanged();
+        }
+
         if (sender is RequestNodeViewModel)
         {
             RefreshQuickExport();
@@ -2040,8 +2048,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 Request = r,
                 TreeOrder = index,
                 Name = r.Name,
-                HierarchyDisplay = Views.RunAllRequestResultRow.BuildHierarchyDisplay(r)
+                HierarchyDisplay = Views.RunAllRequestResultRow.BuildHierarchyDisplay(r),
+                IsOptedOut = r.IsExcludedFromAutoRun,
+                StatusDisplay = r.IsExcludedFromAutoRun ? "Opted out" : "Pending"
             }));
+        var runnableCount = rows.Count(r => !r.IsOptedOut);
 
         Views.RunAllResultsDialog? dialog = null;
 
@@ -2198,17 +2209,28 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             }
         }
 
-        string FormatPassSummary(bool cancelled, int completed, int notCompleted) =>
-            cancelled
-                ? $"Cancelled — {completed} completed, {notCompleted} not completed"
-                : $"Finished — {completed} completed, {notCompleted} not completed";
+        string FormatPassSummary(bool cancelled, int completed, int notCompleted, int optedOut)
+        {
+            var opted = optedOut > 0 ? $", {optedOut} opted out" : string.Empty;
+            return cancelled
+                ? $"Cancelled — {completed} completed, {notCompleted} not completed{opted}"
+                : $"Finished — {completed} completed, {notCompleted} not completed{opted}";
+        }
 
-        static (int completed, int notCompleted) TallyRows(IEnumerable<Views.RunAllRequestResultRow> source)
+        static (int completed, int notCompleted, int optedOut) TallyRows(
+            IEnumerable<Views.RunAllRequestResultRow> source)
         {
             var completed = 0;
             var notCompleted = 0;
+            var optedOut = 0;
             foreach (var row in source)
             {
+                if (row.IsOptedOut)
+                {
+                    optedOut++;
+                    continue;
+                }
+
                 // Skipped / cancelled / still queued never finished a send.
                 if (row.StatusDisplay is "Pending" or "Skipped" or "Running…" or "Cancelled")
                 {
@@ -2221,13 +2243,18 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 }
             }
 
-            return (completed, notCompleted);
+            return (completed, notCompleted, optedOut);
         }
 
         void MarkIncompleteRowsSkipped()
         {
             foreach (var row in rows)
             {
+                if (row.IsOptedOut)
+                {
+                    continue;
+                }
+
                 if (row.StatusDisplay is "Pending" or "Running…")
                 {
                     row.StatusDisplay = row.StatusDisplay == "Running…" ? "Cancelled" : "Skipped";
@@ -2257,6 +2284,15 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             dialog.MarkRunning();
             foreach (var row in rows)
             {
+                if (row.IsOptedOut)
+                {
+                    row.StatusDisplay = "Opted out";
+                    row.ClearTiming();
+                    row.Succeeded = false;
+                    row.ApplyExpectationResult(null);
+                    continue;
+                }
+
                 row.StatusDisplay = "Pending";
                 row.ClearTiming();
                 row.Succeeded = false;
@@ -2269,14 +2305,21 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
             try
             {
-                var progress = maxThreads <= 1
-                    ? $"Running {requests.Count} request(s)…"
-                    : $"Running {requests.Count} request(s) with {maxThreads} threads…";
+                var progress = runnableCount == 0
+                    ? "No runnable requests (all opted out)"
+                    : maxThreads <= 1
+                        ? $"Running {runnableCount} request(s)…"
+                        : $"Running {runnableCount} request(s) with {maxThreads} threads…";
                 StatusMessage = progress;
                 dialog.SetSummary(progress);
 
                 var tasks = rows.Select(async row =>
                 {
+                    if (row.IsOptedOut)
+                    {
+                        return;
+                    }
+
                     try
                     {
                         await gate.WaitAsync(token);
@@ -2319,10 +2362,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
                             progressCompleted++;
                             var summary = cancelled
-                                ? $"Cancelling… {progressCompleted}/{requests.Count}"
+                                ? $"Cancelling… {progressCompleted}/{runnableCount}"
                                 : maxThreads <= 1
-                                    ? $"Running {progressCompleted}/{requests.Count}: {row.Name}…"
-                                    : $"Running {progressCompleted}/{requests.Count} ({maxThreads} threads)…";
+                                    ? $"Running {progressCompleted}/{runnableCount}: {row.Name}…"
+                                    : $"Running {progressCompleted}/{runnableCount} ({maxThreads} threads)…";
                             StatusMessage = summary;
                             dialog.SetSummary(summary);
                         });
@@ -2349,13 +2392,18 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             finally
             {
                 EndSendingState();
-                var (completed, notCompleted) = TallyRows(rows);
-                PublishSummary(FormatPassSummary(cancelled, completed, notCompleted));
+                var (completed, notCompleted, optedOut) = TallyRows(rows);
+                PublishSummary(FormatPassSummary(cancelled, completed, notCompleted, optedOut));
             }
         }
 
         async Task ExecuteRowAsync(Views.RunAllRequestResultRow row)
         {
+            if (row.IsOptedOut)
+            {
+                return;
+            }
+
             _sendCts?.Cancel();
             _sendCts?.Dispose();
             _sendCts = new CancellationTokenSource();
@@ -2375,9 +2423,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             finally
             {
                 EndSendingState();
-                var (completed, notCompleted) = TallyRows(rows);
+                var (completed, notCompleted, optedOut) = TallyRows(rows);
+                var opted = optedOut > 0 ? $", {optedOut} opted out" : string.Empty;
                 var summary =
-                    $"Reran {row.Name} — {completed} completed, {notCompleted} not completed";
+                    $"Reran {row.Name} — {completed} completed, {notCompleted} not completed{opted}";
                 PublishSummary(summary);
             }
         }
@@ -2390,6 +2439,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             ExecuteRowAsync,
             initialMaxThreads: UiPreferences.RunAllMaxThreads,
             initialCheckTiming: UiPreferences.RunAllCheckTiming,
+            initialHideOptedOut: UiPreferences.RunAllHideOptedOut,
             initialWidth: UiPreferences.RunAllWindowWidth,
             initialHeight: UiPreferences.RunAllWindowHeight,
             initialLeft: UiPreferences.RunAllWindowLeft,
@@ -2415,6 +2465,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         UiPreferences.RunAllMaxThreads = dialog.MaxThreads;
         UiPreferences.RunAllCheckTiming = dialog.CheckTiming;
+        UiPreferences.RunAllHideOptedOut = dialog.HideOptedOut;
         dialog.CaptureWindowBounds(out var width, out var height, out var left, out var top);
         UiPreferences.RunAllWindowWidth = width;
         UiPreferences.RunAllWindowHeight = height;

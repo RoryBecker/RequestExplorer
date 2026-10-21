@@ -103,7 +103,9 @@ public partial class ResponseViewModel : ObservableObject
             ? string.Empty
             : BodySearchMatchCount == 0
                 ? "No matches"
-                : $"{BodySearchMatchIndex + 1} of {BodySearchMatchCount}";
+                : BodySearchMatchIndex < 0
+                    ? $"{BodySearchMatchCount} match{(BodySearchMatchCount == 1 ? string.Empty : "es")}"
+                    : $"{BodySearchMatchIndex + 1} of {BodySearchMatchCount}";
 
     /// <summary>Raised when the body search selection should be applied in the view.</summary>
     public event Action? BodySearchSelectionRequested;
@@ -241,6 +243,7 @@ public partial class ResponseViewModel : ObservableObject
         BodySearchSelectStart = 0;
         BodySearchSelectLength = 0;
         OnPropertyChanged(nameof(BodySearchStatus));
+        BodySearchSelectionRequested?.Invoke();
     }
 
     private void RefreshBodySearch()
@@ -254,6 +257,7 @@ public partial class ResponseViewModel : ObservableObject
             BodySearchSelectStart = 0;
             BodySearchSelectLength = 0;
             OnPropertyChanged(nameof(BodySearchStatus));
+            BodySearchSelectionRequested?.Invoke();
             return;
         }
 
@@ -271,17 +275,11 @@ public partial class ResponseViewModel : ObservableObject
         }
 
         BodySearchMatchCount = _bodySearchMatches.Count;
-        if (BodySearchMatchCount == 0)
-        {
-            BodySearchMatchIndex = -1;
-            BodySearchSelectStart = 0;
-            BodySearchSelectLength = 0;
-            OnPropertyChanged(nameof(BodySearchStatus));
-            return;
-        }
-
-        BodySearchMatchIndex = 0;
-        ApplyBodySearchSelection();
+        BodySearchMatchIndex = -1;
+        BodySearchSelectStart = 0;
+        BodySearchSelectLength = 0;
+        OnPropertyChanged(nameof(BodySearchStatus));
+        BodySearchSelectionRequested?.Invoke();
     }
 
     private void MoveBodySearch(int delta)

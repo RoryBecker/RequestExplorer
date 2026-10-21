@@ -193,10 +193,12 @@
                                Foreground="{DynamicResource App.MutedBrush}"
                                Text="{Binding BodySearchStatus, Mode=OneWay}" />
                     <TextBox VerticalContentAlignment="Center"
-                             Text="{Binding BodySearchQuery, UpdateSourceTrigger=PropertyChanged}" />
+                             Text="{Binding BodySearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                             PreviewKeyDown="BodySearchBox_OnPreviewKeyDown" />
                 </DockPanel>
                 <TextBox x:Name="BodyTextBox"
                          Style="{StaticResource FloodRawTextBox}"
+                         IsInactiveSelectionHighlightEnabled="True"
                          Text="{Binding BodyText, Mode=OneWay}" />
             </DockPanel>
 

@@ -184,6 +184,11 @@
                           VerticalAlignment="Center"
                           Margin="16,0,0,0"
                           ToolTip="When checked, request timing expectations are included in Met" />
+                <CheckBox x:Name="HideOptedOutBox"
+                          Content="Hide opt-out requests"
+                          VerticalAlignment="Center"
+                          Margin="16,0,0,0"
+                          ToolTip="Hide requests that opted out of auto run (off by default)" />
             </StackPanel>
             <TextBlock x:Name="SummaryText"
                        TextWrapping="Wrap"
@@ -215,6 +220,14 @@
                 <Style TargetType="DataGridRow">
                     <Setter Property="ToolTip" Value="{Binding HierarchyPath}" />
                     <Setter Property="ContextMenu" Value="{StaticResource RunAllRowContextMenu}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsOptedOut}" Value="True">
+                            <Setter Property="Opacity" Value="0.62" />
+                            <Setter Property="FontStyle" Value="Italic" />
+                            <Setter Property="Foreground" Value="{DynamicResource App.MutedBrush}" />
+                            <Setter Property="ToolTip" Value="Opted out of auto run. Double-click to select in the tree." />
+                        </DataTrigger>
+                    </Style.Triggers>
                 </Style>
             </DataGrid.RowStyle>
             <DataGrid.Columns>

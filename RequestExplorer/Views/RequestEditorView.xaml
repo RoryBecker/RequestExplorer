@@ -194,6 +194,7 @@
                              FontFamily="Consolas"
                              FontSize="12"
                              views:VariableTokenToolTips.IsEnabled="True"
+                             views:JsonPathMenu.IsEnabled="True"
                              Text="{Binding BodyContent, UpdateSourceTrigger=PropertyChanged}" />
                 </DockPanel>
             </TabItem>

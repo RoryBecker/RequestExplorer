@@ -6,60 +6,10 @@ using System.Text.Json.Serialization;
 
 namespace RequestExplorer.Services.Backup;
 
-public enum BackupReason
-{
-    Startup,
-    Manual,
-    PreRestore
-}
-
-public sealed class BackupMeta
-{
-    public DateTimeOffset CreatedUtc { get; set; }
-
-    public string Reason { get; set; } = string.Empty;
-
-    public string AppVersion { get; set; } = string.Empty;
-
-    public int CollectionCount { get; set; }
-}
-
-public sealed class BackupListItem
-{
-    public required string ZipPath { get; init; }
-
-    public required string DisplayName { get; init; }
-
-    public DateTimeOffset CreatedUtc { get; init; }
-
-    public string Reason { get; init; } = string.Empty;
-
-    public string AppVersion { get; init; } = string.Empty;
-
-    public long SizeBytes { get; init; }
-
-    public int CollectionCount { get; init; }
-
-    public string SizeDisplay =>
-        SizeBytes < 1024
-            ? $"{SizeBytes} B"
-            : SizeBytes < 1024 * 1024
-                ? $"{SizeBytes / 1024.0:0.#} KB"
-                : $"{SizeBytes / (1024.0 * 1024.0):0.#} MB";
-
-    public string ReasonDisplay => Reason switch
-    {
-        "startup" => "Startup",
-        "manual" => "Manual",
-        "pre-restore" => "Pre-restore",
-        _ => string.IsNullOrWhiteSpace(Reason) ? "—" : Reason
-    };
-}
-
 /// <summary>
 /// Creates and restores rolling zip backups of collections (+ prefs archived; restore is collections-only).
 /// </summary>
-public sealed class WorkspaceBackupService
+public sealed class BackupService
 {
     public const int DefaultRetention = 15;
     public const int MinRetention = 1;
@@ -79,7 +29,7 @@ public sealed class WorkspaceBackupService
 
     private readonly object _gate = new();
 
-    public WorkspaceBackupService(
+    public BackupService(
         string? collectionsDirectory = null,
         string? preferencesFilePath = null,
         string? backupsDirectory = null)

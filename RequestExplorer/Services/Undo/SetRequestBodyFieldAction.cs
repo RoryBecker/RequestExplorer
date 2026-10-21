@@ -3,12 +3,6 @@ using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Services.Undo;
 
-public enum RequestBodyField
-{
-    Content,
-    ContentType
-}
-
 public sealed class SetRequestBodyFieldAction : IUndoAction, ICoalescingUndoAction
 {
     private readonly RequestNodeViewModel _request;

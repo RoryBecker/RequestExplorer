@@ -4,16 +4,6 @@ using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Services.Variables;
 
-public enum VariableExtractResult
-{
-    Success,
-    NoParent,
-    InvalidSelection,
-    EmptyName,
-    InvalidName,
-    DuplicateName
-}
-
 /// <summary>Promotes selected request text into a parent-scoped <c>{{variable}}</c>.</summary>
 public static class VariableExtract
 {

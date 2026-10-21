@@ -3,19 +3,6 @@ using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Services.Undo;
 
-public enum KeyValueField
-{
-    IsEnabled,
-    Key,
-    Value
-}
-
-public enum KeyValueListKind
-{
-    Params,
-    Headers
-}
-
 public sealed class SetKeyValueFieldAction : IUndoAction, ICoalescingUndoAction
 {
     private readonly RequestNodeViewModel _request;

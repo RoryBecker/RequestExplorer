@@ -14,7 +14,7 @@ public partial class SettingsDialog : Window
         TimeoutBox.Text = Math.Clamp(preferences.RequestTimeoutSeconds, 1, 3600).ToString();
         MouseTreeNavCheck.IsChecked = preferences.EnableMouseTreeNavigation;
         BackupOnStartupCheck.IsChecked = preferences.BackupOnStartup;
-        RetentionBox.Text = WorkspaceBackupService.ClampRetention(preferences.BackupRetentionCount).ToString();
+        RetentionBox.Text = BackupService.ClampRetention(preferences.BackupRetentionCount).ToString();
         BackupsPathBlock.Text = string.IsNullOrWhiteSpace(backupsDirectory)
             ? string.Empty
             : $"Folder:\n{backupsDirectory}";
@@ -31,7 +31,7 @@ public partial class SettingsDialog : Window
 
     public bool BackupOnStartup => BackupOnStartupCheck.IsChecked == true;
 
-    public int BackupRetentionCount { get; private set; } = WorkspaceBackupService.DefaultRetention;
+    public int BackupRetentionCount { get; private set; } = BackupService.DefaultRetention;
 
     private void DevModeCheck_OnChanged(object sender, RoutedEventArgs e) => UpdateTimeoutEnabled();
 
@@ -64,7 +64,7 @@ public partial class SettingsDialog : Window
         }
 
         if (int.TryParse(RetentionBox.Text.Trim(), out var retention)
-            && retention is >= WorkspaceBackupService.MinRetention and <= WorkspaceBackupService.MaxRetention)
+            && retention is >= BackupService.MinRetention and <= BackupService.MaxRetention)
         {
             BackupRetentionCount = retention;
         }
@@ -72,7 +72,7 @@ public partial class SettingsDialog : Window
         {
             MessageBox.Show(
                 this,
-                $"Enter a backup retention count between {WorkspaceBackupService.MinRetention} and {WorkspaceBackupService.MaxRetention}.",
+                $"Enter a backup retention count between {BackupService.MinRetention} and {BackupService.MaxRetention}.",
                 "Settings",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);

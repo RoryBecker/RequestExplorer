@@ -32,7 +32,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private readonly CollectionPersistenceService _persistence;
     private readonly HttpRequestExecutor _httpExecutor;
     private readonly UiPreferencesService _uiPreferencesService;
-    private readonly WorkspaceBackupService _backups;
+    private readonly BackupService _backups;
     private readonly UndoStack _history = new();
     private readonly TreeNavigationHistory _treeNavigation = new();
     private CancellationTokenSource? _sendCts;
@@ -52,12 +52,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         CollectionPersistenceService persistence,
         HttpRequestExecutor httpExecutor,
         UiPreferencesService? uiPreferencesService = null,
-        WorkspaceBackupService? backupService = null)
+        BackupService? backupService = null)
     {
         _persistence = persistence;
         _httpExecutor = httpExecutor;
         _uiPreferencesService = uiPreferencesService ?? new UiPreferencesService();
-        _backups = backupService ?? new WorkspaceBackupService(
+        _backups = backupService ?? new BackupService(
             persistence.StorageDirectory,
             _uiPreferencesService.FilePath);
         UiPreferences = _uiPreferencesService.Load();
@@ -67,7 +67,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         UiPreferences.BackupRetentionCount =
-            WorkspaceBackupService.ClampRetention(UiPreferences.BackupRetentionCount);
+            BackupService.ClampRetention(UiPreferences.BackupRetentionCount);
         UiPreferences.RunAllMaxThreads = Math.Clamp(UiPreferences.RunAllMaxThreads, 1, 10);
 
         _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
@@ -3188,7 +3188,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             PersistUiPreferences();
             _backups.CreateBackup(
                 BackupReason.PreRestore,
-                WorkspaceBackupService.ClampRetention(UiPreferences.BackupRetentionCount));
+                BackupService.ClampRetention(UiPreferences.BackupRetentionCount));
 
             StatusMessage = "Restoring collections…";
             _backups.RestoreCollections(selected.ZipPath);
@@ -3264,7 +3264,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             PersistUiPreferences();
             return _backups.CreateBackup(
                 reason,
-                WorkspaceBackupService.ClampRetention(UiPreferences.BackupRetentionCount));
+                BackupService.ClampRetention(UiPreferences.BackupRetentionCount));
         }
         finally
         {
@@ -3290,7 +3290,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.EnableMouseTreeNavigation = dialog.EnableMouseTreeNavigation;
         UiPreferences.BackupOnStartup = dialog.BackupOnStartup;
         UiPreferences.BackupRetentionCount =
-            WorkspaceBackupService.ClampRetention(dialog.BackupRetentionCount);
+            BackupService.ClampRetention(dialog.BackupRetentionCount);
         ApplyHttpTimeoutSettings();
         PersistUiPreferences();
 

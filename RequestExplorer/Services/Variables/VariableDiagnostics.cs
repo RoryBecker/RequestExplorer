@@ -1,32 +1,15 @@
 using System.Text;
-using RequestExplorer.Models;
-using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Services.Variables;
 
 public static class VariableDiagnostics
 {
-    public static IReadOnlyList<string> FindMissing(
-        RequestDefinition model,
-        TreeNodeViewModel requestNode)
-    {
-        ArgumentNullException.ThrowIfNull(model);
-        ArgumentNullException.ThrowIfNull(requestNode);
-
-        var scope = VariableResolver.BuildScope(requestNode);
-        var referenced = VariableResolver.CollectReferencedNames(model);
-        return referenced
-            .Where(name => !scope.ContainsKey(name))
-            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
     public static RequestVariableDiagnosis DiagnoseRequest(RequestNodeViewModel request)
     {
-        var missing = FindMissing(request.Model, request);
-        var disabled = FindDisabledHints(request, missing);
-        return new RequestVariableDiagnosis(request, missing, disabled);
+        var analysis = VariableResolver.Analyze(request.Model, request);
+        var disabled = FindDisabledHints(request, analysis.Missing);
+        return new RequestVariableDiagnosis(request, analysis.Missing, disabled, analysis.NestingErrors);
     }
 
     public static IReadOnlyList<RequestVariableDiagnosis> DiagnoseSubtree(TreeNodeViewModel root)
@@ -47,8 +30,8 @@ public static class VariableDiagnostics
 
         var sb = new StringBuilder();
         sb.Append(diagnosis.Request.HierarchyPath);
-        sb.Append(" — missing ");
-        sb.Append(FormatMissingList(diagnosis.MissingVariables));
+        sb.Append(" — ");
+        sb.Append(FormatIssueSummary(diagnosis));
 
         var hint = FormatDisabledHintPlain(diagnosis.DisabledHints);
         if (hint.Length > 0)
@@ -91,7 +74,7 @@ public static class VariableDiagnostics
         Append(spans, failing.Count.ToString());
         Append(spans, "/");
         Append(spans, results.Count.ToString());
-        Append(spans, results.Count == 1 ? " request missing variables" : " requests missing variables");
+        Append(spans, results.Count == 1 ? " request with variable issues" : " requests with variable issues");
         Append(spans, "\n");
 
         IReadOnlyList<TreeNodeViewModel>? previousSegments = null;
@@ -120,7 +103,7 @@ public static class VariableDiagnostics
 
             var detailIndent = Indent(leafDepth + 1);
             Append(spans, detailIndent);
-            Append(spans, FormatMissingList(item.MissingVariables));
+            Append(spans, FormatIssueSummary(item));
 
             if (item.DisabledHints.Count > 0)
             {
@@ -238,6 +221,22 @@ public static class VariableDiagnostics
 
     private static string FormatMissingList(IReadOnlyList<string> names) =>
         string.Join(", ", names.Select(n => "{{" + n + "}}"));
+
+    private static string FormatIssueSummary(RequestVariableDiagnosis diagnosis)
+    {
+        var parts = new List<string>();
+        if (diagnosis.MissingVariables.Count > 0)
+        {
+            parts.Add("missing " + FormatMissingList(diagnosis.MissingVariables));
+        }
+
+        if (diagnosis.NestingErrors.Count > 0)
+        {
+            parts.Add(string.Join("; ", diagnosis.NestingErrors.Select(e => e.Format())));
+        }
+
+        return parts.Count == 0 ? "OK" : string.Join("; ", parts);
+    }
 
     private static string FormatDisabledHintPlain(IReadOnlyList<DisabledVariableHint> hints)
     {

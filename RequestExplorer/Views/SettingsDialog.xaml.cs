@@ -1,6 +1,7 @@
 using System.Windows;
 using RequestExplorer.Services.Backup;
 using RequestExplorer.Services.Preferences;
+using RequestExplorer.Services.Variables;
 
 namespace RequestExplorer.Views;
 
@@ -12,6 +13,7 @@ public partial class SettingsDialog : Window
         Preferences = preferences;
         DevModeCheck.IsChecked = preferences.DevModeIgnoreTimeout;
         TimeoutBox.Text = Math.Clamp(preferences.RequestTimeoutSeconds, 1, 3600).ToString();
+        NestingDepthBox.Text = VariableResolver.ClampMaxNestingDepth(preferences.VariableNestingMaxDepth).ToString();
         MouseTreeNavCheck.IsChecked = preferences.EnableMouseTreeNavigation;
         BackupOnStartupCheck.IsChecked = preferences.BackupOnStartup;
         RetentionBox.Text = BackupService.ClampRetention(preferences.BackupRetentionCount).ToString();
@@ -26,6 +28,8 @@ public partial class SettingsDialog : Window
     public bool DevModeIgnoreTimeout => DevModeCheck.IsChecked == true;
 
     public int RequestTimeoutSeconds { get; private set; } = 30;
+
+    public int VariableNestingMaxDepth { get; private set; } = VariableResolver.DefaultMaxNestingDepth;
 
     public bool EnableMouseTreeNavigation => MouseTreeNavCheck.IsChecked == true;
 
@@ -57,6 +61,22 @@ public partial class SettingsDialog : Window
             MessageBox.Show(
                 this,
                 "Enter a timeout between 1 and 3600 seconds.",
+                "Settings",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        if (int.TryParse(NestingDepthBox.Text.Trim(), out var nesting)
+            && nesting is >= VariableResolver.MinMaxNestingDepth and <= VariableResolver.MaxMaxNestingDepth)
+        {
+            VariableNestingMaxDepth = nesting;
+        }
+        else
+        {
+            MessageBox.Show(
+                this,
+                $"Enter a variable nesting depth between {VariableResolver.MinMaxNestingDepth} and {VariableResolver.MaxMaxNestingDepth}.",
                 "Settings",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);

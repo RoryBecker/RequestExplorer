@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings"
         Width="440"
-        Height="480"
+        Height="560"
         MinWidth="380"
-        MinHeight="400"
+        MinHeight="480"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource App.PanelBrush}">
@@ -42,6 +42,28 @@
                            Foreground="{DynamicResource App.MutedBrush}"
                            TextWrapping="Wrap"
                            Text="Default is 30 seconds. Dev mode uses an infinite timeout; Cancel still stops an in-flight send." />
+
+                <Separator Margin="0,16,0,12" />
+
+                <TextBlock Text="Variables"
+                           FontWeight="SemiBold"
+                           Margin="0,0,0,8" />
+
+                <DockPanel Margin="0,0,0,4">
+                    <TextBlock DockPanel.Dock="Left"
+                               VerticalAlignment="Center"
+                               Width="140"
+                               Text="Max nesting depth" />
+                    <TextBox x:Name="NestingDepthBox"
+                             Width="80"
+                             HorizontalAlignment="Left"
+                             VerticalContentAlignment="Center" />
+                </DockPanel>
+
+                <TextBlock Margin="0,8,0,0"
+                           Foreground="{DynamicResource App.MutedBrush}"
+                           TextWrapping="Wrap"
+                           Text="When a variable's value contains {{name}}, lookup restarts at the request and walks up the tree. Default is 10 (1–50). Deeper chains abort and show in Diagnose." />
 
                 <Separator Margin="0,16,0,12" />
 

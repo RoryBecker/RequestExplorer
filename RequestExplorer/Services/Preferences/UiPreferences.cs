@@ -38,6 +38,11 @@ public sealed class UiPreferences
     /// <summary>Global HTTP send timeout in seconds when <see cref="DevModeIgnoreTimeout"/> is false.</summary>
     public int RequestTimeoutSeconds { get; set; } = 30;
 
+    /// <summary>
+    /// Max nested <c>{{variable}}</c> lookups when resolving a value (clamped 1–50; default 10).
+    /// </summary>
+    public int VariableNestingMaxDepth { get; set; } = 10;
+
     /// <summary>When true, HTTP sends use an infinite timeout (cancel still works).</summary>
     public bool DevModeIgnoreTimeout { get; set; }
 

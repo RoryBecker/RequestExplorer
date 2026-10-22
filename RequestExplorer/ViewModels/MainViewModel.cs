@@ -68,6 +68,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         UiPreferences.BackupRetentionCount =
             BackupService.ClampRetention(UiPreferences.BackupRetentionCount);
+        UiPreferences.VariableNestingMaxDepth =
+            VariableResolver.ClampMaxNestingDepth(UiPreferences.VariableNestingMaxDepth);
         UiPreferences.RunAllMaxThreads = Math.Clamp(UiPreferences.RunAllMaxThreads, 1, 10);
 
         _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
@@ -81,6 +83,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         EnsureValidTreeSearchScope();
         SyncTreeSearchScope();
         ApplyHttpTimeoutSettings();
+        ApplyVariableNestingSettings();
 
         Collections.CollectionChanged += (_, _) =>
         {
@@ -116,6 +119,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _httpExecutor.ApplyTimeoutSettings(
             UiPreferences.RequestTimeoutSeconds,
             UiPreferences.DevModeIgnoreTimeout);
+
+    private void ApplyVariableNestingSettings() =>
+        VariableResolver.MaxNestingDepth =
+            VariableResolver.ClampMaxNestingDepth(UiPreferences.VariableNestingMaxDepth);
 
     public UiPreferences UiPreferences { get; }
 
@@ -2012,7 +2019,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         var failing = results.Count(r => r.HasIssues);
         StatusMessage = failing == 0
             ? $"Diagnosis OK — {results.Count} request(s)"
-            : $"Diagnosis: {failing} of {results.Count} request(s) have missing variables";
+            : $"Diagnosis: {failing} of {results.Count} request(s) have variable issues";
 
         var dialog = new Views.DiagnosisReportDialog("Variable Diagnosis", report)
         {
@@ -3291,8 +3298,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.BackupOnStartup = dialog.BackupOnStartup;
         UiPreferences.BackupRetentionCount =
             BackupService.ClampRetention(dialog.BackupRetentionCount);
+        UiPreferences.VariableNestingMaxDepth =
+            VariableResolver.ClampMaxNestingDepth(dialog.VariableNestingMaxDepth);
         ApplyHttpTimeoutSettings();
+        ApplyVariableNestingSettings();
         PersistUiPreferences();
+        RefreshQuickExport();
 
         StatusMessage = UiPreferences.DevModeIgnoreTimeout
             ? "Settings saved — timeout ignored (dev mode)"

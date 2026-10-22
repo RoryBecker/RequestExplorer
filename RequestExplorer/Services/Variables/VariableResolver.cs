@@ -9,10 +9,21 @@ namespace RequestExplorer.Services.Variables;
 
 /// <summary>
 /// Resolves <c>{{variable}}</c> tokens using enabled variables from the request's
-/// parent chain (nearest ancestor wins).
+/// parent chain (nearest ancestor wins). Nested tokens in a variable's value
+/// restart the lookup at the same origin (request or container).
 /// </summary>
 public static partial class VariableResolver
 {
+    public const int DefaultMaxNestingDepth = 10;
+    public const int MinMaxNestingDepth = 1;
+    public const int MaxMaxNestingDepth = 50;
+
+    /// <summary>Active max nested lookups; MainViewModel syncs this from settings.</summary>
+    public static int MaxNestingDepth { get; set; } = DefaultMaxNestingDepth;
+
+    public static int ClampMaxNestingDepth(int value) =>
+        Math.Clamp(value, MinMaxNestingDepth, MaxMaxNestingDepth);
+
     private static readonly JsonSerializerOptions CloneOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -21,33 +32,30 @@ public static partial class VariableResolver
     [GeneratedRegex(@"\{\{\s*([^{}]+?)\s*\}\}", RegexOptions.CultureInvariant)]
     private static partial Regex TokenRegex();
 
-    public static IReadOnlyDictionary<string, string> BuildScope(TreeNodeViewModel? requestNode)
+    public static IReadOnlyDictionary<string, string> BuildScope(TreeNodeViewModel? requestNode) =>
+        BuildResolvedScope(requestNode, includeOrigin: false);
+
+    /// <summary>
+    /// Scope starting at <paramref name="node"/> and walking ancestors (nearest wins).
+    /// Use for container editors; for requests prefer <see cref="BuildScope"/> (parents only).
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> BuildScopeFrom(TreeNodeViewModel? node) =>
+        BuildResolvedScope(node, includeOrigin: true);
+
+    public static VariableResolveAnalysis Analyze(
+        RequestDefinition model,
+        TreeNodeViewModel requestNode)
     {
-        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var node = requestNode?.Parent;
-        while (node is not null)
+        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(requestNode);
+
+        var session = new ResolveSession(requestNode, includeOrigin: false, MaxNestingDepth);
+        foreach (var name in CollectReferencedNames(model))
         {
-            if (node is ContainerNodeViewModel container)
-            {
-                foreach (var item in container.Variables)
-                {
-                    if (!item.IsEnabled || string.IsNullOrWhiteSpace(item.Key))
-                    {
-                        continue;
-                    }
-
-                    var key = item.Key.Trim();
-                    if (!map.ContainsKey(key))
-                    {
-                        map[key] = VariableValueRecipes.Resolve(item.Value);
-                    }
-                }
-            }
-
-            node = node.Parent;
+            session.ResolveName(name, depth: 1, chain: [], fallback: "{{" + name + "}}");
         }
 
-        return map;
+        return new VariableResolveAnalysis(session.MissingList(), session.NestingErrors);
     }
 
     public static string Substitute(string? text, IReadOnlyDictionary<string, string> variables)
@@ -64,33 +72,15 @@ public static partial class VariableResolver
         });
     }
 
-    /// <summary>
-    /// Scope starting at <paramref name="node"/> and walking ancestors (nearest wins).
-    /// Use for container editors; for requests prefer <see cref="BuildScope"/> (parents only).
-    /// </summary>
-    public static IReadOnlyDictionary<string, string> BuildScopeFrom(TreeNodeViewModel? node)
+    private static IReadOnlyDictionary<string, string> BuildResolvedScope(
+        TreeNodeViewModel? origin,
+        bool includeOrigin)
     {
+        var session = new ResolveSession(origin, includeOrigin, MaxNestingDepth);
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        while (node is not null)
+        foreach (var key in session.CollectKeys())
         {
-            if (node is ContainerNodeViewModel container)
-            {
-                foreach (var item in container.Variables)
-                {
-                    if (!item.IsEnabled || string.IsNullOrWhiteSpace(item.Key))
-                    {
-                        continue;
-                    }
-
-                    var key = item.Key.Trim();
-                    if (!map.ContainsKey(key))
-                    {
-                        map[key] = VariableValueRecipes.Resolve(item.Value);
-                    }
-                }
-            }
-
-            node = node.Parent;
+            map[key] = session.ResolveName(key, depth: 1, chain: [], fallback: "{{" + key + "}}");
         }
 
         return map;
@@ -337,5 +327,156 @@ public static partial class VariableResolver
         auth.BasicPassword = Substitute(auth.BasicPassword, variables);
         auth.ApiKeyName = Substitute(auth.ApiKeyName, variables);
         auth.ApiKeyValue = Substitute(auth.ApiKeyValue, variables);
+    }
+
+    private static bool ChainContains(List<string> chain, string name)
+    {
+        foreach (var item in chain)
+        {
+            if (string.Equals(item, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private sealed class ResolveSession
+    {
+        private readonly TreeNodeViewModel? _origin;
+        private readonly bool _includeOrigin;
+        private readonly int _maxDepth;
+        private readonly HashSet<string> _missing = new(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _nestingReported = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> _cache = new(StringComparer.OrdinalIgnoreCase);
+        private readonly List<VariableNestingError> _nestingErrors = [];
+
+        public ResolveSession(TreeNodeViewModel? origin, bool includeOrigin, int maxDepth)
+        {
+            _origin = origin;
+            _includeOrigin = includeOrigin;
+            _maxDepth = ClampMaxNestingDepth(maxDepth);
+        }
+
+        public IReadOnlyList<VariableNestingError> NestingErrors => _nestingErrors;
+
+        public IReadOnlyList<string> MissingList() =>
+            _missing.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
+
+        public IReadOnlyList<string> CollectKeys()
+        {
+            var keys = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var node = _includeOrigin ? _origin : _origin?.Parent;
+            while (node is not null)
+            {
+                if (node is ContainerNodeViewModel container)
+                {
+                    foreach (var item in container.Variables)
+                    {
+                        if (!item.IsEnabled || string.IsNullOrWhiteSpace(item.Key))
+                        {
+                            continue;
+                        }
+
+                        var key = item.Key.Trim();
+                        if (seen.Add(key))
+                        {
+                            keys.Add(key);
+                        }
+                    }
+                }
+
+                node = node.Parent;
+            }
+
+            return keys;
+        }
+
+        public string ResolveName(string name, int depth, List<string> chain, string fallback)
+        {
+            var nextChain = AppendChain(chain, name);
+            if (depth > _maxDepth || ChainContains(chain, name))
+            {
+                if (_nestingReported.Add(name))
+                {
+                    _nestingErrors.Add(new VariableNestingError(name, nextChain, _maxDepth));
+                }
+
+                return fallback;
+            }
+
+            if (_cache.TryGetValue(name, out var cached))
+            {
+                return cached;
+            }
+
+            var stored = FindStored(name);
+            if (stored is null)
+            {
+                _missing.Add(name);
+                return fallback;
+            }
+
+            var resolved = VariableValueRecipes.Resolve(stored);
+            resolved = SubstituteNested(resolved, depth, nextChain);
+            _cache[name] = resolved;
+            return resolved;
+        }
+
+        private string SubstituteNested(string? text, int depth, List<string> chain)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return text ?? string.Empty;
+            }
+
+            return TokenRegex().Replace(text, match =>
+            {
+                var nested = match.Groups[1].Value.Trim();
+                if (nested.Length == 0)
+                {
+                    return match.Value;
+                }
+
+                return ResolveName(nested, depth + 1, chain, match.Value);
+            });
+        }
+
+        private string? FindStored(string name)
+        {
+            var node = _includeOrigin ? _origin : _origin?.Parent;
+            while (node is not null)
+            {
+                if (node is ContainerNodeViewModel container)
+                {
+                    foreach (var item in container.Variables)
+                    {
+                        if (!item.IsEnabled || string.IsNullOrWhiteSpace(item.Key))
+                        {
+                            continue;
+                        }
+
+                        if (string.Equals(item.Key.Trim(), name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return item.Value ?? string.Empty;
+                        }
+                    }
+                }
+
+                node = node.Parent;
+            }
+
+            return null;
+        }
+
+        private static List<string> AppendChain(List<string> chain, string name)
+        {
+            var next = new List<string>(chain.Count + 1);
+            next.AddRange(chain);
+            next.Add(name);
+            return next;
+        }
     }
 }

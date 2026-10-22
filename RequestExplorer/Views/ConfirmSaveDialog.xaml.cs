@@ -6,7 +6,8 @@ public enum ConfirmSaveChoice
 {
     Cancel,
     Discard,
-    Save
+    Save,
+    DirtySave
 }
 
 public partial class ConfirmSaveDialog : Window
@@ -19,7 +20,10 @@ public partial class ConfirmSaveDialog : Window
     public ConfirmSaveChoice Choice { get; private set; } = ConfirmSaveChoice.Cancel;
 
     /// <summary>Escape and Cancel both return <see cref="ConfirmSaveChoice.Cancel"/>.</summary>
-    public static ConfirmSaveChoice Prompt(Window? owner, string? message = null)
+    public static ConfirmSaveChoice Prompt(
+        Window? owner,
+        string? message = null,
+        bool allowDirtySave = false)
     {
         var dialog = new ConfirmSaveDialog
         {
@@ -31,6 +35,10 @@ public partial class ConfirmSaveDialog : Window
             dialog.MessageText.Text = message;
         }
 
+        dialog.DirtySaveButton.Visibility = allowDirtySave
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
         dialog.ShowDialog();
         return dialog.Choice;
     }
@@ -38,6 +46,12 @@ public partial class ConfirmSaveDialog : Window
     private void Yes_Click(object sender, RoutedEventArgs e)
     {
         Choice = ConfirmSaveChoice.Save;
+        DialogResult = true;
+    }
+
+    private void DirtySave_Click(object sender, RoutedEventArgs e)
+    {
+        Choice = ConfirmSaveChoice.DirtySave;
         DialogResult = true;
     }
 

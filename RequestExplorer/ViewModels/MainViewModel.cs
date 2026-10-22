@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
@@ -33,6 +34,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private readonly HttpRequestExecutor _httpExecutor;
     private readonly UiPreferencesService _uiPreferencesService;
     private readonly BackupService _backups;
+    private readonly DirtyStateService _dirtyState;
     private readonly UndoStack _history = new();
     private readonly TreeNavigationHistory _treeNavigation = new();
     private CancellationTokenSource? _sendCts;
@@ -52,7 +54,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         CollectionPersistenceService persistence,
         HttpRequestExecutor httpExecutor,
         UiPreferencesService? uiPreferencesService = null,
-        BackupService? backupService = null)
+        BackupService? backupService = null,
+        DirtyStateService? dirtyStateService = null)
     {
         _persistence = persistence;
         _httpExecutor = httpExecutor;
@@ -60,6 +63,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _backups = backupService ?? new BackupService(
             persistence.StorageDirectory,
             _uiPreferencesService.FilePath);
+        _dirtyState = dirtyStateService ?? new DirtyStateService();
         UiPreferences = _uiPreferencesService.Load();
         if (UiPreferences.RequestTimeoutSeconds is < 1 or > 3600)
         {
@@ -520,6 +524,15 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     public bool HasAnyDirty => Collections.Any(CollectionTreeMapper.HasDirty);
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(HasAnyDirty))
+        {
+            ScheduleDirtyStatePersist();
+        }
+    }
 
     public bool HasTreeClipboard => _treeClipboard is not null;
 
@@ -1516,6 +1529,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private void LoadWorkspace(IReadOnlyList<Guid>? priorOrder = null)
     {
         _suppressCollectionOrderPersist = true;
+        _suppressDirtyStatePersist = true;
         try
         {
             Collections.Clear();
@@ -1523,7 +1537,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             try
             {
                 var loaded = _persistence.LoadAll();
-                if (loaded.Count == 0)
+                var dirtyLoaded = _dirtyState.LoadAll();
+                if (loaded.Count == 0 && dirtyLoaded.Count == 0)
                 {
                     SeedAndPersistDemo();
                     WireUndoRecorders();
@@ -1532,17 +1547,40 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                     return;
                 }
 
+                var byId = new Dictionary<Guid, CollectionDefinition>();
+                foreach (var definition in loaded)
+                {
+                    byId[definition.Id] = definition;
+                }
+
+                var dirtyByCollectionId = new Dictionary<Guid, HashSet<Guid>>();
+                foreach (var snapshot in dirtyLoaded)
+                {
+                    byId[snapshot.Collection.Id] = snapshot.Collection;
+                    dirtyByCollectionId[snapshot.Collection.Id] =
+                        snapshot.DirtyNodeIds.ToHashSet();
+                }
+
                 var preferredOrder = priorOrder ?? _persistence.LoadCollectionOrder();
-                var ordered = CollectionPersistenceService.ApplyCollectionOrder(loaded, preferredOrder);
+                var ordered = CollectionPersistenceService.ApplyCollectionOrder(
+                    byId.Values.ToList(),
+                    preferredOrder);
 
                 foreach (var definition in ordered)
                 {
-                    Collections.Add(CollectionTreeMapper.ToViewModel(definition));
+                    var node = CollectionTreeMapper.ToViewModel(definition);
+                    Collections.Add(node);
+                    if (dirtyByCollectionId.TryGetValue(definition.Id, out var nodeIds))
+                    {
+                        ApplyDirtyNodeIds(node, nodeIds);
+                    }
                 }
 
                 WireUndoRecorders();
                 RestoreTreeExpandedState();
-                StatusMessage = $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}";
+                StatusMessage = dirtyByCollectionId.Count == 0
+                    ? $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}"
+                    : $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory} ({dirtyByCollectionId.Count} unsaved restored)";
             }
             catch (Exception ex)
             {
@@ -1565,9 +1603,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         finally
         {
             _suppressCollectionOrderPersist = false;
+            _suppressDirtyStatePersist = false;
         }
 
         PersistCollectionOrder();
+        OnPropertyChanged(nameof(HasAnyDirty));
         TreeSessionRestoreRequested?.Invoke();
     }
 
@@ -1585,6 +1625,140 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         catch
         {
             // Order persistence should not block workspace edits.
+        }
+    }
+
+    private DispatcherTimer? _dirtyStatePersistTimer;
+    private bool _suppressDirtyStatePersist;
+    private bool _isPersistingDirtyState;
+    private const int DirtyStatePersistDebounceMilliseconds = 1500;
+
+    private void ScheduleDirtyStatePersist()
+    {
+        if (_suppressDirtyStatePersist || _isPersistingDirtyState)
+        {
+            return;
+        }
+
+        if (!HasAnyDirty)
+        {
+            _dirtyStatePersistTimer?.Stop();
+            try
+            {
+                PersistDirtyState();
+            }
+            catch
+            {
+                // Clean-up of leftover snapshots should not interrupt editing.
+            }
+
+            return;
+        }
+
+        _dirtyStatePersistTimer ??= CreateDirtyStatePersistTimer();
+        if (!_dirtyStatePersistTimer.IsEnabled)
+        {
+            try
+            {
+                PersistDirtyState();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Dirty save failed: {ex.Message}";
+            }
+        }
+    }
+
+    private DispatcherTimer CreateDirtyStatePersistTimer()
+    {
+        var timer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(DirtyStatePersistDebounceMilliseconds)
+        };
+        timer.Tick += (_, _) =>
+        {
+            try
+            {
+                PersistDirtyState();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Dirty save failed: {ex.Message}";
+            }
+
+            if (!HasAnyDirty)
+            {
+                timer.Stop();
+            }
+        };
+        return timer;
+    }
+
+    /// <summary>
+    /// Writes a sidecar snapshot for each dirty collection and deletes snapshots
+    /// for collections that are clean. Does not write collection files.
+    /// </summary>
+    private void PersistDirtyState()
+    {
+        if (_suppressDirtyStatePersist || _isPersistingDirtyState)
+        {
+            return;
+        }
+
+        _isPersistingDirtyState = true;
+        _dirtyStatePersistTimer?.Stop();
+        try
+        {
+            foreach (var collection in Collections)
+            {
+                if (CollectionTreeMapper.HasDirty(collection))
+                {
+                    NormalizeKeyValueSpares(collection);
+                    CollectionTreeMapper.SyncModelFromView(collection);
+                    _dirtyState.Save(new DirtyCollectionSnapshot
+                    {
+                        Collection = collection.Model,
+                        DirtyNodeIds = CollectDirtyNodeIds(collection)
+                    });
+                }
+                else
+                {
+                    TryDeleteDirtySnapshot(collection.Model.Id);
+                }
+            }
+        }
+        finally
+        {
+            _isPersistingDirtyState = false;
+            if (HasAnyDirty)
+            {
+                _dirtyStatePersistTimer ??= CreateDirtyStatePersistTimer();
+                _dirtyStatePersistTimer.Start();
+            }
+        }
+    }
+
+    private void TryDeleteDirtySnapshot(Guid collectionId)
+    {
+        try
+        {
+            _dirtyState.Delete(collectionId);
+        }
+        catch
+        {
+            // Snapshot cleanup should not block save/delete.
+        }
+    }
+
+    private void TryDeleteAllDirtySnapshots()
+    {
+        try
+        {
+            _dirtyState.DeleteAll();
+        }
+        catch
+        {
+            // Snapshot cleanup should not block discard/close.
         }
     }
 
@@ -1924,6 +2098,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         CollectionTreeMapper.SyncModelFromView(collection);
         _persistence.Save(collection.Model);
         CollectionTreeMapper.ClearDirty(collection);
+        TryDeleteDirtySnapshot(collection.Model.Id);
         OnPropertyChanged(nameof(HasAnyDirty));
     }
 
@@ -3916,6 +4091,50 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         foreach (var child in node.Children)
         {
             MarkSubtreeDirty(child);
+        }
+    }
+
+    private static List<Guid> CollectDirtyNodeIds(TreeNodeViewModel node)
+    {
+        var ids = new List<Guid>();
+        CollectDirtyNodeIds(node, ids);
+        return ids;
+    }
+
+    private static void CollectDirtyNodeIds(TreeNodeViewModel node, List<Guid> ids)
+    {
+        if (node.IsDirty && TryGetNodeId(node, out var id))
+        {
+            ids.Add(id);
+        }
+
+        foreach (var child in node.Children)
+        {
+            CollectDirtyNodeIds(child, ids);
+        }
+    }
+
+    private static void ApplyDirtyNodeIds(TreeNodeViewModel node, HashSet<Guid> dirtyIds)
+    {
+        if (dirtyIds.Count == 0)
+        {
+            node.IsDirty = true;
+            return;
+        }
+
+        ApplyDirtyNodeIdsCore(node, dirtyIds);
+    }
+
+    private static void ApplyDirtyNodeIdsCore(TreeNodeViewModel node, HashSet<Guid> dirtyIds)
+    {
+        if (TryGetNodeId(node, out var id) && dirtyIds.Contains(id))
+        {
+            node.IsDirty = true;
+        }
+
+        foreach (var child in node.Children)
+        {
+            ApplyDirtyNodeIdsCore(child, dirtyIds);
         }
     }
 
@@ -5947,6 +6166,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 }
             }
 
+            TryDeleteDirtySnapshot(collection.Model.Id);
+
             return;
         }
 
@@ -6064,27 +6285,49 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     public bool ConfirmClose() =>
-        ConfirmSaveIfDirty("You have unsaved changes. Save all before closing?");
+        ConfirmSaveIfDirty(
+            "You have unsaved changes. Save all collections, dirty-save this session for next launch, or discard?",
+            allowDirtySave: true);
 
     /// <summary>
     /// When there are dirty nodes, prompts to save / discard / cancel.
     /// Returns false if the caller should abort.
     /// </summary>
-    private bool ConfirmSaveIfDirty(string message)
+    private bool ConfirmSaveIfDirty(string message, bool allowDirtySave = false)
     {
         if (!HasAnyDirty)
         {
             return true;
         }
 
-        var choice = Views.ConfirmSaveDialog.Prompt(Application.Current?.MainWindow, message);
+        var choice = Views.ConfirmSaveDialog.Prompt(
+            Application.Current?.MainWindow,
+            message,
+            allowDirtySave);
 
         switch (choice)
         {
             case Views.ConfirmSaveChoice.Cancel:
                 return false;
             case Views.ConfirmSaveChoice.Discard:
+                TryDeleteAllDirtySnapshots();
                 return true;
+            case Views.ConfirmSaveChoice.DirtySave:
+                try
+                {
+                    PersistDirtyState();
+                    _dirtyStatePersistTimer?.Stop();
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(
+                        ex.Message,
+                        "Dirty Save Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                    return false;
+                }
             case Views.ConfirmSaveChoice.Save:
                 try
                 {

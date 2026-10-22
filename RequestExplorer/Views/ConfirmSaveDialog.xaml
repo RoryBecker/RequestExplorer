@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Unsaved Changes"
         SizeToContent="WidthAndHeight"
-        MinWidth="400"
-        MaxWidth="520"
+        MinWidth="460"
+        MaxWidth="560"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False">
@@ -30,6 +30,13 @@
                     Margin="0,0,8,0"
                     IsDefault="True"
                     Click="Yes_Click" />
+            <Button x:Name="DirtySaveButton"
+                    Content="Dirty Save"
+                    MinWidth="88"
+                    Padding="12,1"
+                    Margin="0,0,8,0"
+                    Visibility="Collapsed"
+                    Click="DirtySave_Click" />
             <Button Content="No"
                     Width="88"
                     Margin="0,0,8,0"

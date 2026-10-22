@@ -122,6 +122,9 @@
         <KeyBinding Key="Insert" Command="{Binding InsertFolderAboveCommand}" />
         <KeyBinding Key="Up" Modifiers="Alt" Command="{Binding MoveNodeUpCommand}" />
         <KeyBinding Key="Down" Modifiers="Alt" Command="{Binding MoveNodeDownCommand}" />
+        <KeyBinding Key="Left" Modifiers="Alt" Command="{Binding MoveNodeOutCommand}" />
+        <KeyBinding Key="Right" Modifiers="Alt" Command="{Binding MoveNodeInCommand}" />
+        <KeyBinding Key="Right" Modifiers="Alt+Shift" Command="{Binding MoveToNewSubFolderCommand}" />
     </Window.InputBindings>
 
     <DockPanel>
@@ -160,7 +163,9 @@
                 <MenuItem Header="Focus _Tree" Click="FocusTree_OnClick" InputGestureText="Ctrl+T" />
                 <MenuItem Header="Move _Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
                 <MenuItem Header="Move _Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />
-                <MenuItem Header="Move to New _Sub-folder…" Command="{Binding MoveToNewSubFolderCommand}" />
+                <MenuItem Header="Move _Out" Command="{Binding MoveNodeOutCommand}" InputGestureText="Alt+Left" />
+                <MenuItem Header="Move _In" Command="{Binding MoveNodeInCommand}" InputGestureText="Alt+Right" />
+                <MenuItem Header="Move to New _Sub-folder…" Command="{Binding MoveToNewSubFolderCommand}" InputGestureText="Alt+Shift+Right" />
                 <MenuItem Header="_Delete" Command="{Binding DeleteNodeCommand}" InputGestureText="Del" />
                 <Separator />
                 <MenuItem Header="Edit as _JSON…" Command="{Binding EditAsJsonCommand}" />
@@ -601,7 +606,9 @@
                                 <MenuItem Header="Move" Tag="Node">
                                     <MenuItem Header="Up" Command="{Binding MoveNodeUpCommand}" InputGestureText="Alt+Up" />
                                     <MenuItem Header="Down" Command="{Binding MoveNodeDownCommand}" InputGestureText="Alt+Down" />
-                                    <MenuItem Header="To New Sub-folder…" Command="{Binding MoveToNewSubFolderCommand}" />
+                                    <MenuItem Header="Out" Command="{Binding MoveNodeOutCommand}" InputGestureText="Alt+Left" />
+                                    <MenuItem Header="In" Command="{Binding MoveNodeInCommand}" InputGestureText="Alt+Right" />
+                                    <MenuItem Header="To New Sub-folder…" Command="{Binding MoveToNewSubFolderCommand}" InputGestureText="Alt+Shift+Right" />
                                 </MenuItem>
                                 <Separator Tag="Node" />
                                 <MenuItem Header="Rename" Command="{Binding RenameNodeCommand}" InputGestureText="F2" Tag="Node" />

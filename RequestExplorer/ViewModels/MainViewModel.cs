@@ -406,6 +406,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(ExpandChildrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveNodeUpCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveNodeDownCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveNodeOutCommand))]
+    [NotifyCanExecuteChangedFor(nameof(MoveNodeInCommand))]
     [NotifyCanExecuteChangedFor(nameof(MoveToNewSubFolderCommand))]
     [NotifyCanExecuteChangedFor(nameof(EditAsJsonCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportIntoNodeCommand))]
@@ -4594,10 +4596,39 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private bool CanMoveNodeDown() => CanMoveSelectedAmongSiblings(1);
 
+    [RelayCommand(CanExecute = nameof(CanMoveNodeOut))]
+    private void MoveNodeOut()
+    {
+        if (TryMoveSelectedOut())
+        {
+            NotifyMoveAmongSiblingsCanExecuteChanged();
+        }
+    }
+
+    private bool CanMoveNodeOut() =>
+        Keyboard.FocusedElement is not TextBox
+        && TryGetOutdentTarget(GetMoveBatch(), out _, out _);
+
+    [RelayCommand(CanExecute = nameof(CanMoveNodeIn))]
+    private void MoveNodeIn()
+    {
+        if (TryMoveSelectedIn())
+        {
+            NotifyMoveAmongSiblingsCanExecuteChanged();
+        }
+    }
+
+    private bool CanMoveNodeIn() =>
+        Keyboard.FocusedElement is not TextBox
+        && (TryGetIndentIntoSiblingTarget(GetMoveBatch(), out _, out _)
+            || TryGetMoveToNewSubFolderTarget(out _, out _, out _));
+
     private void NotifyMoveAmongSiblingsCanExecuteChanged()
     {
         MoveNodeUpCommand.NotifyCanExecuteChanged();
         MoveNodeDownCommand.NotifyCanExecuteChanged();
+        MoveNodeOutCommand.NotifyCanExecuteChanged();
+        MoveNodeInCommand.NotifyCanExecuteChanged();
         MoveToNewSubFolderCommand.NotifyCanExecuteChanged();
         InsertFolderAboveCommand.NotifyCanExecuteChanged();
     }
@@ -4620,7 +4651,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     private bool CanMoveToNewSubFolder() =>
-        TryGetMoveToNewSubFolderTarget(out _, out _, out _);
+        Keyboard.FocusedElement is not TextBox
+        && TryGetMoveToNewSubFolderTarget(out _, out _, out _);
 
     /// <summary>
     /// Creates a folder beside the selection and moves the selection into it (folder becomes parent).
@@ -5134,56 +5166,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return MoveIdentity(batch[0], dest, insertAt);
         }
 
-        var ordered = OrderBatchForMove(batch);
-        var beforeCount = ordered.Count(n =>
-        {
-            if (!TryGetSiblingIndex(n, out var p, out var idx))
-            {
-                return false;
-            }
-
-            return ReferenceEquals(p, dest) && idx < insertAt;
-        });
-        insertAt -= beforeCount;
-
-        _suppressMoveSideEffects = true;
-        var undoSteps = new List<IUndoAction>();
-        var movedAny = false;
-        try
-        {
-            foreach (var source in ordered)
-            {
-                if (TryMoveIdentityCollectUndo(source, dest, insertAt, undoSteps))
-                {
-                    movedAny = true;
-                    insertAt++;
-                }
-            }
-        }
-        finally
-        {
-            _suppressMoveSideEffects = false;
-        }
-
-        if (!movedAny)
-        {
-            return false;
-        }
-
-        RecordUndo(new CompositeUndoAction(
-            $"Move {ordered.Count} items",
-            undoSteps,
-            selectAfter: ordered,
-            selectAfterInverse: ordered));
-        ReplaceSelection(ordered, ordered[0]);
-        SelectedNode = ordered[0];
-        foreach (var node in ordered)
-        {
-            RefreshRowLayoutAfterMove(node);
-        }
-
-        StatusMessage = $"Moved {ordered.Count} items (Ctrl+S to persist)";
-        return true;
+        return TryMoveBatchTo(OrderBatchForMove(batch), dest, insertAt);
     }
 
     private bool TryGetCrossParentMoveTarget(
@@ -5248,6 +5231,216 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         container is CollectionNodeViewModel or FolderNodeViewModel
         && node is FolderNodeViewModel or RequestNodeViewModel
         && !IsUnder(container, node);
+
+    /// <summary>
+    /// Promotes the selection to sit immediately after its current parent
+    /// (sibling of that parent) when the grandparent can hold the nodes.
+    /// </summary>
+    private bool TryMoveSelectedOut()
+    {
+        var batch = GetMoveBatch();
+        if (!TryGetOutdentTarget(batch, out var dest, out var insertAt))
+        {
+            return false;
+        }
+
+        _deferTreeFilterDuringAltMove = true;
+        bool moved;
+        if (batch.Count == 1)
+        {
+            moved = MoveIdentity(batch[0], dest, insertAt);
+        }
+        else
+        {
+            moved = TryMoveBatchTo(OrderBatchForMove(batch), dest, insertAt);
+        }
+
+        if (!moved)
+        {
+            _deferTreeFilterDuringAltMove = false;
+            return false;
+        }
+
+        if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0)
+        {
+            EndAltMoveFilterDeferral();
+        }
+
+        return true;
+    }
+
+    private bool TryGetOutdentTarget(
+        IReadOnlyList<TreeNodeViewModel> batch,
+        out TreeNodeViewModel dest,
+        out int insertAt)
+    {
+        dest = null!;
+        insertAt = -1;
+        if (batch.Count == 0
+            || !batch.All(n => SharesSelectionParent(n, batch[0]))
+            || batch.Any(n => n is CollectionNodeViewModel))
+        {
+            return false;
+        }
+
+        var parent = batch[0].Parent;
+        if (parent is null || parent.Parent is not { } grandparent)
+        {
+            return false;
+        }
+
+        if (!batch.All(n => CanContainerHold(grandparent, n)))
+        {
+            return false;
+        }
+
+        var parentIndex = grandparent.Children.IndexOf(parent);
+        if (parentIndex < 0)
+        {
+            return false;
+        }
+
+        dest = grandparent;
+        insertAt = parentIndex + 1;
+        return true;
+    }
+
+    /// <summary>
+    /// Alt+Right: indent into the previous sibling folder/collection when it can hold
+    /// the selection; otherwise wrap in a new sub-folder.
+    /// </summary>
+    private bool TryMoveSelectedIn()
+    {
+        var batch = GetMoveBatch();
+        if (TryGetIndentIntoSiblingTarget(batch, out var dest, out var insertAt))
+        {
+            _deferTreeFilterDuringAltMove = true;
+            var moved = batch.Count == 1
+                ? MoveIdentity(batch[0], dest, insertAt)
+                : TryMoveBatchTo(OrderBatchForMove(batch), dest, insertAt);
+
+            if (!moved)
+            {
+                _deferTreeFilterDuringAltMove = false;
+                return false;
+            }
+
+            if ((Keyboard.Modifiers & ModifierKeys.Alt) == 0)
+            {
+                EndAltMoveFilterDeferral();
+            }
+
+            return true;
+        }
+
+        if (!TryWrapSelectionInNewFolder(
+                dialogTitle: "Move to New Sub-folder",
+                undoDescription: (name, items) => items.Count == 1
+                    ? $"Move '{items[0].Name}' to new sub-folder '{name}'"
+                    : $"Move {items.Count} items to new sub-folder '{name}'",
+                selectFolderAfter: false,
+                out var status))
+        {
+            return false;
+        }
+
+        StatusMessage = status;
+        return true;
+    }
+
+    private bool TryGetIndentIntoSiblingTarget(
+        IReadOnlyList<TreeNodeViewModel> batch,
+        out TreeNodeViewModel dest,
+        out int insertAt)
+    {
+        dest = null!;
+        insertAt = -1;
+        if (batch.Count == 0
+            || !batch.All(n => SharesSelectionParent(n, batch[0]))
+            || batch.Any(n => n is CollectionNodeViewModel))
+        {
+            return false;
+        }
+
+        var ordered = OrderBatchForMove(batch);
+        if (!TryGetSibling(ordered[0], -1, out var sibling, out _))
+        {
+            return false;
+        }
+
+        while (batch.Contains(sibling))
+        {
+            if (!TryGetSibling(sibling, -1, out sibling, out _))
+            {
+                return false;
+            }
+        }
+
+        if (!batch.All(n => CanContainerHold(sibling, n)))
+        {
+            return false;
+        }
+
+        dest = sibling;
+        insertAt = dest.Children.Count;
+        return true;
+    }
+
+    private bool TryMoveBatchTo(
+        IReadOnlyList<TreeNodeViewModel> ordered,
+        TreeNodeViewModel dest,
+        int insertAt)
+    {
+        var beforeCount = ordered.Count(n =>
+        {
+            if (!TryGetSiblingIndex(n, out var p, out var idx))
+            {
+                return false;
+            }
+
+            return ReferenceEquals(p, dest) && idx < insertAt;
+        });
+        insertAt -= beforeCount;
+
+        _suppressMoveSideEffects = true;
+        var undoSteps = new List<IUndoAction>();
+        var movedAny = false;
+        try
+        {
+            foreach (var source in ordered)
+            {
+                if (TryMoveIdentityCollectUndo(source, dest, insertAt, undoSteps))
+                {
+                    movedAny = true;
+                    insertAt++;
+                }
+            }
+        }
+        finally
+        {
+            _suppressMoveSideEffects = false;
+        }
+
+        if (!movedAny)
+        {
+            return false;
+        }
+
+        RecordUndo(new CompositeUndoAction(
+            $"Move {ordered.Count} items",
+            undoSteps,
+            selectAfter: ordered,
+            selectAfterInverse: ordered));
+        ReplaceSelection(ordered, ordered[0]);
+        SelectedNode = ordered[0];
+        foreach (var node in ordered)
+        {
+            RefreshRowLayoutAfterMove(node);
+        }
+
+        StatusMessage = $"Moved {ordered.Count} items (Ctrl+S to persist)";
+        return true;
+    }
 
     private List<TreeNodeViewModel> OrderBatchForMove(IReadOnlyList<TreeNodeViewModel> batch)
     {

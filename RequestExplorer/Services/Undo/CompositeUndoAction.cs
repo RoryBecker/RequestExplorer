@@ -23,6 +23,20 @@ public sealed class CompositeUndoAction : IUndoAction
 
     public string Description { get; }
 
+    public long HistoryId { get; set; }
+
+    public IEnumerable<TreeNodeViewModel> GetAffectedNodes() =>
+        _steps.SelectMany(s => s.GetAffectedNodes())
+            .Concat(_selectAfter ?? [])
+            .Concat(_selectAfterInverse ?? [])
+            .Distinct();
+
+    public IReadOnlyList<IUndoAction> Steps => _steps;
+
+    public IReadOnlyList<TreeNodeViewModel>? SelectAfter => _selectAfter;
+
+    public IReadOnlyList<TreeNodeViewModel>? SelectAfterInverse => _selectAfterInverse;
+
     public UndoRevealTarget? RevealTarget =>
         _steps.Select(s => s.RevealTarget).FirstOrDefault(t => t is not null);
 

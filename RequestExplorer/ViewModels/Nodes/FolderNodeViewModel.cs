@@ -41,6 +41,11 @@ public sealed partial class FolderNodeViewModel : ContainerNodeViewModel
     protected override void OnNameUpdated(string value)
     {
         Model.Name = value;
+        if (UndoRecorder?.IsApplyingHistory == true)
+        {
+            return;
+        }
+
         IsDirty = true;
     }
 

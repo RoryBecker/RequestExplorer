@@ -15,7 +15,15 @@ public sealed class SetRequestAddressAction : IUndoAction
         Description = description;
     }
 
+    public RequestNodeViewModel Request => _request;
+
+    public string Address => _address;
+
     public string Description { get; }
+
+    public long HistoryId { get; set; }
+
+    public IEnumerable<TreeNodeViewModel> GetAffectedNodes() => [_request];
 
     public UndoRevealTarget? RevealTarget => new(_request, EditorSurface.None);
 

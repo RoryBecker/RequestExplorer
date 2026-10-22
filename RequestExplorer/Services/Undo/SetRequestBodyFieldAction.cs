@@ -21,7 +21,17 @@ public sealed class SetRequestBodyFieldAction : IUndoAction, ICoalescingUndoActi
         Description = description;
     }
 
+    public RequestNodeViewModel Request => _request;
+
+    public RequestBodyField Field => _field;
+
+    public string? Value => _value;
+
     public string Description { get; }
+
+    public long HistoryId { get; set; }
+
+    public IEnumerable<TreeNodeViewModel> GetAffectedNodes() => [_request];
 
     public UndoRevealTarget? RevealTarget => new(_request, EditorSurface.Body);
 

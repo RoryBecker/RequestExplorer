@@ -96,6 +96,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             PersistCollectionOrder();
         };
         TreeNodeViewModel.SearchTextInvalidated += ApplyTreeFilterIfActive;
+        _history.RedoDiscarding += OnHistoryRedoDiscarding;
         _history.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(UndoStack.CanUndo) or nameof(UndoStack.UndoDescription))
@@ -1267,6 +1268,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
         finally
         {
+            RefreshDirtyFromHistory();
             _isApplyingHistory = false;
         }
     }
@@ -1308,6 +1310,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
         finally
         {
+            RefreshDirtyFromHistory();
             _isApplyingHistory = false;
         }
     }
@@ -1324,6 +1327,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         _history.Push(undoInstruction);
+        RefreshDirtyFromHistory();
     }
 
     private void RefreshHistoryMenus()
@@ -1553,12 +1557,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                     byId[definition.Id] = definition;
                 }
 
-                var dirtyByCollectionId = new Dictionary<Guid, HashSet<Guid>>();
+                var dirtySnapshots = new Dictionary<Guid, DirtyCollectionSnapshot>();
                 foreach (var snapshot in dirtyLoaded)
                 {
                     byId[snapshot.Collection.Id] = snapshot.Collection;
-                    dirtyByCollectionId[snapshot.Collection.Id] =
-                        snapshot.DirtyNodeIds.ToHashSet();
+                    dirtySnapshots[snapshot.Collection.Id] = snapshot;
                 }
 
                 var preferredOrder = priorOrder ?? _persistence.LoadCollectionOrder();
@@ -1570,17 +1573,41 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 {
                     var node = CollectionTreeMapper.ToViewModel(definition);
                     Collections.Add(node);
-                    if (dirtyByCollectionId.TryGetValue(definition.Id, out var nodeIds))
+                    if (dirtySnapshots.TryGetValue(definition.Id, out var snapshot))
                     {
-                        ApplyDirtyNodeIds(node, nodeIds);
+                        node.DiskHistoryId = snapshot.DiskHistoryId;
+                        foreach (var divergedId in snapshot.DivergedNodeIds)
+                        {
+                            node.DivergedNodeIds.Add(divergedId);
+                        }
                     }
                 }
 
                 WireUndoRecorders();
+                if (dirtySnapshots.Count > 0)
+                {
+                    RestoreDirtyUndoStack();
+                    if (_history.CanUndo || _history.CanRedo)
+                    {
+                        RefreshDirtyFromHistory();
+                    }
+                    else
+                    {
+                        foreach (var snapshot in dirtySnapshots.Values)
+                        {
+                            var node = Collections.FirstOrDefault(c => c.Model.Id == snapshot.Collection.Id);
+                            if (node is not null)
+                            {
+                                ApplyDirtyNodeIds(node, snapshot.DirtyNodeIds.ToHashSet());
+                            }
+                        }
+                    }
+                }
+
                 RestoreTreeExpandedState();
-                StatusMessage = dirtyByCollectionId.Count == 0
+                StatusMessage = dirtySnapshots.Count == 0
                     ? $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}"
-                    : $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory} ({dirtyByCollectionId.Count} unsaved restored)";
+                    : $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory} ({dirtySnapshots.Count} unsaved restored)";
             }
             catch (Exception ex)
             {
@@ -1709,6 +1736,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _dirtyStatePersistTimer?.Stop();
         try
         {
+            var wroteAny = false;
             foreach (var collection in Collections)
             {
                 if (CollectionTreeMapper.HasDirty(collection))
@@ -1718,13 +1746,25 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                     _dirtyState.Save(new DirtyCollectionSnapshot
                     {
                         Collection = collection.Model,
-                        DirtyNodeIds = CollectDirtyNodeIds(collection)
+                        DirtyNodeIds = CollectDirtyNodeIds(collection),
+                        DiskHistoryId = collection.DiskHistoryId,
+                        DivergedNodeIds = collection.DivergedNodeIds.ToList()
                     });
+                    wroteAny = true;
                 }
                 else
                 {
                     TryDeleteDirtySnapshot(collection.Model.Id);
                 }
+            }
+
+            if (wroteAny)
+            {
+                SaveDirtyUndoStack();
+            }
+            else
+            {
+                _dirtyState.DeleteUndoStack();
             }
         }
         finally
@@ -1735,6 +1775,74 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 _dirtyStatePersistTimer ??= CreateDirtyStatePersistTimer();
                 _dirtyStatePersistTimer.Start();
             }
+        }
+    }
+
+    private void SaveDirtyUndoStack()
+    {
+        var snapshot = DirtyUndoMapper.Serialize(
+            _history.SnapshotUndoOldestFirst(),
+            _history.SnapshotRedoOldestFirst(),
+            _history.NextHistoryId);
+        _dirtyState.SaveUndoStack(snapshot);
+    }
+
+    private void RestoreDirtyUndoStack()
+    {
+        try
+        {
+            var snapshot = _dirtyState.LoadUndoStack();
+            if (snapshot is null)
+            {
+                return;
+            }
+
+            var context = new DirtyUndoBindContext
+            {
+                FindNode = FindNodeById,
+                CreateNode = CreateNodeFromDirtyUndo,
+                PrepareNode = WireUndoRecorders,
+                CreateKeyValue = (request, listKind, item) =>
+                    request.CreateBoundKeyValueItem(listKind, item),
+                CreateVariable = (container, item) =>
+                    container.CreateBoundVariableItem(item)
+            };
+
+            if (!DirtyUndoMapper.TryDeserialize(snapshot, context, out var undo, out var redo))
+            {
+                return;
+            }
+
+            _history.Restore(undo, redo, snapshot.NextHistoryId);
+        }
+        catch
+        {
+            // A corrupt undo snapshot must not block workspace restore.
+        }
+    }
+
+    private TreeNodeViewModel? CreateNodeFromDirtyUndo(string kind, JsonElement model)
+    {
+        try
+        {
+            switch (kind)
+            {
+                case "collection":
+                    var collection = model.Deserialize<CollectionDefinition>(DirtyUndoMapper.JsonOptions);
+                    return collection is null ? null : CollectionTreeMapper.ToViewModel(collection);
+                case "folder":
+                    var folder = model.Deserialize<FolderDefinition>(DirtyUndoMapper.JsonOptions);
+                    return folder is null ? null : CollectionTreeMapper.ToFolderViewModel(folder);
+                case "request":
+                    var request = model.Deserialize<RequestDefinition>(DirtyUndoMapper.JsonOptions);
+                    return request is null ? null : new RequestNodeViewModel(request);
+                default:
+                    return null;
+            }
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -2097,9 +2205,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         NormalizeKeyValueSpares(collection);
         CollectionTreeMapper.SyncModelFromView(collection);
         _persistence.Save(collection.Model);
-        CollectionTreeMapper.ClearDirty(collection);
+        collection.DiskHistoryId = _history.CurrentHistoryId;
+        collection.DivergedNodeIds.Clear();
         TryDeleteDirtySnapshot(collection.Model.Id);
-        OnPropertyChanged(nameof(HasAnyDirty));
+        RefreshDirtyFromHistory();
     }
 
     private static void NormalizeKeyValueSpares(TreeNodeViewModel node)
@@ -4135,6 +4244,91 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         foreach (var child in node.Children)
         {
             ApplyDirtyNodeIdsCore(child, dirtyIds);
+        }
+    }
+
+    private void OnHistoryRedoDiscarding(IReadOnlyList<IUndoAction> discarded)
+    {
+        foreach (var collection in Collections)
+        {
+            // 0 is the load-from-disk origin, not an action id. Discarding redo
+            // cannot drop that checkpoint.
+            if (collection.DiskHistoryId == 0)
+            {
+                continue;
+            }
+
+            if (!discarded.Any(action => action.HistoryId == collection.DiskHistoryId))
+            {
+                continue;
+            }
+
+            foreach (var action in discarded)
+            {
+                if (action.HistoryId > collection.DiskHistoryId)
+                {
+                    continue;
+                }
+
+                foreach (var node in action.GetAffectedNodes())
+                {
+                    if (TryGetNodeId(node, out var id))
+                    {
+                        collection.DivergedNodeIds.Add(id);
+                    }
+                }
+            }
+        }
+    }
+
+    private void RefreshDirtyFromHistory()
+    {
+        foreach (var collection in Collections)
+        {
+            ApplyHistoryDirtyFlags(collection, ComputeDirtyNodeIds(collection));
+        }
+
+        OnPropertyChanged(nameof(HasAnyDirty));
+    }
+
+    private HashSet<Guid> ComputeDirtyNodeIds(CollectionNodeViewModel collection)
+    {
+        if (_history.CurrentHistoryId == collection.DiskHistoryId)
+        {
+            collection.DivergedNodeIds.Clear();
+            return [];
+        }
+
+        var ids = new HashSet<Guid>(collection.DivergedNodeIds);
+        var between = _history.GetActionsBetweenCurrentAnd(collection.DiskHistoryId);
+        var ops = between
+                  ?? _history.SnapshotUndoOldestFirst()
+                      .Where(action => action.HistoryId > collection.DiskHistoryId);
+
+        foreach (var action in ops)
+        {
+            foreach (var node in action.GetAffectedNodes())
+            {
+                if (TryGetNodeId(node, out var id))
+                {
+                    ids.Add(id);
+                }
+            }
+        }
+
+        return ids;
+    }
+
+    private static void ApplyHistoryDirtyFlags(TreeNodeViewModel node, HashSet<Guid> dirtyIds)
+    {
+        if (TryGetNodeId(node, out var id))
+        {
+            node.IsDirty = dirtyIds.Contains(id);
+        }
+
+        foreach (var child in node.Children)
+        {
+            ApplyHistoryDirtyFlags(child, dirtyIds);
         }
     }
 

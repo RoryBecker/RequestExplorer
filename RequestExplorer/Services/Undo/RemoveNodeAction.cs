@@ -17,7 +17,18 @@ public sealed class RemoveNodeAction : IUndoAction
         Description = description;
     }
 
+    public TreeNodeViewModel Node => _node;
+
+    public TreeNodeViewModel? Parent => _parent;
+
+    public int Index => _index;
+
     public string Description { get; }
+
+    public long HistoryId { get; set; }
+
+    public IEnumerable<TreeNodeViewModel> GetAffectedNodes() =>
+        UndoAffectedNodes.ForTreeChange(_node, _parent);
 
     public UndoRevealTarget? RevealTarget => null;
 

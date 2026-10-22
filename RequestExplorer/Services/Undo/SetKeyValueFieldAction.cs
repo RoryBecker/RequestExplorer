@@ -27,7 +27,21 @@ public sealed class SetKeyValueFieldAction : IUndoAction, ICoalescingUndoAction
         Description = description;
     }
 
+    public RequestNodeViewModel Request => _request;
+
+    public KeyValueListKind ListKind => _listKind;
+
+    public KeyValueItemViewModel Item => _item;
+
+    public KeyValueField Field => _field;
+
+    public object? Value => _value;
+
     public string Description { get; }
+
+    public long HistoryId { get; set; }
+
+    public IEnumerable<TreeNodeViewModel> GetAffectedNodes() => [_request];
 
     public UndoRevealTarget? RevealTarget =>
         new(_request, _listKind == KeyValueListKind.Params ? EditorSurface.Params : EditorSurface.Headers);

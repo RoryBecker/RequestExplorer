@@ -387,6 +387,9 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         VariablesTooltip = sb.ToString().TrimEnd();
     }
 
+    public KeyValueItemViewModel CreateBoundVariableItem(KeyValueItem item) =>
+        CreateVariableVm(item);
+
     private KeyValueItemViewModel CreateVariableVm(KeyValueItem item) =>
         new(item, OnVariableFieldChanged);
 

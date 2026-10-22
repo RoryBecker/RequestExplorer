@@ -15,7 +15,15 @@ public sealed class SetNameAction : IUndoAction
         Description = description;
     }
 
+    public TreeNodeViewModel Node => _node;
+
+    public string Name => _name;
+
     public string Description { get; }
+
+    public long HistoryId { get; set; }
+
+    public IEnumerable<TreeNodeViewModel> GetAffectedNodes() => [_node];
 
     public UndoRevealTarget? RevealTarget => null;
 

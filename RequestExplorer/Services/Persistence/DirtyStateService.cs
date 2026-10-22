@@ -2,6 +2,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RequestExplorer.Models;
+using RequestExplorer.Services.Undo;
 
 namespace RequestExplorer.Services.Persistence;
 
@@ -11,6 +12,8 @@ namespace RequestExplorer.Services.Persistence;
 /// </summary>
 public sealed class DirtyStateService
 {
+    public const string UndoStackFileName = "undo-stack.json";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -89,6 +92,12 @@ public sealed class DirtyStateService
         var snapshots = new List<DirtyCollectionSnapshot>();
         foreach (var path in Directory.EnumerateFiles(DirtyDirectory, "*.json"))
         {
+            var fileName = Path.GetFileNameWithoutExtension(path);
+            if (!Guid.TryParseExact(fileName, "N", out _))
+            {
+                continue;
+            }
+
             try
             {
                 var json = File.ReadAllText(path);
@@ -123,6 +132,51 @@ public sealed class DirtyStateService
 
         return new DirtyCollectionSnapshot { Collection = collection };
     }
+
+    public void SaveUndoStack(DirtyUndoStackSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        EnsureDirtyDirectory();
+        var json = JsonSerializer.Serialize(snapshot, DirtyUndoMapper.JsonOptions);
+        WriteTextAtomic(UndoStackPath, json);
+    }
+
+    public DirtyUndoStackSnapshot? LoadUndoStack()
+    {
+        var path = UndoStackPath;
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            var json = File.ReadAllText(path);
+            return JsonSerializer.Deserialize<DirtyUndoStackSnapshot>(json, DirtyUndoMapper.JsonOptions);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public void DeleteUndoStack()
+    {
+        var path = UndoStackPath;
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Best-effort
+        }
+    }
+
+    private string UndoStackPath => Path.Combine(DirtyDirectory, UndoStackFileName);
 
     private string GetFilePath(Guid collectionId) =>
         Path.Combine(DirtyDirectory, $"{collectionId:N}.json");

@@ -21,7 +21,17 @@ public sealed class RemoveVariableRowAction : IUndoAction
         Description = description;
     }
 
+    public ContainerNodeViewModel Container => _container;
+
+    public KeyValueItemViewModel Item => _item;
+
+    public int Index => _index;
+
     public string Description { get; }
+
+    public long HistoryId { get; set; }
+
+    public IEnumerable<TreeNodeViewModel> GetAffectedNodes() => [_container];
 
     public UndoRevealTarget? RevealTarget => new(_container, EditorSurface.Variables);
 

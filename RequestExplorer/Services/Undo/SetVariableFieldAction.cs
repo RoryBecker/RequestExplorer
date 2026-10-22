@@ -24,7 +24,19 @@ public sealed class SetVariableFieldAction : IUndoAction, ICoalescingUndoAction
         Description = description;
     }
 
+    public ContainerNodeViewModel Container => _container;
+
+    public KeyValueItemViewModel Item => _item;
+
+    public KeyValueField Field => _field;
+
+    public object? Value => _value;
+
     public string Description { get; }
+
+    public long HistoryId { get; set; }
+
+    public IEnumerable<TreeNodeViewModel> GetAffectedNodes() => [_container];
 
     public UndoRevealTarget? RevealTarget => new(_container, EditorSurface.Variables);
 

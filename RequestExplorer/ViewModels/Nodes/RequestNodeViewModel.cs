@@ -183,7 +183,8 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     public void MarkDirty()
     {
-        if (!_trackDirty || _ensuringSpare || _syncingUrlAndParams)
+        if (!_trackDirty || _ensuringSpare || _syncingUrlAndParams
+            || _undoRecorder?.IsApplyingHistory == true)
         {
             return;
         }
@@ -689,6 +690,9 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         list.Count > 0 && string.IsNullOrWhiteSpace(list[^1].Key)
             ? list.Count - 1
             : list.Count;
+
+    public KeyValueItemViewModel CreateBoundKeyValueItem(KeyValueListKind listKind, KeyValueItem item) =>
+        listKind == KeyValueListKind.Params ? CreateParamVm(item) : CreateHeaderVm(item);
 
     private KeyValueItemViewModel CreateParamVm(KeyValueItem item) =>
         new(item, OnParamFieldChanged);

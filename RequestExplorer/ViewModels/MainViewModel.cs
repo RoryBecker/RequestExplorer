@@ -4965,10 +4965,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         if (batch.Count == 1)
         {
-            return TryGetSibling(batch[0], direction, out _, out _);
+            return TryGetSibling(batch[0], direction, out _, out _)
+                   || TryGetCrossParentMoveTarget(batch, direction, out _, out _);
         }
 
-        return TryGetBlockMoveAnchor(batch, direction, out _, out _);
+        return TryGetBlockMoveAnchor(batch, direction, out _, out _)
+               || TryGetCrossParentMoveTarget(batch, direction, out _, out _);
     }
 
     private bool TryMoveSelectedAmongSiblings(int direction)
@@ -4981,19 +4983,17 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         _deferTreeFilterDuringAltMove = true;
         bool moved;
-        if (batch.Count == 1)
+        if (batch.Count == 1 && TryGetSibling(batch[0], direction, out var sibling, out _))
         {
-            if (!TryGetSibling(batch[0], direction, out var sibling, out _))
-            {
-                _deferTreeFilterDuringAltMove = false;
-                return false;
-            }
-
             moved = MoveBeside(batch[0], sibling, after: direction > 0);
+        }
+        else if (batch.Count > 1 && TryGetBlockMoveAnchor(batch, direction, out _, out _))
+        {
+            moved = TryMoveSelectionBlockAmongSiblings(batch, direction);
         }
         else
         {
-            moved = TryMoveSelectionBlockAmongSiblings(batch, direction);
+            moved = TryMoveAcrossParent(batch, direction);
         }
 
         if (!moved)
@@ -5117,6 +5117,137 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         return TryResolveBesideInsert(next, after: true, out parent, out insertAt);
     }
+
+    /// <summary>
+    /// First/last child Alt+Up/Down: move into the parent's previous/next sibling
+    /// when that sibling is a collection or folder that can hold the selection.
+    /// </summary>
+    private bool TryMoveAcrossParent(IReadOnlyList<TreeNodeViewModel> batch, int direction)
+    {
+        if (!TryGetCrossParentMoveTarget(batch, direction, out var dest, out var insertAt))
+        {
+            return false;
+        }
+
+        if (batch.Count == 1)
+        {
+            return MoveIdentity(batch[0], dest, insertAt);
+        }
+
+        var ordered = OrderBatchForMove(batch);
+        var beforeCount = ordered.Count(n =>
+        {
+            if (!TryGetSiblingIndex(n, out var p, out var idx))
+            {
+                return false;
+            }
+
+            return ReferenceEquals(p, dest) && idx < insertAt;
+        });
+        insertAt -= beforeCount;
+
+        _suppressMoveSideEffects = true;
+        var undoSteps = new List<IUndoAction>();
+        var movedAny = false;
+        try
+        {
+            foreach (var source in ordered)
+            {
+                if (TryMoveIdentityCollectUndo(source, dest, insertAt, undoSteps))
+                {
+                    movedAny = true;
+                    insertAt++;
+                }
+            }
+        }
+        finally
+        {
+            _suppressMoveSideEffects = false;
+        }
+
+        if (!movedAny)
+        {
+            return false;
+        }
+
+        RecordUndo(new CompositeUndoAction(
+            $"Move {ordered.Count} items",
+            undoSteps,
+            selectAfter: ordered,
+            selectAfterInverse: ordered));
+        ReplaceSelection(ordered, ordered[0]);
+        SelectedNode = ordered[0];
+        foreach (var node in ordered)
+        {
+            RefreshRowLayoutAfterMove(node);
+        }
+
+        StatusMessage = $"Moved {ordered.Count} items (Ctrl+S to persist)";
+        return true;
+    }
+
+    private bool TryGetCrossParentMoveTarget(
+        IReadOnlyList<TreeNodeViewModel> batch,
+        int direction,
+        out TreeNodeViewModel dest,
+        out int insertAt)
+    {
+        dest = null!;
+        insertAt = -1;
+        if (batch.Count == 0
+            || direction == 0
+            || !batch.All(n => SharesSelectionParent(n, batch[0]))
+            || batch.Any(n => n is CollectionNodeViewModel))
+        {
+            return false;
+        }
+
+        var ordered = OrderBatchForMove(batch);
+        if (!IsBatchAtVisibleEdge(ordered, direction))
+        {
+            return false;
+        }
+
+        var parent = ordered[0].Parent;
+        if (parent is null || !TryGetSibling(parent, direction, out var uncle, out _))
+        {
+            return false;
+        }
+
+        if (!batch.All(n => CanContainerHold(uncle, n)))
+        {
+            return false;
+        }
+
+        dest = uncle;
+        insertAt = direction < 0 ? dest.Children.Count : 0;
+        return true;
+    }
+
+    private bool IsBatchAtVisibleEdge(IReadOnlyList<TreeNodeViewModel> batch, int direction)
+    {
+        var ordered = OrderBatchForMove(batch);
+        var edge = direction < 0 ? ordered[0] : ordered[^1];
+        if (!TryGetSibling(edge, direction, out var sibling, out _))
+        {
+            return true;
+        }
+
+        while (batch.Contains(sibling))
+        {
+            if (!TryGetSibling(sibling, direction, out sibling, out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool CanContainerHold(TreeNodeViewModel container, TreeNodeViewModel node) =>
+        container is CollectionNodeViewModel or FolderNodeViewModel
+        && node is FolderNodeViewModel or RequestNodeViewModel
+        && !IsUnder(container, node);
 
     private List<TreeNodeViewModel> OrderBatchForMove(IReadOnlyList<TreeNodeViewModel> batch)
     {

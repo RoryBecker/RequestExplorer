@@ -93,6 +93,12 @@ public sealed class UiPreferences
     /// </summary>
     public string LastNewItemKind { get; set; } = "Request";
 
+    /// <summary>
+    /// Experimental. When true, unsaved collections and undo history can be
+    /// kept across launches (Dirty Save). Off until the user enables it.
+    /// </summary>
+    public bool EnableDirtySave { get; set; }
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

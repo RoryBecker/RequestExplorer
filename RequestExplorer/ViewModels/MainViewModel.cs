@@ -1541,7 +1541,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             try
             {
                 var loaded = _persistence.LoadAll();
-                var dirtyLoaded = _dirtyState.LoadAll();
+                var dirtyLoaded = IsDirtySaveEnabled
+                    ? _dirtyState.LoadAll()
+                    : [];
                 if (loaded.Count == 0 && dirtyLoaded.Count == 0)
                 {
                     SeedAndPersistDemo();
@@ -1660,9 +1662,23 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private bool _isPersistingDirtyState;
     private const int DirtyStatePersistDebounceMilliseconds = 1500;
 
+    private bool IsDirtySaveEnabled => UiPreferences.EnableDirtySave;
+
+    private void ApplyDirtySaveSetting()
+    {
+        if (IsDirtySaveEnabled)
+        {
+            ScheduleDirtyStatePersist();
+            return;
+        }
+
+        _dirtyStatePersistTimer?.Stop();
+        TryDeleteAllDirtySnapshots();
+    }
+
     private void ScheduleDirtyStatePersist()
     {
-        if (_suppressDirtyStatePersist || _isPersistingDirtyState)
+        if (!IsDirtySaveEnabled || _suppressDirtyStatePersist || _isPersistingDirtyState)
         {
             return;
         }
@@ -1727,7 +1743,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     /// </summary>
     private void PersistDirtyState()
     {
-        if (_suppressDirtyStatePersist || _isPersistingDirtyState)
+        if (!IsDirtySaveEnabled || _suppressDirtyStatePersist || _isPersistingDirtyState)
         {
             return;
         }
@@ -3582,12 +3598,14 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.DevModeIgnoreTimeout = dialog.DevModeIgnoreTimeout;
         UiPreferences.EnableMouseTreeNavigation = dialog.EnableMouseTreeNavigation;
         UiPreferences.BackupOnStartup = dialog.BackupOnStartup;
+        UiPreferences.EnableDirtySave = dialog.EnableDirtySave;
         UiPreferences.BackupRetentionCount =
             BackupService.ClampRetention(dialog.BackupRetentionCount);
         UiPreferences.VariableNestingMaxDepth =
             VariableResolver.ClampMaxNestingDepth(dialog.VariableNestingMaxDepth);
         ApplyHttpTimeoutSettings();
         ApplyVariableNestingSettings();
+        ApplyDirtySaveSetting();
         PersistUiPreferences();
         RefreshQuickExport();
 
@@ -6480,8 +6498,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     public bool ConfirmClose() =>
         ConfirmSaveIfDirty(
-            "You have unsaved changes. Save all collections, dirty-save this session for next launch, or discard?",
-            allowDirtySave: true);
+            IsDirtySaveEnabled
+                ? "You have unsaved changes. Save all collections, dirty-save this session for next launch, or discard?"
+                : "You have unsaved changes. Save all before closing?",
+            allowDirtySave: IsDirtySaveEnabled);
 
     /// <summary>
     /// When there are dirty nodes, prompts to save / discard / cancel.

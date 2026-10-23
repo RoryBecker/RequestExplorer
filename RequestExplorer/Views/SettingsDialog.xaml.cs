@@ -16,6 +16,7 @@ public partial class SettingsDialog : Window
         NestingDepthBox.Text = VariableResolver.ClampMaxNestingDepth(preferences.VariableNestingMaxDepth).ToString();
         MouseTreeNavCheck.IsChecked = preferences.EnableMouseTreeNavigation;
         BackupOnStartupCheck.IsChecked = preferences.BackupOnStartup;
+        DirtySaveCheck.IsChecked = preferences.EnableDirtySave;
         RetentionBox.Text = BackupService.ClampRetention(preferences.BackupRetentionCount).ToString();
         BackupsPathBlock.Text = string.IsNullOrWhiteSpace(backupsDirectory)
             ? string.Empty
@@ -34,6 +35,8 @@ public partial class SettingsDialog : Window
     public bool EnableMouseTreeNavigation => MouseTreeNavCheck.IsChecked == true;
 
     public bool BackupOnStartup => BackupOnStartupCheck.IsChecked == true;
+
+    public bool EnableDirtySave => DirtySaveCheck.IsChecked == true;
 
     public int BackupRetentionCount { get; private set; } = BackupService.DefaultRetention;
 

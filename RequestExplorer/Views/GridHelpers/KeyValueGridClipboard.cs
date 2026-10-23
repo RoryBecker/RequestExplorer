@@ -1,8 +1,10 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using RequestExplorer.Models;
 using RequestExplorer.Services.KeyValue;
 using RequestExplorer.Services.Undo;
@@ -38,6 +40,7 @@ public static class KeyValueGridClipboard
         }
 
         grid.PreviewKeyDown -= OnPreviewKeyDown;
+        grid.PreparingCellForEdit -= OnPreparingCellForEdit;
         grid.PreviewMouseRightButtonDown -= OnPreviewMouseRightButtonDown;
         grid.MouseDoubleClick -= OnMouseDoubleClick;
         grid.ContextMenuOpening -= OnContextMenuOpening;
@@ -46,6 +49,7 @@ public static class KeyValueGridClipboard
         if (e.NewValue is true)
         {
             grid.PreviewKeyDown += OnPreviewKeyDown;
+            grid.PreparingCellForEdit += OnPreparingCellForEdit;
             grid.PreviewMouseRightButtonDown += OnPreviewMouseRightButtonDown;
             grid.MouseDoubleClick += OnMouseDoubleClick;
             grid.ContextMenuOpening += OnContextMenuOpening;
@@ -262,6 +266,14 @@ public static class KeyValueGridClipboard
             return;
         }
 
+        if (e.Key is Key.Enter or Key.Return
+            && Keyboard.Modifiers == ModifierKeys.None
+            && TryHandleEnterNavigation(grid, e.OriginalSource as DependencyObject))
+        {
+            e.Handled = true;
+            return;
+        }
+
         // Only leave Ctrl+C/V to the cell editor while a cell is actively being edited.
         if (IsEditingTextCell(e.OriginalSource as DependencyObject))
         {
@@ -296,6 +308,159 @@ public static class KeyValueGridClipboard
             }
         }
     }
+
+    private static void OnPreparingCellForEdit(object? sender, DataGridPreparingCellForEditEventArgs e)
+    {
+        if (e.EditingElement is not TextBox box)
+        {
+            return;
+        }
+
+        box.PreviewKeyDown -= OnEditingBoxPreviewKeyDown;
+        box.PreviewKeyDown += OnEditingBoxPreviewKeyDown;
+    }
+
+    private static void OnEditingBoxPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key is not (Key.Enter or Key.Return)
+            || Keyboard.Modifiers != ModifierKeys.None
+            || sender is not TextBox box)
+        {
+            return;
+        }
+
+        var grid = FindAncestor<DataGrid>(box);
+        if (grid is not null && TryHandleEnterNavigation(grid, box))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private static bool TryHandleEnterNavigation(DataGrid grid, DependencyObject? source) =>
+        TryMoveFromNameToValue(grid, source) || TryMoveFromValueToNextName(grid, source);
+
+    private static bool TryMoveFromNameToValue(DataGrid grid, DependencyObject? source)
+    {
+        if (!TryGetEditingColumn(grid, source, out var rowItem, out var column)
+            || !IsNameColumn(column))
+        {
+            return false;
+        }
+
+        var valueColumn = FindValueColumn(grid);
+        grid.CommitEdit(DataGridEditingUnit.Cell, true);
+        if (rowItem is null || valueColumn is null)
+        {
+            return true;
+        }
+
+        BeginEditCell(grid, rowItem, valueColumn);
+        return true;
+    }
+
+    private static bool TryMoveFromValueToNextName(DataGrid grid, DependencyObject? source)
+    {
+        if (!TryGetEditingColumn(grid, source, out var rowItem, out var column)
+            || !IsValueColumn(column))
+        {
+            return false;
+        }
+
+        var nameColumn = FindNameColumn(grid);
+        grid.CommitEdit(DataGridEditingUnit.Cell, true);
+        grid.CommitEdit(DataGridEditingUnit.Row, true);
+        if (rowItem is null || nameColumn is null)
+        {
+            return true;
+        }
+
+        var nextRow = FindNextRow(grid, rowItem);
+        if (nextRow is null)
+        {
+            return true;
+        }
+
+        BeginEditCell(grid, nextRow, nameColumn);
+        return true;
+    }
+
+    private static bool TryGetEditingColumn(
+        DataGrid grid,
+        DependencyObject? source,
+        out object? rowItem,
+        out DataGridColumn column)
+    {
+        var cell = FindAncestor<DataGridCell>(source);
+        if (cell is not { IsEditing: true, Column: { } editingColumn })
+        {
+            rowItem = null;
+            column = null!;
+            return false;
+        }
+
+        rowItem = grid.CurrentItem ?? cell.DataContext;
+        column = editingColumn;
+        return true;
+    }
+
+    private static object? FindNextRow(DataGrid grid, object current)
+    {
+        var index = grid.Items.IndexOf(current);
+        if (index < 0 || index + 1 >= grid.Items.Count)
+        {
+            return null;
+        }
+
+        var next = grid.Items[index + 1];
+        return ReferenceEquals(next, CollectionView.NewItemPlaceholder) ? null : next;
+    }
+
+    private static void BeginEditCell(DataGrid grid, object rowItem, DataGridColumn column)
+    {
+        grid.Dispatcher.BeginInvoke(
+            () =>
+            {
+                if (!grid.Items.Contains(rowItem))
+                {
+                    return;
+                }
+
+                grid.CurrentCell = new DataGridCellInfo(rowItem, column);
+                grid.SelectedItem = rowItem;
+                grid.ScrollIntoView(rowItem, column);
+                grid.BeginEdit();
+                if (Keyboard.FocusedElement is TextBox box)
+                {
+                    box.CaretIndex = box.Text?.Length ?? 0;
+                }
+            },
+            DispatcherPriority.Loaded);
+    }
+
+    private static bool IsNameColumn(DataGridColumn column) =>
+        ColumnMatches(column, "Key", "Name");
+
+    private static bool IsValueColumn(DataGridColumn column) =>
+        ColumnMatches(column, "Value");
+
+    private static bool ColumnMatches(DataGridColumn column, params string[] names)
+    {
+        if (column.Header is string header
+            && names.Any(n => string.Equals(header, n, StringComparison.Ordinal)))
+        {
+            return true;
+        }
+
+        return column is DataGridBoundColumn { Binding: Binding binding }
+               && binding.Path?.Path is { } path
+               && names.Any(n => string.Equals(path, n, StringComparison.Ordinal));
+    }
+
+    private static DataGridColumn? FindNameColumn(DataGrid grid) =>
+        grid.Columns.FirstOrDefault(IsNameColumn);
+
+    private static DataGridColumn? FindValueColumn(DataGrid grid) =>
+        grid.Columns.FirstOrDefault(IsValueColumn);
 
     private static bool IsEditingTextCell(DependencyObject? source)
     {

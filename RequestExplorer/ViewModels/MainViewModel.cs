@@ -4638,13 +4638,22 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             ? parent.Children.IndexOf(node)
             : Collections.IndexOf((CollectionNodeViewModel)node);
 
-        var toSelect = parent;
-        if (ReferenceEquals(SelectedNode, node) || IsUnder(SelectedNode, node))
-        {
-            SelectedNode = toSelect;
-        }
+        var retarget = ReferenceEquals(SelectedNode, node) || IsUnder(SelectedNode, node);
+        var neighbor = FindVerticalNeighbor(node);
 
         RemoveNodeCore(node);
+        if (retarget)
+        {
+            if (neighbor is not null)
+            {
+                RevealAndSelectNodes([neighbor]);
+            }
+            else
+            {
+                SelectedNode = null;
+            }
+        }
+
         RecordUndo(new InsertNodeAction(parent, node, index, $"Delete '{name}'"));
         StatusMessage = childCount > 0
             ? $"Deleted '{name}' and {childCount} child item(s)"
@@ -6370,6 +6379,62 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Visible row immediately above <paramref name="node"/>, or the row below if there
+    /// is nothing above. Skips the node and its descendants (they go away with the delete).
+    /// </summary>
+    private TreeNodeViewModel? FindVerticalNeighbor(TreeNodeViewModel node)
+    {
+        var rows = new List<TreeNodeViewModel>();
+        foreach (var collection in Collections)
+        {
+            CollectVisibleRows(collection, rows);
+        }
+
+        var index = rows.IndexOf(node);
+        if (index < 0)
+        {
+            return node.Parent;
+        }
+
+        for (var i = index - 1; i >= 0; i--)
+        {
+            if (!IsUnder(rows[i], node))
+            {
+                return rows[i];
+            }
+        }
+
+        for (var i = index + 1; i < rows.Count; i++)
+        {
+            if (!IsUnder(rows[i], node))
+            {
+                return rows[i];
+            }
+        }
+
+        return null;
+    }
+
+    private static void CollectVisibleRows(TreeNodeViewModel node, List<TreeNodeViewModel> rows)
+    {
+        if (!node.IsVisibleInFilter)
+        {
+            return;
+        }
+
+        rows.Add(node);
+        if (!node.IsExpanded)
+        {
+            return;
+        }
+
+        foreach (var child in node.Children)
+        {
+            CollectVisibleRows(child, rows);
+        }
     }
 
     private static bool IsUnder(TreeNodeViewModel? candidate, TreeNodeViewModel ancestor)

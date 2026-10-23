@@ -6389,8 +6389,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     /// <summary>
-    /// Visible row immediately above <paramref name="node"/>, or the row below if there
-    /// is nothing above. Skips the node and its descendants (they go away with the delete).
+    /// Visible row immediately below <paramref name="node"/>, or the row above if there
+    /// is nothing below. Skips the node and its descendants (they go away with the delete).
     /// </summary>
     private TreeNodeViewModel? FindVerticalNeighbor(TreeNodeViewModel node)
     {
@@ -6406,7 +6406,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return node.Parent;
         }
 
-        for (var i = index - 1; i >= 0; i--)
+        for (var i = index + 1; i < rows.Count; i++)
         {
             if (!IsUnder(rows[i], node))
             {
@@ -6414,7 +6414,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             }
         }
 
-        for (var i = index + 1; i < rows.Count; i++)
+        for (var i = index - 1; i >= 0; i--)
         {
             if (!IsUnder(rows[i], node))
             {

@@ -552,10 +552,11 @@
                                                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
                                                 </Border>
 
+                                                <!-- Indent so the child expander sits under the parent header icon. -->
                                                 <ItemsPresenter x:Name="ItemsHost"
                                                                 Grid.Row="1"
                                                                 Grid.Column="1"
-                                                                Margin="8,0,0,0" />
+                                                                Margin="4,0,0,0" />
                                             </Grid>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="HasItems" Value="False">
@@ -643,6 +644,8 @@
                                                     VerticalAlignment="Center">
                                             <TextBlock FontFamily="Segoe MDL2 Assets"
                                                        Text="&#xE8F1;"
+                                                       Width="22"
+                                                       TextAlignment="Center"
                                                        Margin="0,0,6,0"
                                                        Foreground="{DynamicResource App.AccentBrush}"
                                                        VerticalAlignment="Center" />
@@ -684,6 +687,8 @@
                                             </StackPanel.Style>
                                             <TextBlock FontFamily="Segoe MDL2 Assets"
                                                        Text="&#xE8B7;"
+                                                       Width="22"
+                                                       TextAlignment="Center"
                                                        Margin="0,0,6,0"
                                                        Foreground="{DynamicResource App.MutedBrush}"
                                                        VerticalAlignment="Center" />

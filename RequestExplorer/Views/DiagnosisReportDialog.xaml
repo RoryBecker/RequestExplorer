@@ -37,13 +37,21 @@
                    Foreground="{DynamicResource App.MutedBrush}"
                    Text="Click a node name to select it in the collection tree." />
 
-        <Button Grid.Row="2"
-                Content="Close"
-                Width="88"
-                Margin="0,12,0,0"
-                HorizontalAlignment="Right"
-                IsDefault="True"
-                IsCancel="True"
-                Click="Close_Click" />
+        <DockPanel Grid.Row="2" Margin="0,12,0,0" LastChildFill="False">
+            <Button x:Name="FlattenExportButton"
+                    DockPanel.Dock="Left"
+                    Content="Export Flattened…"
+                    MinWidth="140"
+                    Padding="12,1"
+                    Visibility="Collapsed"
+                    Click="FlattenExport_Click" />
+            <Button DockPanel.Dock="Right"
+                    Content="Close"
+                    Width="88"
+                    HorizontalAlignment="Right"
+                    IsDefault="True"
+                    IsCancel="True"
+                    Click="Close_Click" />
+        </DockPanel>
     </Grid>
 </Window>

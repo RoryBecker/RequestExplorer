@@ -24,16 +24,23 @@ public partial class DiagnosisReportDialog : Window
     public DiagnosisReportDialog(
         string title,
         DiagnosisReport report,
-        Action<TreeNodeViewModel>? navigateToNode = null)
+        Action<TreeNodeViewModel>? navigateToNode = null,
+        bool showFlattenExport = false)
     {
         InitializeComponent();
         Title = title;
         _navigateToNode = navigateToNode;
         ReportBox.Document = BuildDocument(report);
+        FlattenExportButton.Visibility = showFlattenExport
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     /// <summary>Node chosen via a report link; set before the dialog closes.</summary>
     public TreeNodeViewModel? NavigatedNode { get; private set; }
+
+    /// <summary>True when the user chose Export Flattened from a blocked Postman export.</summary>
+    public bool FlattenExportChosen { get; private set; }
 
     private FlowDocument BuildDocument(DiagnosisReport report)
     {
@@ -112,6 +119,12 @@ public partial class DiagnosisReportDialog : Window
         e.Handled = true;
         NavigatedNode = node;
         _navigateToNode?.Invoke(node);
+        DialogResult = true;
+    }
+
+    private void FlattenExport_Click(object sender, RoutedEventArgs e)
+    {
+        FlattenExportChosen = true;
         DialogResult = true;
     }
 

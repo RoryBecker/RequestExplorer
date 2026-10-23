@@ -3638,6 +3638,42 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     private void ExportNodeFlattened(TreeNodeViewModel? node) =>
         ExportNodeCore(node, flattenVariables: true);
 
+    /// <returns>False when export should abort (clash report shown, or user chose Flatten from there).</returns>
+    private bool TryConfirmPostmanHoistExport(TreeNodeViewModel node)
+    {
+        var clashes = PostmanVariableHoistClash.Find(node);
+        if (clashes.Count == 0)
+        {
+            return true;
+        }
+
+        var report = PostmanVariableHoistClash.BuildReport(node, clashes);
+        var dialog = new Views.DiagnosisReportDialog(
+            "Cannot export to Postman",
+            report,
+            showFlattenExport: true)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        dialog.ShowDialog();
+
+        if (dialog.NavigatedNode is { } target)
+        {
+            RevealAndSelectNodes([target]);
+            StatusMessage = $"Selected {target.HierarchyPath}";
+        }
+        else if (dialog.FlattenExportChosen)
+        {
+            ExportNodeCore(node, flattenVariables: true);
+        }
+        else
+        {
+            StatusMessage = "Postman export cancelled — variable names clash across branches";
+        }
+
+        return false;
+    }
+
     private void ExportNodeCore(TreeNodeViewModel? node, bool flattenVariables)
     {
         node ??= SelectedNode;
@@ -3649,6 +3685,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         try
         {
             PrepareNodeForExport(node);
+            if (!flattenVariables && !TryConfirmPostmanHoistExport(node))
+            {
+                return;
+            }
+
             var document = flattenVariables
                 ? PostmanCollectionMapper.ToFlattenedCollectionDocument(node)
                 : node switch

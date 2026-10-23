@@ -2086,7 +2086,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     /// <summary>
     /// Adds the same demo collections created on first launch
-    /// (Feature Tour, httpbin.org Demo, and Sandbox).
+    /// (Feature Tour and Sandbox).
     /// </summary>
     [RelayCommand]
     private void RecreateDemoCollections()
@@ -2108,12 +2108,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         {
             foreach (var definition in definitions)
             {
+                _persistence.Save(definition);
                 var node = CollectionTreeMapper.ToViewModel(definition);
                 WireUndoRecorders(node);
                 Collections.Add(node);
                 CollapseSubtree(node);
                 node.IsExpanded = true;
-                MarkSubtreeDirty(node);
                 added.Add(node);
             }
 
@@ -2140,10 +2140,17 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             selectAfter: added,
             selectAfterInverse: previousSelection));
 
+        foreach (var node in added)
+        {
+            node.DiskHistoryId = _history.CurrentHistoryId;
+            node.DivergedNodeIds.Clear();
+        }
+
+        RefreshDirtyFromHistory();
         OnPropertyChanged(nameof(HasAnyDirty));
         StatusMessage = added.Count == 1
-            ? $"Added demo collection '{added[0].Name}' (Ctrl+S to persist)"
-            : $"Added {added.Count} demo collections (Ctrl+S to persist)";
+            ? $"Added demo collection '{added[0].Name}'"
+            : $"Added {added.Count} demo collections";
     }
 
     [RelayCommand(CanExecute = nameof(CanSave))]

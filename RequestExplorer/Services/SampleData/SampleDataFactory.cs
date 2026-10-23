@@ -23,140 +23,11 @@ public static class SampleDataFactory
             Address = "https://httpbin.org/get?example=1&ready=true"
         });
 
-        return [BuildFeatureTourCollection(), BuildHttpbinCollection(), sandbox];
+        return [BuildFeatureTourCollection(), sandbox];
     }
 
     public static IReadOnlyList<CollectionNodeViewModel> CreateDemoWorkspace() =>
         CreateDemoDefinitions().Select(CollectionTreeMapper.ToViewModel).ToList();
-
-    private static CollectionDefinition BuildHttpbinCollection()
-    {
-        var collection = new CollectionDefinition { Name = "httpbin.org Demo" };
-
-        var methods = new FolderDefinition { Name = "HTTP Methods" };
-        methods.Requests.Add(Req("GET", HttpVerb.GET, "https://httpbin.org/get"));
-        methods.Requests.Add(Req("POST JSON", HttpVerb.POST, "https://httpbin.org/post",
-            body: """{"message":"hello"}""", contentType: "application/json"));
-        methods.Requests.Add(Req("PUT", HttpVerb.PUT, "https://httpbin.org/put",
-            body: """{"update":true}""", contentType: "application/json"));
-        methods.Requests.Add(Req("PATCH", HttpVerb.PATCH, "https://httpbin.org/patch",
-            body: """{"patch":1}""", contentType: "application/json"));
-        methods.Requests.Add(Req("DELETE", HttpVerb.DELETE, "https://httpbin.org/delete"));
-        collection.Folders.Add(methods);
-
-        var auth = new FolderDefinition { Name = "Authentication" };
-        auth.Requests.Add(new RequestDefinition
-        {
-            Name = "Bearer token",
-            Verb = HttpVerb.GET,
-            Address = "https://httpbin.org/bearer",
-            Authentication = new AuthenticationSettings
-            {
-                Type = AuthType.Bearer,
-                BearerToken = "demo-token"
-            }
-        });
-        auth.Requests.Add(new RequestDefinition
-        {
-            Name = "Basic auth",
-            Verb = HttpVerb.GET,
-            Address = "https://httpbin.org/basic-auth/user/passwd",
-            Authentication = new AuthenticationSettings
-            {
-                Type = AuthType.Basic,
-                BasicUsername = "user",
-                BasicPassword = "passwd"
-            }
-        });
-        auth.Requests.Add(new RequestDefinition
-        {
-            Name = "API key header",
-            Verb = HttpVerb.GET,
-            Address = "https://httpbin.org/headers",
-            Authentication = new AuthenticationSettings
-            {
-                Type = AuthType.ApiKey,
-                ApiKeyName = "X-Api-Key",
-                ApiKeyValue = "demo-key",
-                ApiKeyLocation = ApiKeyLocation.Header
-            }
-        });
-        collection.Folders.Add(auth);
-
-        var status = new FolderDefinition { Name = "Status Codes" };
-        status.Requests.Add(Req("200 OK", HttpVerb.GET, "https://httpbin.org/status/200"));
-        status.Requests.Add(Req("404 Not Found", HttpVerb.GET, "https://httpbin.org/status/404"));
-        status.Requests.Add(Req("500 Server Error", HttpVerb.GET, "https://httpbin.org/status/500"));
-        collection.Folders.Add(status);
-
-        var query = new FolderDefinition { Name = "Query & Headers" };
-
-        // Address already contains a query string → Params table is filled on load (URL → Params).
-        query.Requests.Add(new RequestDefinition
-        {
-            Name = "Query in URL",
-            Verb = HttpVerb.GET,
-            Address = "https://httpbin.org/get?search=widgets&limit=10&sort=name"
-        });
-
-        // Params table is the source → URL query is built on load (Params → URL).
-        var viaParams = Req("Query via Params", HttpVerb.GET, "https://httpbin.org/get");
-        viaParams.Params.Add(new KeyValueItem { Key = "page", Value = "1" });
-        viaParams.Params.Add(new KeyValueItem { Key = "q", Value = "request-explorer" });
-        viaParams.Params.Add(new KeyValueItem { Key = "include", Value = "meta" });
-        query.Requests.Add(viaParams);
-
-        // Encoded / multi-value style query for paste-into-URL demos.
-        query.Requests.Add(new RequestDefinition
-        {
-            Name = "Encoded query",
-            Verb = HttpVerb.GET,
-            Address = "https://httpbin.org/get?q=hello%20world&tag=api&tag=demo"
-        });
-
-        var withHeaders = Req("Custom headers", HttpVerb.GET, "https://httpbin.org/headers");
-        withHeaders.Headers.Add(new KeyValueItem { Key = "Accept", Value = "application/json" });
-        withHeaders.Headers.Add(new KeyValueItem { Key = "X-Client", Value = "RequestExplorer" });
-        query.Requests.Add(withHeaders);
-
-        collection.Folders.Add(query);
-
-        var xml = new FolderDefinition { Name = "XML & SOAP" };
-        var getXml = Req("GET XML", HttpVerb.GET, "https://httpbin.org/xml");
-        getXml.Headers.Add(new KeyValueItem { Key = "Accept", Value = "application/xml" });
-        xml.Requests.Add(getXml);
-
-        var getNote = Req("GET note.xml", HttpVerb.GET, "https://www.w3schools.com/xml/note.xml");
-        getNote.Headers.Add(new KeyValueItem { Key = "Accept", Value = "application/xml, text/xml" });
-        xml.Requests.Add(getNote);
-
-        var soap = Req(
-            "SOAP NumberToWords",
-            HttpVerb.POST,
-            "https://www.dataaccess.com/webservicesserver/NumberConversion.wso",
-            body: """
-                <?xml version="1.0" encoding="utf-8"?>
-                <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-                  <soap:Body>
-                    <NumberToWords xmlns="http://www.dataaccess.com/webservicesserver/">
-                      <ubiNum>42</ubiNum>
-                    </NumberToWords>
-                  </soap:Body>
-                </soap:Envelope>
-                """,
-            contentType: "text/xml; charset=utf-8");
-        soap.Headers.Add(new KeyValueItem
-        {
-            Key = "SOAPAction",
-            Value = "\"http://www.dataaccess.com/webservicesserver/NumberToWords\""
-        });
-        soap.Headers.Add(new KeyValueItem { Key = "Accept", Value = "text/xml" });
-        xml.Requests.Add(soap);
-
-        collection.Folders.Add(xml);
-
-        return collection;
-    }
 
     /// <summary>
     /// Walkthrough collection: send, variables, tree moves, and Postman export vs flatten.
@@ -169,6 +40,7 @@ public static class SampleDataFactory
         collection.Variables.Add(Var("region", "global"));
 
         Add(collection, BuildSendFolder());
+        Add(collection, BuildDiagnosisFolder());
         Add(collection, BuildVariablesFolder());
         Add(collection, BuildMovementFolder());
         Add(collection, BuildExportingFolder());
@@ -177,7 +49,7 @@ public static class SampleDataFactory
 
     private static FolderDefinition BuildSendFolder()
     {
-        var folder = new FolderDefinition { Name = "Send a request" };
+        var folder = new FolderDefinition { Name = "Simple requests" };
         Add(folder, TourReq("GET", HttpVerb.GET, "{{host}}/get"));
         Add(folder, TourReq("POST JSON", HttpVerb.POST, "{{host}}/post",
             body: """{"message":"hello from Feature Tour"}""",
@@ -190,6 +62,83 @@ public static class SampleDataFactory
             contentType: "application/json"));
         Add(folder, TourReq("DELETE", HttpVerb.DELETE, "{{host}}/delete"));
         Add(folder, TourReq("Anything", HttpVerb.GET, "{{host}}/anything?from=feature-tour"));
+        return folder;
+    }
+
+    private static FolderDefinition BuildDiagnosisFolder()
+    {
+        var folder = new FolderDefinition { Name = "Diagnosis" };
+
+        var status = new FolderDefinition { Name = "Status codes" };
+        Add(status, TourReq("200 OK", HttpVerb.GET, "{{host}}/status/200", expectedStatus: 200));
+        Add(status, TourReq("201 Created", HttpVerb.GET, "{{host}}/status/201", expectedStatus: 201));
+        Add(status, TourReq("204 No Content", HttpVerb.GET, "{{host}}/status/204", expectedStatus: 204));
+        Add(status, TourReq("400 Bad Request", HttpVerb.GET, "{{host}}/status/400", expectedStatus: 400));
+        Add(status, TourReq("401 Unauthorized", HttpVerb.GET, "{{host}}/status/401", expectedStatus: 401));
+        Add(status, TourReq("403 Forbidden", HttpVerb.GET, "{{host}}/status/403", expectedStatus: 403));
+        Add(status, TourReq("404 Not Found", HttpVerb.GET, "{{host}}/status/404", expectedStatus: 404));
+        Add(status, TourReq("418 I'm a teapot", HttpVerb.GET, "{{host}}/status/418", expectedStatus: 418));
+        Add(status, TourReq("500 Server Error", HttpVerb.GET, "{{host}}/status/500", expectedStatus: 500));
+        Add(status, TourReq("503 Unavailable", HttpVerb.GET, "{{host}}/status/503", expectedStatus: 503));
+        Add(folder, status);
+
+        var expectations = new FolderDefinition { Name = "Expectations" };
+        Add(expectations, TourReq(
+            "Met — status 200 as expected",
+            HttpVerb.GET,
+            "{{host}}/status/200",
+            expectedStatus: 200));
+        Add(expectations, TourReq(
+            "Fail — expect 200, actually 404",
+            HttpVerb.GET,
+            "{{host}}/status/404",
+            expectedStatus: 200));
+        Add(expectations, TourReq(
+            "Met — body contains marker",
+            HttpVerb.POST,
+            "{{host}}/post",
+            body: """{"demo":"feature-tour"}""",
+            contentType: "application/json",
+            expectBody: true,
+            expectBodyContains: true,
+            expectedBody: "feature-tour"));
+        Add(expectations, TourReq(
+            "Fail — body exact match",
+            HttpVerb.GET,
+            "{{host}}/get",
+            expectBody: true,
+            expectBodyContains: false,
+            expectedBody: "(this will not match)"));
+        Add(expectations, TourReq(
+            "Met — timing under 10s",
+            HttpVerb.GET,
+            "{{host}}/get",
+            expectTiming: true,
+            expectedTimingMs: 10000));
+        Add(expectations, TourReq(
+            "Fail — timing under 1ms",
+            HttpVerb.GET,
+            "{{host}}/get",
+            expectTiming: true,
+            expectedTimingMs: 1));
+        Add(folder, expectations);
+
+        var optedOut = new FolderDefinition { Name = "Opted out" };
+        Add(optedOut, TourReq("Runs in Run All", HttpVerb.GET, "{{host}}/get"));
+        Add(optedOut, TourReq(
+            "Opted-out request",
+            HttpVerb.GET,
+            "{{host}}/get",
+            optOut: true));
+        var optedFolder = new FolderDefinition
+        {
+            Name = "Opted-out folder",
+            OptOutOfAutoRun = true
+        };
+        Add(optedFolder, TourReq("Skipped with the folder", HttpVerb.GET, "{{host}}/get"));
+        Add(optedOut, optedFolder);
+        Add(folder, optedOut);
+
         return folder;
     }
 
@@ -310,10 +259,27 @@ public static class SampleDataFactory
         HttpVerb verb,
         string address,
         string? body = null,
-        string? contentType = null)
+        string? contentType = null,
+        int expectedStatus = 200,
+        bool optOut = false,
+        bool expectBody = false,
+        bool expectBodyContains = false,
+        string expectedBody = "",
+        bool expectTiming = false,
+        double expectedTimingMs = 300)
     {
         var request = Req(name, verb, address, body, contentType);
-        request.ExpectTimingEnabled = false;
+        request.ExpectedStatusCode = expectedStatus;
+        request.OptOutOfAutoRun = optOut;
+        request.ExpectBodyEnabled = expectBody;
+        request.ExpectBodyContains = expectBodyContains;
+        request.ExpectedBody = expectedBody;
+        request.ExpectTimingEnabled = expectTiming;
+        if (expectTiming)
+        {
+            request.ExpectedTimingMilliseconds = expectedTimingMs;
+        }
+
         return request;
     }
 

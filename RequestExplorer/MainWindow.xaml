@@ -144,7 +144,7 @@
                 <Separator />
                 <MenuItem Header="Open collections _folder" Command="{Binding OpenStorageFolderCommand}" />
                 <MenuItem Header="Add _Demo Collections" Command="{Binding RecreateDemoCollectionsCommand}"
-                          ToolTip="Adds Feature Tour, httpbin.org Demo, and Sandbox (same as an empty workspace)" />
+                          ToolTip="Adds Feature Tour and Sandbox (same as an empty workspace)" />
                 <Separator />
                 <MenuItem Header="E_xit" Command="{Binding ExitCommand}" />
             </MenuItem>

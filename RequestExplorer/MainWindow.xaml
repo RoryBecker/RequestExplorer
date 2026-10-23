@@ -55,7 +55,7 @@
         <Style x:Key="TreeDropIntoHighlight" TargetType="Border">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="CornerRadius" Value="3" />
-            <Setter Property="Padding" Value="2,0" />
+            <Setter Property="Padding" Value="0,0,2,0" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding DropIndicator}" Value="{x:Static nodes:TreeDropIndicator.Into}">
@@ -80,8 +80,9 @@
                             <Path x:Name="ExpandPath"
                                   Data="M 1,0 L 5.5,3.5 L 1,7 Z"
                                   Fill="{DynamicResource App.MutedBrush}"
-                                  HorizontalAlignment="Center"
+                                  HorizontalAlignment="Right"
                                   VerticalAlignment="Center"
+                                  Margin="0,0,2,0"
                                   RenderTransformOrigin="0.5,0.5">
                                 <Path.RenderTransform>
                                     <RotateTransform Angle="0" />
@@ -513,7 +514,7 @@
                                 <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                 <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
                                 <Setter Property="Visibility" Value="{Binding IsVisibleInFilter, Converter={StaticResource BoolToVis}}" />
-                                <Setter Property="Padding" Value="2,1,2,1" />
+                                <Setter Property="Padding" Value="0,1,2,1" />
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                 <Setter Property="VerticalContentAlignment" Value="Center" />
                                 <Setter Property="Background" Value="Transparent" />
@@ -536,8 +537,7 @@
                                                 <ToggleButton x:Name="Expander"
                                                               Style="{StaticResource TreeExpandToggle}"
                                                               IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}}"
-                                                              ClickMode="Press"
-                                                              Margin="0,0,1,0" />
+                                                              ClickMode="Press" />
 
                                                 <Border x:Name="Bd"
                                                         Grid.Column="1"
@@ -555,8 +555,7 @@
                                                 <!-- Indent so the child expander sits under the parent header icon. -->
                                                 <ItemsPresenter x:Name="ItemsHost"
                                                                 Grid.Row="1"
-                                                                Grid.Column="1"
-                                                                Margin="4,0,0,0" />
+                                                                Grid.Column="1" />
                                             </Grid>
                                             <ControlTemplate.Triggers>
                                                 <Trigger Property="HasItems" Value="False">
@@ -646,7 +645,6 @@
                                                        Text="&#xE8F1;"
                                                        Width="22"
                                                        TextAlignment="Center"
-                                                       Margin="0,0,6,0"
                                                        Foreground="{DynamicResource App.AccentBrush}"
                                                        VerticalAlignment="Center" />
                                             <TextBlock FontFamily="Segoe MDL2 Assets"
@@ -688,8 +686,7 @@
                                             <TextBlock FontFamily="Segoe MDL2 Assets"
                                                        Text="&#xE8B7;"
                                                        Width="22"
-                                                       TextAlignment="Center"
-                                                       Margin="0,0,6,0"
+                                                       TextAlignment="Left"
                                                        Foreground="{DynamicResource App.MutedBrush}"
                                                        VerticalAlignment="Center" />
                                             <TextBlock FontFamily="Segoe MDL2 Assets"

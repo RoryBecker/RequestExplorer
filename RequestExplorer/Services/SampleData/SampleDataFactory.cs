@@ -7,24 +7,8 @@ namespace RequestExplorer.Services.SampleData;
 
 public static class SampleDataFactory
 {
-    public static IReadOnlyList<CollectionDefinition> CreateDemoDefinitions()
-    {
-        var sandbox = new CollectionDefinition { Name = "Sandbox" };
-        sandbox.Requests.Add(new RequestDefinition
-        {
-            Name = "Blank GET",
-            Verb = HttpVerb.GET,
-            Address = "https://httpbin.org/get"
-        });
-        sandbox.Requests.Add(new RequestDefinition
-        {
-            Name = "GET with query",
-            Verb = HttpVerb.GET,
-            Address = "https://httpbin.org/get?example=1&ready=true"
-        });
-
-        return [BuildFeatureTourCollection(), sandbox];
-    }
+    public static IReadOnlyList<CollectionDefinition> CreateDemoDefinitions() =>
+        [BuildFeatureTourCollection()];
 
     public static IReadOnlyList<CollectionNodeViewModel> CreateDemoWorkspace() =>
         CreateDemoDefinitions().Select(CollectionTreeMapper.ToViewModel).ToList();

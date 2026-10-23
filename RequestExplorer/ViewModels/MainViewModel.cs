@@ -2085,7 +2085,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     /// <summary>
-    /// Adds the same demo collections created on first launch (httpbin.org Demo + Sandbox).
+    /// Adds the same demo collections created on first launch
+    /// (Feature Tour, httpbin.org Demo, and Sandbox).
     /// </summary>
     [RelayCommand]
     private void RecreateDemoCollections()

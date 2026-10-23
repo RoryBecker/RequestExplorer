@@ -23,7 +23,7 @@ public static class SampleDataFactory
             Address = "https://httpbin.org/get?example=1&ready=true"
         });
 
-        return [BuildHttpbinCollection(), sandbox];
+        return [BuildFeatureTourCollection(), BuildHttpbinCollection(), sandbox];
     }
 
     public static IReadOnlyList<CollectionNodeViewModel> CreateDemoWorkspace() =>
@@ -156,6 +156,165 @@ public static class SampleDataFactory
         collection.Folders.Add(xml);
 
         return collection;
+    }
+
+    /// <summary>
+    /// Walkthrough collection: send, variables, tree moves, and Postman export vs flatten.
+    /// </summary>
+    private static CollectionDefinition BuildFeatureTourCollection()
+    {
+        var collection = new CollectionDefinition { Name = "Feature Tour" };
+        collection.Variables.Add(Var("host", "https://httpbin.org"));
+        collection.Variables.Add(Var("client", "RequestExplorer"));
+        collection.Variables.Add(Var("region", "global"));
+
+        Add(collection, BuildSendFolder());
+        Add(collection, BuildVariablesFolder());
+        Add(collection, BuildMovementFolder());
+        Add(collection, BuildExportingFolder());
+        return collection;
+    }
+
+    private static FolderDefinition BuildSendFolder()
+    {
+        var folder = new FolderDefinition { Name = "Send a request" };
+        Add(folder, TourReq("GET", HttpVerb.GET, "{{host}}/get"));
+        Add(folder, TourReq("POST JSON", HttpVerb.POST, "{{host}}/post",
+            body: """{"message":"hello from Feature Tour"}""",
+            contentType: "application/json"));
+        Add(folder, TourReq("PUT", HttpVerb.PUT, "{{host}}/put",
+            body: """{"update":true}""",
+            contentType: "application/json"));
+        Add(folder, TourReq("PATCH", HttpVerb.PATCH, "{{host}}/patch",
+            body: """{"patch":1}""",
+            contentType: "application/json"));
+        Add(folder, TourReq("DELETE", HttpVerb.DELETE, "{{host}}/delete"));
+        Add(folder, TourReq("Anything", HttpVerb.GET, "{{host}}/anything?from=feature-tour"));
+        return folder;
+    }
+
+    private static FolderDefinition BuildVariablesFolder()
+    {
+        var folder = new FolderDefinition { Name = "Variables" };
+
+        var inherited = new FolderDefinition { Name = "Inherited" };
+        Add(inherited, TourReq(
+            "Echo inherited client and region",
+            HttpVerb.GET,
+            "{{host}}/get?client={{client}}&region={{region}}"));
+        Add(folder, inherited);
+
+        var overrideRegion = new FolderDefinition { Name = "Override" };
+        overrideRegion.Variables.Add(Var("region", "eu"));
+        Add(overrideRegion, TourReq(
+            "Echo — region is eu, client still inherited",
+            HttpVerb.GET,
+            "{{host}}/get?client={{client}}&region={{region}}"));
+        var nested = new FolderDefinition { Name = "Still overridden here" };
+        Add(nested, TourReq(
+            "Echo nested — region stays eu",
+            HttpVerb.POST,
+            "{{host}}/post",
+            body: """{"client":"{{client}}","region":"{{region}}"}""",
+            contentType: "application/json"));
+        Add(overrideRegion, nested);
+        Add(folder, overrideRegion);
+
+        var calculated = new FolderDefinition { Name = "Calculated" };
+        calculated.Variables.Add(Var("today", "@date(today)"));
+        calculated.Variables.Add(Var("now", "@date(now)"));
+        calculated.Variables.Add(Var("weekAgo", "@date(today-7d)"));
+        calculated.Variables.Add(Var("label", "signed {{today}}"));
+        Add(calculated, TourReq(
+            "Echo date recipes and nested label",
+            HttpVerb.GET,
+            "{{host}}/get?today={{today}}&now={{now}}&weekAgo={{weekAgo}}&label={{label}}"));
+        Add(folder, calculated);
+
+        return folder;
+    }
+
+    private static FolderDefinition BuildMovementFolder()
+    {
+        var folder = new FolderDefinition { Name = "Node movement" };
+
+        var dropTarget = new FolderDefinition { Name = "Drop target (Alt+Right)" };
+        Add(dropTarget, TourReq("Already inside the drop target", HttpVerb.GET, "{{host}}/get"));
+        Add(folder, dropTarget);
+
+        Add(folder, TourReq("Alt+Right — indent into Drop target above", HttpVerb.GET, "{{host}}/get"));
+        Add(folder, TourReq("Alt+Up — swap with the request above", HttpVerb.GET, "{{host}}/get"));
+        Add(folder, TourReq("Alt+Down — swap with the request below", HttpVerb.GET, "{{host}}/get"));
+        Add(folder, TourReq("Alt+Shift+Right — wrap me in a new folder", HttpVerb.GET, "{{host}}/get"));
+
+        var nested = new FolderDefinition { Name = "Nested (Alt+Left to leave)" };
+        Add(nested, TourReq("Alt+Left — outdent to Node movement", HttpVerb.GET, "{{host}}/get"));
+        Add(folder, nested);
+
+        return folder;
+    }
+
+    private static FolderDefinition BuildExportingFolder()
+    {
+        var folder = new FolderDefinition { Name = "Exporting" };
+
+        var postmanReady = new FolderDefinition { Name = "Postman-ready" };
+        postmanReady.Variables.Add(Var("host", "https://httpbin.org"));
+        postmanReady.Variables.Add(Var("env", "shared"));
+        var alpha = new FolderDefinition { Name = "Alpha" };
+        Add(alpha, TourReq("Alpha echo", HttpVerb.GET, "{{host}}/get?env={{env}}"));
+        var beta = new FolderDefinition { Name = "Beta" };
+        Add(beta, TourReq("Beta echo", HttpVerb.GET, "{{host}}/get?env={{env}}"));
+        Add(postmanReady, alpha);
+        Add(postmanReady, beta);
+        Add(folder, postmanReady);
+
+        var flattenRequired = new FolderDefinition { Name = "Flatten required" };
+        flattenRequired.Variables.Add(Var("host", "https://httpbin.org"));
+        var staging = new FolderDefinition { Name = "Staging" };
+        staging.Variables.Add(Var("env", "staging"));
+        Add(staging, TourReq("Staging echo", HttpVerb.GET, "{{host}}/get?env={{env}}"));
+        var production = new FolderDefinition { Name = "Production" };
+        production.Variables.Add(Var("env", "production"));
+        Add(production, TourReq("Production echo", HttpVerb.GET, "{{host}}/get?env={{env}}"));
+        Add(flattenRequired, staging);
+        Add(flattenRequired, production);
+        Add(folder, flattenRequired);
+
+        return folder;
+    }
+
+    private static void Add(CollectionDefinition parent, FolderDefinition folder)
+    {
+        parent.Folders.Add(folder);
+        parent.ChildOrder.Add(new ChildOrderEntry { Kind = TreeChildKind.Folder, Id = folder.Id });
+    }
+
+    private static void Add(FolderDefinition parent, FolderDefinition folder)
+    {
+        parent.Folders.Add(folder);
+        parent.ChildOrder.Add(new ChildOrderEntry { Kind = TreeChildKind.Folder, Id = folder.Id });
+    }
+
+    private static void Add(FolderDefinition parent, RequestDefinition request)
+    {
+        parent.Requests.Add(request);
+        parent.ChildOrder.Add(new ChildOrderEntry { Kind = TreeChildKind.Request, Id = request.Id });
+    }
+
+    private static KeyValueItem Var(string key, string value) =>
+        new() { Key = key, Value = value, IsEnabled = true };
+
+    private static RequestDefinition TourReq(
+        string name,
+        HttpVerb verb,
+        string address,
+        string? body = null,
+        string? contentType = null)
+    {
+        var request = Req(name, verb, address, body, contentType);
+        request.ExpectTimingEnabled = false;
+        return request;
     }
 
     private static RequestDefinition Req(

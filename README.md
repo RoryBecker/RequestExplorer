@@ -4,7 +4,7 @@ A local Windows HTTP client for building, organizing, and testing API requests. 
 
 ## Headline features
 
-Where RequestExplorer is stronger than Postman for day-to-day local API work:
+Where RequestExplorer is strong for day-to-day local API work:
 
 - **Your files, no account.** Collections are ordinary JSON under `%LocalAppData%`. Copy, zip, git, or drop them onto another machine. There is no cloud workspace and nothing to sign in to.
 - **The tree is an editor.** Indent and outdent with **Alt+← / Alt+→**, wrap a node in a new folder, drag before/after/into, insert a folder above. Postman’s collection sidebar is a navigator; this tree is how you structure work.
@@ -152,3 +152,9 @@ Postman round-trip keeps the tree and variables; RequestExplorer-only fields (de
 | `%LocalAppData%\RequestExplorer\backups\` | Rolling zip backups |
 
 Use **File → Open collections folder** to open the collections directory in Explorer.
+
+## License
+
+Copyright 2026 Rory Becker. RequestExplorer is licensed under the [PolyForm Internal Use License 1.0.0](LICENSE).
+
+You may clone, build, and run it for yourself and for your company’s internal business. You may not distribute or sell the source or binaries. Pull requests are not accepted. Other uses require a separate license from the copyright holder.

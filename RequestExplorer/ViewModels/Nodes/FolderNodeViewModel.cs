@@ -7,7 +7,7 @@ namespace RequestExplorer.ViewModels.Nodes;
 public sealed partial class FolderNodeViewModel : ContainerNodeViewModel
 {
     public FolderNodeViewModel(FolderDefinition model)
-        : base(model.Name, model.Variables)
+        : base(model.Name, model.Variables, model.Description)
     {
         Model = model;
         _optOutOfAutoRun = model.OptOutOfAutoRun;
@@ -48,6 +48,10 @@ public sealed partial class FolderNodeViewModel : ContainerNodeViewModel
 
         IsDirty = true;
     }
+
+    protected override string? ReadModelDescription() => Model.Description;
+
+    protected override void WriteModelDescription(string? value) => Model.Description = value;
 
     private void OnChildrenChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

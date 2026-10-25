@@ -10,6 +10,7 @@ namespace RequestExplorer.Services.Undo;
 public static class DirtyUndoMapper
 {
     public const string SetName = "SetName";
+    public const string SetContainerDescription = "SetContainerDescription";
     public const string SetRequestBodyField = "SetRequestBodyField";
     public const string SetRequestAddress = "SetRequestAddress";
     public const string SetKeyValueField = "SetKeyValueField";
@@ -137,6 +138,15 @@ public static class DirtyUndoMapper
                     Description = setName.Description,
                     NodeId = TryGetId(setName.Node),
                     StringValue = setName.Name
+                };
+
+            case SetContainerDescriptionAction setDescription:
+                return new DirtyUndoActionDto
+                {
+                    Type = SetContainerDescription,
+                    Description = setDescription.Description,
+                    NodeId = TryGetId(setDescription.Container),
+                    StringValue = setDescription.Value
                 };
 
             case SetRequestBodyFieldAction body:
@@ -308,6 +318,19 @@ public static class DirtyUndoMapper
                     }
 
                     action = new SetNameAction(named, dto.StringValue ?? string.Empty, dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
+                case SetContainerDescription:
+                    if (context.ResolveNode(dto.NodeId) is not ContainerNodeViewModel described)
+                    {
+                        return false;
+                    }
+
+                    action = new SetContainerDescriptionAction(
+                        described,
+                        dto.StringValue ?? string.Empty,
+                        dto.Description);
                     action.HistoryId = dto.HistoryId;
                     return true;
 

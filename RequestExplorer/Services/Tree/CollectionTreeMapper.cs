@@ -24,6 +24,9 @@ public static class CollectionTreeMapper
     {
         var model = collectionNode.Model;
         model.Name = collectionNode.Name;
+        model.Description = string.IsNullOrEmpty(collectionNode.Description)
+            ? null
+            : collectionNode.Description;
         model.Folders.Clear();
         model.Requests.Clear();
         model.ChildOrder.Clear();
@@ -106,6 +109,9 @@ public static class CollectionTreeMapper
     {
         var model = folderNode.Model;
         model.Name = folderNode.Name;
+        model.Description = string.IsNullOrEmpty(folderNode.Description)
+            ? null
+            : folderNode.Description;
         model.Folders.Clear();
         model.Requests.Clear();
         model.ChildOrder.Clear();

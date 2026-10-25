@@ -6,7 +6,7 @@ namespace RequestExplorer.ViewModels.Nodes;
 public sealed class CollectionNodeViewModel : ContainerNodeViewModel
 {
     public CollectionNodeViewModel(CollectionDefinition model)
-        : base(model.Name, model.Variables)
+        : base(model.Name, model.Variables, model.Description)
     {
         Model = model;
         Children.CollectionChanged += OnChildrenChanged;
@@ -42,6 +42,10 @@ public sealed class CollectionNodeViewModel : ContainerNodeViewModel
 
         IsDirty = true;
     }
+
+    protected override string? ReadModelDescription() => Model.Description;
+
+    protected override void WriteModelDescription(string? value) => Model.Description = value;
 
     private void OnChildrenChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {

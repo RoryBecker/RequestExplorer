@@ -1549,10 +1549,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                     SeedAndPersistDemo();
                     WireUndoRecorders();
                     CollapseAllCollections();
+                    SelectFirstCollection();
                     StatusMessage = $"Seeded demo collections → {_persistence.StorageDirectory}";
-                    return;
                 }
-
+                else
+                {
                 var byId = new Dictionary<Guid, CollectionDefinition>();
                 foreach (var definition in loaded)
                 {
@@ -1610,6 +1611,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 StatusMessage = dirtySnapshots.Count == 0
                     ? $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory}"
                     : $"Loaded {Collections.Count} collection(s) from {_persistence.StorageDirectory} ({dirtySnapshots.Count} unsaved restored)";
+                }
             }
             catch (Exception ex)
             {
@@ -1626,6 +1628,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
                 WireUndoRecorders();
                 RestoreTreeExpandedState();
+                SelectFirstCollection();
                 StatusMessage = "Load failed — using in-memory demo (not saved)";
             }
         }
@@ -2082,6 +2085,18 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             _persistence.Save(definition);
             Collections.Add(CollectionTreeMapper.ToViewModel(definition));
         }
+    }
+
+    /// <summary>Selects the first collection so its editor (and description) is visible.</summary>
+    private void SelectFirstCollection()
+    {
+        if (Collections.Count == 0)
+        {
+            return;
+        }
+
+        SelectOnly(Collections[0]);
+        CaptureSelectedTreeNode();
     }
 
     /// <summary>

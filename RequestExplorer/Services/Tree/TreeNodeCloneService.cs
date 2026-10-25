@@ -57,6 +57,7 @@ public static class TreeNodeCloneService
         {
             Id = Guid.NewGuid(),
             Name = collection.Name,
+            Description = collection.Description,
             Variables = collection.Variables
                 .Select(v => new KeyValueItem
                 {
@@ -85,6 +86,7 @@ public static class TreeNodeCloneService
         {
             Id = Guid.NewGuid(),
             Name = clone.Name,
+            Description = clone.Description,
             Variables = clone.Variables,
             Folders = clone.Folders,
             Requests = clone.Requests,

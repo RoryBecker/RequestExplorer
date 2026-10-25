@@ -18,7 +18,15 @@ public static class SampleDataFactory
     /// </summary>
     private static CollectionDefinition BuildFeatureTourCollection()
     {
-        var collection = new CollectionDefinition { Name = "Feature Tour" };
+        var collection = new CollectionDefinition
+        {
+            Name = "Feature Tour",
+            Description = """
+                Walk through Request Explorer using the folders below. Select a folder to read how that feature works, then try the requests inside it.
+
+                Collection variables (host, client, region) are inherited by every request unless a closer folder overrides them.
+                """
+        };
         collection.Variables.Add(Var("host", "https://httpbin.org"));
         collection.Variables.Add(Var("client", "RequestExplorer"));
         collection.Variables.Add(Var("region", "global"));
@@ -33,7 +41,15 @@ public static class SampleDataFactory
 
     private static FolderDefinition BuildSendFolder()
     {
-        var folder = new FolderDefinition { Name = "Simple requests" };
+        var folder = new FolderDefinition
+        {
+            Name = "Simple requests",
+            Description = """
+                Select a request and click Send (or press Alt+X).
+
+                GET and DELETE have no body. POST, PUT, and PATCH send JSON — open the Body tab to edit it, then Send and inspect the response.
+                """
+        };
         Add(folder, TourReq("GET", HttpVerb.GET, "{{host}}/get"));
         Add(folder, TourReq("POST JSON", HttpVerb.POST, "{{host}}/post",
             body: """{"message":"hello from Feature Tour"}""",
@@ -51,9 +67,25 @@ public static class SampleDataFactory
 
     private static FolderDefinition BuildDiagnosisFolder()
     {
-        var folder = new FolderDefinition { Name = "Diagnosis" };
+        var folder = new FolderDefinition
+        {
+            Name = "Right Click - Run All Requests",
+            Description = """
+                Right-click this folder and choose Run All Requests.
 
-        var status = new FolderDefinition { Name = "Status codes" };
+                That sends every request under the folder (unless opted out). Use the child folders to see status codes, expectation pass/fail, and skip behaviour.
+                """
+        };
+
+        var status = new FolderDefinition
+        {
+            Name = "Status codes",
+            Description = """
+                Each request expects the HTTP status in its name. Right-click this folder → Run All Requests.
+
+                2xx, 4xx, and 5xx all pass when the expected code matches the response.
+                """
+        };
         Add(status, TourReq("200 OK", HttpVerb.GET, "{{host}}/status/200", expectedStatus: 200));
         Add(status, TourReq("201 Created", HttpVerb.GET, "{{host}}/status/201", expectedStatus: 201));
         Add(status, TourReq("204 No Content", HttpVerb.GET, "{{host}}/status/204", expectedStatus: 204));
@@ -66,7 +98,15 @@ public static class SampleDataFactory
         Add(status, TourReq("503 Unavailable", HttpVerb.GET, "{{host}}/status/503", expectedStatus: 503));
         Add(folder, status);
 
-        var expectations = new FolderDefinition { Name = "Expectations" };
+        var expectations = new FolderDefinition
+        {
+            Name = "Expectations",
+            Description = """
+                Open a request and look at Expectations (status, body, timing). Green means met; red means failed.
+
+                Right-click this folder → Run All Requests to see mixed results in one pass.
+                """
+        };
         Add(expectations, TourReq(
             "Met — status 200 as expected",
             HttpVerb.GET,
@@ -107,7 +147,15 @@ public static class SampleDataFactory
             expectedTimingMs: 1));
         Add(folder, expectations);
 
-        var optedOut = new FolderDefinition { Name = "Opted out" };
+        var optedOut = new FolderDefinition
+        {
+            Name = "Opted out",
+            Description = """
+                Right-click this folder → Run All Requests.
+
+                "Runs in Run All" is sent. The opted-out request and everything in "Opted-out folder" are skipped. Diagnose Variables still includes opted-out nodes.
+                """
+        };
         Add(optedOut, TourReq("Runs in Run All", HttpVerb.GET, "{{host}}/get"));
         Add(optedOut, TourReq(
             "Opted-out request",
@@ -117,7 +165,10 @@ public static class SampleDataFactory
         var optedFolder = new FolderDefinition
         {
             Name = "Opted-out folder",
-            OptOutOfAutoRun = true
+            OptOutOfAutoRun = true,
+            Description = """
+                This folder is opted out of auto run (checkbox in the header). Right-click a parent and Run All Requests — the request inside is skipped with the folder.
+                """
         };
         Add(optedFolder, TourReq("Skipped with the folder", HttpVerb.GET, "{{host}}/get"));
         Add(optedOut, optedFolder);
@@ -128,22 +179,48 @@ public static class SampleDataFactory
 
     private static FolderDefinition BuildVariablesFolder()
     {
-        var folder = new FolderDefinition { Name = "Variables" };
+        var folder = new FolderDefinition
+        {
+            Name = "Variables",
+            Description = """
+                {{name}} resolves from the nearest ancestor that defines it.
 
-        var inherited = new FolderDefinition { Name = "Inherited" };
+                This collection sets host, client, and region. Open Inherited (no locals), Override (region=eu), then Calculated (@date recipes).
+                """
+        };
+
+        var inherited = new FolderDefinition
+        {
+            Name = "Inherited",
+            Description = """
+                This folder defines no variables. Send the request (Alt+X) and check the query string — client and region come from Feature Tour.
+                """
+        };
         Add(inherited, TourReq(
             "Echo inherited client and region",
             HttpVerb.GET,
             "{{host}}/get?client={{client}}&region={{region}}"));
         Add(folder, inherited);
 
-        var overrideRegion = new FolderDefinition { Name = "Override" };
+        var overrideRegion = new FolderDefinition
+        {
+            Name = "Override",
+            Description = """
+                This folder sets region=eu. Send the request: region is eu, client is still inherited from the collection. The nested folder keeps that override.
+                """
+        };
         overrideRegion.Variables.Add(Var("region", "eu"));
         Add(overrideRegion, TourReq(
             "Echo — region is eu, client still inherited",
             HttpVerb.GET,
             "{{host}}/get?client={{client}}&region={{region}}"));
-        var nested = new FolderDefinition { Name = "Still overridden here" };
+        var nested = new FolderDefinition
+        {
+            Name = "Still overridden here",
+            Description = """
+                No local region here, so Override (region=eu) still wins. Send the POST and check the echoed JSON body.
+                """
+        };
         Add(nested, TourReq(
             "Echo nested — region stays eu",
             HttpVerb.POST,
@@ -153,7 +230,15 @@ public static class SampleDataFactory
         Add(overrideRegion, nested);
         Add(folder, overrideRegion);
 
-        var calculated = new FolderDefinition { Name = "Calculated" };
+        var calculated = new FolderDefinition
+        {
+            Name = "Calculated",
+            Description = """
+                Local variables use @date(...) recipes. label nests {{today}} inside another value.
+
+                Send the request and compare the resolved query values.
+                """
+        };
         calculated.Variables.Add(Var("today", "@date(today)"));
         calculated.Variables.Add(Var("now", "@date(now)"));
         calculated.Variables.Add(Var("weekAgo", "@date(today-7d)"));
@@ -169,9 +254,23 @@ public static class SampleDataFactory
 
     private static FolderDefinition BuildMovementFolder()
     {
-        var folder = new FolderDefinition { Name = "Node movement" };
+        var folder = new FolderDefinition
+        {
+            Name = "Node Movement",
+            Description = """
+                Select a node, then use Alt+Arrow keys or drag in the tree.
 
-        var dropTarget = new FolderDefinition { Name = "Drop target (Alt+Right)" };
+                Alt+Up / Alt+Down swap with a sibling. Alt+Right moves into the folder above. Alt+Left moves out. Alt+Shift+Right wraps the node in a new folder.
+                """
+        };
+
+        var dropTarget = new FolderDefinition
+        {
+            Name = "Drop target (Alt+Right)",
+            Description = """
+                Select the sibling request below this folder named "Alt+Right — indent into Drop target above" and press Alt+Right to move it in here.
+                """
+        };
         Add(dropTarget, TourReq("Already inside the drop target", HttpVerb.GET, "{{host}}/get"));
         Add(folder, dropTarget);
 
@@ -180,8 +279,14 @@ public static class SampleDataFactory
         Add(folder, TourReq("Alt+Down — swap with the request below", HttpVerb.GET, "{{host}}/get"));
         Add(folder, TourReq("Alt+Shift+Right — wrap me in a new folder", HttpVerb.GET, "{{host}}/get"));
 
-        var nested = new FolderDefinition { Name = "Nested (Alt+Left to leave)" };
-        Add(nested, TourReq("Alt+Left — outdent to Node movement", HttpVerb.GET, "{{host}}/get"));
+        var nested = new FolderDefinition
+        {
+            Name = "Nested (Alt+Left to leave)",
+            Description = """
+                Select the request inside this folder and press Alt+Left to move it back under Node Movement.
+                """
+        };
+        Add(nested, TourReq("Alt+Left — outdent to Node Movement", HttpVerb.GET, "{{host}}/get"));
         Add(folder, nested);
 
         return folder;
@@ -189,25 +294,61 @@ public static class SampleDataFactory
 
     private static FolderDefinition BuildExportingFolder()
     {
-        var folder = new FolderDefinition { Name = "Exporting" };
+        var folder = new FolderDefinition
+        {
+            Name = "Exporting",
+            Description = """
+                Right-click a folder and export as Postman.
 
-        var postmanReady = new FolderDefinition { Name = "Postman-ready" };
+                Postman-ready shares the same env on every branch. Flatten required uses different env values in Staging vs Production — Postman export will report a clash; Flatten still produces a file.
+                """
+        };
+
+        var postmanReady = new FolderDefinition
+        {
+            Name = "Postman-ready",
+            Description = """
+                Alpha and Beta both inherit env=shared. Right-click this folder and export as Postman — it should succeed without a variable clash.
+                """
+        };
         postmanReady.Variables.Add(Var("host", "https://httpbin.org"));
         postmanReady.Variables.Add(Var("env", "shared"));
-        var alpha = new FolderDefinition { Name = "Alpha" };
+        var alpha = new FolderDefinition
+        {
+            Name = "Alpha",
+            Description = "Inherits env=shared from Postman-ready. Export the parent folder as Postman."
+        };
         Add(alpha, TourReq("Alpha echo", HttpVerb.GET, "{{host}}/get?env={{env}}"));
-        var beta = new FolderDefinition { Name = "Beta" };
+        var beta = new FolderDefinition
+        {
+            Name = "Beta",
+            Description = "Same env as Alpha. Shared values across sibling folders are what Postman export can hoist."
+        };
         Add(beta, TourReq("Beta echo", HttpVerb.GET, "{{host}}/get?env={{env}}"));
         Add(postmanReady, alpha);
         Add(postmanReady, beta);
         Add(folder, postmanReady);
 
-        var flattenRequired = new FolderDefinition { Name = "Flatten required" };
+        var flattenRequired = new FolderDefinition
+        {
+            Name = "Flatten required",
+            Description = """
+                Staging sets env=staging; Production sets env=production. Export as Postman to see the clash report, then Flatten to inline each branch's values.
+                """
+        };
         flattenRequired.Variables.Add(Var("host", "https://httpbin.org"));
-        var staging = new FolderDefinition { Name = "Staging" };
+        var staging = new FolderDefinition
+        {
+            Name = "Staging",
+            Description = "Defines env=staging. Export Flatten required (the parent) as Postman to compare with Production."
+        };
         staging.Variables.Add(Var("env", "staging"));
         Add(staging, TourReq("Staging echo", HttpVerb.GET, "{{host}}/get?env={{env}}"));
-        var production = new FolderDefinition { Name = "Production" };
+        var production = new FolderDefinition
+        {
+            Name = "Production",
+            Description = "Defines env=production — a different value from Staging. That sibling difference is what blocks a nested Postman export."
+        };
         production.Variables.Add(Var("env", "production"));
         Add(production, TourReq("Production echo", HttpVerb.GET, "{{host}}/get?env={{env}}"));
         Add(flattenRequired, staging);

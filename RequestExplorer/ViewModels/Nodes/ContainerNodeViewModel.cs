@@ -21,9 +21,10 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     private bool _suppressFieldUndo;
     private IUndoRecorder? _undoRecorder;
 
-    protected ContainerNodeViewModel(string name, List<KeyValueItem> modelVariables)
+    protected ContainerNodeViewModel(string name, List<KeyValueItem> modelVariables, string? description = null)
         : base(name)
     {
+        _description = description ?? string.Empty;
         ModelVariables = modelVariables;
         foreach (var item in modelVariables)
         {
@@ -60,9 +61,59 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     [ObservableProperty]
     private KeyValueItemViewModel? _selectedVariable;
 
+    [ObservableProperty]
+    private string _description = string.Empty;
+
     public void AttachUndoRecorder(IUndoRecorder recorder) => _undoRecorder = recorder;
 
     public IUndoRecorder? UndoRecorder => _undoRecorder;
+
+    /// <summary>Sets description without recording a per-keystroke undo (caller records as needed).</summary>
+    public void ApplyDescription(string value)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            Description = value ?? string.Empty;
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    partial void OnDescriptionChanged(string value)
+    {
+        var normalized = value ?? string.Empty;
+        var previous = ReadModelDescription() ?? string.Empty;
+        if (string.Equals(previous, normalized, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        WriteModelDescription(string.IsNullOrEmpty(normalized) ? null : normalized);
+        if (_undoRecorder?.IsApplyingHistory != true)
+        {
+            IsDirty = true;
+        }
+
+        RecordDescriptionUndo(previous);
+    }
+
+    protected abstract string? ReadModelDescription();
+
+    protected abstract void WriteModelDescription(string? value);
+
+    private void RecordDescriptionUndo(string previous)
+    {
+        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        _undoRecorder.Record(
+            new SetContainerDescriptionAction(this, previous, "Edit description"));
+    }
 
     [RelayCommand]
     private void RemoveVariable(KeyValueItemViewModel? item)

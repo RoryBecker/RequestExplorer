@@ -994,6 +994,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         if (e.PropertyName is nameof(TreeNodeViewModel.IsExcludedFromAutoRun)
+            or nameof(CollectionNodeViewModel.OptOutOfAutoRun)
             or nameof(FolderNodeViewModel.OptOutOfAutoRun)
             or nameof(RequestNodeViewModel.OptOutOfAutoRun))
         {

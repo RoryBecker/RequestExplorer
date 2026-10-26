@@ -1,20 +1,38 @@
 using System.Collections.Specialized;
+using CommunityToolkit.Mvvm.ComponentModel;
 using RequestExplorer.Models;
 
 namespace RequestExplorer.ViewModels.Nodes;
 
-public sealed class CollectionNodeViewModel : ContainerNodeViewModel
+public sealed partial class CollectionNodeViewModel : ContainerNodeViewModel
 {
     public CollectionNodeViewModel(CollectionDefinition model)
         : base(model.Name, model.Variables, model.Description)
     {
         Model = model;
+        _optOutOfAutoRun = model.OptOutOfAutoRun;
         Children.CollectionChanged += OnChildrenChanged;
     }
 
     public override TreeNodeKind Kind => TreeNodeKind.Collection;
 
     public CollectionDefinition Model { get; }
+
+    public override bool LocallyOptsOutOfAutoRun => OptOutOfAutoRun;
+
+    [ObservableProperty]
+    private bool _optOutOfAutoRun;
+
+    partial void OnOptOutOfAutoRunChanged(bool value)
+    {
+        if (Model.OptOutOfAutoRun != value)
+        {
+            Model.OptOutOfAutoRun = value;
+            IsDirty = true;
+        }
+
+        NotifyAutoRunExclusionChanged();
+    }
 
     /// <summary>
     /// Undo-stack history id of the last save of this collection to disk.

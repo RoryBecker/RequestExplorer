@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace RequestExplorer.Models;
 
 public sealed class CollectionDefinition
@@ -7,6 +9,10 @@ public sealed class CollectionDefinition
 
     /// <summary>Optional notes shown in the collection editor.</summary>
     public string? Description { get; set; }
+
+    /// <summary>When true, descendant requests are skipped by Run All (still diagnosed).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool OptOutOfAutoRun { get; set; }
 
     public List<KeyValueItem> Variables { get; set; } = [];
     public List<FolderDefinition> Folders { get; set; } = [];

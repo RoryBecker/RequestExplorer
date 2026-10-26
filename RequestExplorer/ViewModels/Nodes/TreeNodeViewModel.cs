@@ -103,12 +103,11 @@ public abstract partial class TreeNodeViewModel : ObservableObject
 
     public string DisplayName => ShowsDirtyMarker ? $"{Name} *" : Name;
 
-    /// <summary>True when this folder/request itself opts out of Run All.</summary>
+    /// <summary>True when this collection/folder/request itself opts out of Run All.</summary>
     public virtual bool LocallyOptsOutOfAutoRun => false;
 
     /// <summary>
-    /// True when this node or an ancestor folder/request opts out of Run All.
-    /// Collections never opt out themselves.
+    /// True when this node or an ancestor collection/folder/request opts out of Run All.
     /// </summary>
     public bool IsExcludedFromAutoRun
     {

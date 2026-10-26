@@ -174,6 +174,18 @@
 
         <TabControl Grid.Row="3"
                     SelectedIndex="{Binding DataContext.SelectedRequestTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}">
+            <TabItem Header="Description">
+                <TextBox Margin="8"
+                         AcceptsReturn="True"
+                         AcceptsTab="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Disabled"
+                         VerticalContentAlignment="Top"
+                         Padding="8,6"
+                         FontSize="13"
+                         Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
+            </TabItem>
             <TabItem Header="Body">
                 <DockPanel Margin="8">
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">

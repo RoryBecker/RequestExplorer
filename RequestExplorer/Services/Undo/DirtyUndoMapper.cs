@@ -11,6 +11,7 @@ public static class DirtyUndoMapper
 {
     public const string SetName = "SetName";
     public const string SetContainerDescription = "SetContainerDescription";
+    public const string SetRequestDescription = "SetRequestDescription";
     public const string SetRequestBodyField = "SetRequestBodyField";
     public const string SetRequestAddress = "SetRequestAddress";
     public const string SetKeyValueField = "SetKeyValueField";
@@ -147,6 +148,15 @@ public static class DirtyUndoMapper
                     Description = setDescription.Description,
                     NodeId = TryGetId(setDescription.Container),
                     StringValue = setDescription.Value
+                };
+
+            case SetRequestDescriptionAction setRequestDescription:
+                return new DirtyUndoActionDto
+                {
+                    Type = SetRequestDescription,
+                    Description = setRequestDescription.Description,
+                    RequestId = TryGetId(setRequestDescription.Request),
+                    StringValue = setRequestDescription.Value
                 };
 
             case SetRequestBodyFieldAction body:
@@ -329,6 +339,19 @@ public static class DirtyUndoMapper
 
                     action = new SetContainerDescriptionAction(
                         described,
+                        dto.StringValue ?? string.Empty,
+                        dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
+                case SetRequestDescription:
+                    if (context.ResolveNode(dto.RequestId) is not RequestNodeViewModel describedRequest)
+                    {
+                        return false;
+                    }
+
+                    action = new SetRequestDescriptionAction(
+                        describedRequest,
                         dto.StringValue ?? string.Empty,
                         dto.Description);
                     action.HistoryId = dto.HistoryId;

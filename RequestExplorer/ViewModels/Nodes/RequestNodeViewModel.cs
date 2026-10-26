@@ -53,6 +53,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         _expectTimingEnabled = model.ExpectTimingEnabled;
         _expectedTimingMilliseconds = model.ExpectedTimingMilliseconds;
         _optOutOfAutoRun = model.OptOutOfAutoRun;
+        _description = model.Description ?? string.Empty;
 
         _trackDirty = false;
         foreach (var item in model.Params)
@@ -175,6 +176,9 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     [ObservableProperty]
     private bool _optOutOfAutoRun;
+
+    [ObservableProperty]
+    private string _description = string.Empty;
 
     public bool IsAuthNone => AuthType == AuthType.None;
     public bool IsAuthBearer => AuthType == AuthType.Bearer;
@@ -307,6 +311,45 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     {
         Model.Authentication.ApiKeyLocation = value;
         MarkDirty();
+    }
+
+    /// <summary>Sets description without recording a per-keystroke undo (caller records as needed).</summary>
+    public void ApplyDescription(string value)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            Description = value ?? string.Empty;
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    partial void OnDescriptionChanged(string value)
+    {
+        var normalized = value ?? string.Empty;
+        var previous = Model.Description ?? string.Empty;
+        if (string.Equals(previous, normalized, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Model.Description = string.IsNullOrEmpty(normalized) ? null : normalized;
+        MarkDirty();
+        RecordDescriptionUndo(previous);
+    }
+
+    private void RecordDescriptionUndo(string previous)
+    {
+        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        _undoRecorder.Record(
+            new SetRequestDescriptionAction(this, previous, "Edit description"));
     }
 
     partial void OnOptOutOfAutoRunChanged(bool value)

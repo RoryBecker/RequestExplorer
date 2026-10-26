@@ -430,9 +430,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(RunAllRequestsCommand))]
     private bool _isSending;
 
-    /// <summary>0=Params, 1=Body, 2=Headers, 3=Auth</summary>
+    /// <summary>0=Description, 1=Body, 2=Params, 3=Headers, 4=Auth, 5=Raw Request</summary>
     [ObservableProperty]
     private int _selectedRequestTabIndex;
+
+    /// <summary>0=Description, 1=Variables on collection/folder editors.</summary>
+    [ObservableProperty]
+    private int _selectedContainerTabIndex;
 
     [ObservableProperty]
     private bool _isRootDropIndicatorVisible;
@@ -827,6 +831,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         ExpandAncestors(target);
         target.IsExpanded = true;
         SelectOnly(target);
+        SelectedContainerTabIndex = 1;
 
         if (item is null || target.IndexOfVariable(item) < 0)
         {
@@ -1433,6 +1438,12 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return SelectedRequestTabIndex == ToTabIndex(target.Surface);
         }
 
+        if (target.Node is ContainerNodeViewModel
+            && target.Surface is EditorSurface.Description or EditorSurface.Variables)
+        {
+            return SelectedContainerTabIndex == ToContainerTabIndex(target.Surface);
+        }
+
         return true;
     }
 
@@ -1444,21 +1455,35 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         {
             SelectedRequestTabIndex = ToTabIndex(target.Surface);
         }
+        else if (target.Node is ContainerNodeViewModel
+                 && target.Surface is EditorSurface.Description or EditorSurface.Variables)
+        {
+            SelectedContainerTabIndex = ToContainerTabIndex(target.Surface);
+        }
     }
 
     private static int ToTabIndex(EditorSurface surface) =>
         surface switch
         {
-            EditorSurface.Body => 0,
-            EditorSurface.Params => 1,
-            EditorSurface.Headers => 2,
-            EditorSurface.Auth => 3,
+            EditorSurface.Description => 0,
+            EditorSurface.Body => 1,
+            EditorSurface.Params => 2,
+            EditorSurface.Headers => 3,
+            EditorSurface.Auth => 4,
+            _ => 0
+        };
+
+    private static int ToContainerTabIndex(EditorSurface surface) =>
+        surface switch
+        {
+            EditorSurface.Variables => 1,
             _ => 0
         };
 
     private static string DescribeSurface(EditorSurface surface) =>
         surface switch
         {
+            EditorSurface.Description => "Description",
             EditorSurface.Params => "Params",
             EditorSurface.Body => "Body",
             EditorSurface.Headers => "Headers",

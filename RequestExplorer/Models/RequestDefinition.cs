@@ -8,6 +8,9 @@ public sealed class RequestDefinition
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Name { get; set; } = "New Request";
 
+    /// <summary>Optional notes shown in the request editor.</summary>
+    public string? Description { get; set; }
+
     /// <summary>When true, this request is skipped by Run All (still diagnosed).</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool OptOutOfAutoRun { get; set; }

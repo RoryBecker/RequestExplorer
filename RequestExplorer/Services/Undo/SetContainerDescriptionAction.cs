@@ -27,7 +27,7 @@ public sealed class SetContainerDescriptionAction : IUndoAction, ICoalescingUndo
 
     public IEnumerable<TreeNodeViewModel> GetAffectedNodes() => [_container];
 
-    public UndoRevealTarget? RevealTarget => null;
+    public UndoRevealTarget? RevealTarget => new(_container, EditorSurface.Description);
 
     public bool CanCoalesceWith(IUndoAction incoming) =>
         incoming is SetContainerDescriptionAction other

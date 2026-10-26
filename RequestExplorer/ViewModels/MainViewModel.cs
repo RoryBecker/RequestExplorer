@@ -777,6 +777,48 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         RevealVariableDefinition(container, item, name);
     }
 
+    /// <summary>
+    /// Prompts for a value and creates <paramref name="name"/> on the nearest parent
+    /// collection or folder when it is not already defined.
+    /// </summary>
+    public void DefineVariable(string name, TreeNodeViewModel? from)
+    {
+        var key = name.Trim();
+        if (VariableDefinitionLookup.TryFind(from, key, out var existingContainer, out var existingItem))
+        {
+            RevealVariableDefinition(existingContainer, existingItem, key);
+            return;
+        }
+
+        var parent = VariableDefinitionLookup.ResolveOwner(from);
+        if (parent is null)
+        {
+            StatusMessage = "No collection or folder to hold this variable.";
+            return;
+        }
+
+        var dialog = new Views.NamePromptDialog(
+            "Define Variable",
+            $"Value for '{key}' (will be added on '{parent.Name}'):",
+            string.Empty)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (!VariableDefinitionLookup.TryCreate(from, key, dialog.ResultName, this, out var owner, out var item))
+        {
+            StatusMessage = $"Could not define '{key}'.";
+            return;
+        }
+
+        RevealVariableDefinition(owner, item, key);
+        StatusMessage = $"Defined '{key}' on '{owner.Name}'";
+    }
+
     private void RevealVariableDefinition(
         ContainerNodeViewModel target,
         KeyValueItemViewModel? item,

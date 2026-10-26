@@ -211,9 +211,13 @@ public static class KeyValueGridClipboard
                 }
             }
 
-            VariableGoToDefinitionMenu.SyncItems(
-                grid.ContextMenu,
-                CollectGridDefinitionTargets(grid, e.OriginalSource as DependencyObject));
+            var from = VariableGoToDefinitionMenu.FindOrigin(grid);
+            CollectGridVariableTokens(
+                grid,
+                e.OriginalSource as DependencyObject,
+                out var tokenNames,
+                out var extraGoto);
+            VariableGoToDefinitionMenu.SyncItems(grid.ContextMenu, tokenNames, from, extraGoto);
 
             foreach (var sep in grid.ContextMenu.Items.OfType<Separator>().Where(s => Equals(s.Tag, "kv-clipboard-sep")).ToList())
             {
@@ -483,21 +487,29 @@ public static class KeyValueGridClipboard
         e.Handled = true;
     }
 
-    private static IReadOnlyList<VariableGoToDefinitionMenu.GoToDefinitionTarget> CollectGridDefinitionTargets(
+    private static void CollectGridVariableTokens(
         DataGrid grid,
-        DependencyObject? originalSource)
+        DependencyObject? originalSource,
+        out List<string> tokenNames,
+        out List<VariableGoToDefinitionMenu.GoToDefinitionTarget> extraGoto)
     {
-        var from = VariableGoToDefinitionMenu.FindOrigin(grid);
-        var targets = new List<VariableGoToDefinitionMenu.GoToDefinitionTarget>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var names = new List<string>();
+        var gotoTargets = new List<VariableGoToDefinitionMenu.GoToDefinitionTarget>();
+        var seenTokens = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        void AddTokenNames(IEnumerable<string> names)
+        void AddTokenNames(IEnumerable<string> source)
         {
-            foreach (var target in VariableGoToDefinitionMenu.TargetsFromTokens(names, from))
+            foreach (var raw in source)
             {
-                if (seen.Add(target.Name))
+                if (string.IsNullOrWhiteSpace(raw))
                 {
-                    targets.Add(target);
+                    continue;
+                }
+
+                var name = raw.Trim();
+                if (seenTokens.Add(name))
+                {
+                    names.Add(name);
                 }
             }
         }
@@ -506,10 +518,10 @@ public static class KeyValueGridClipboard
                       ?? grid.CurrentItem
                       ?? grid.SelectedItem;
 
-        if (rowItem is InheritedVariableRow inherited && seen.Add(inherited.Key))
+        if (rowItem is InheritedVariableRow inherited)
         {
             var captured = inherited;
-            targets.Add(new VariableGoToDefinitionMenu.GoToDefinitionTarget(
+            gotoTargets.Add(new VariableGoToDefinitionMenu.GoToDefinitionTarget(
                 captured.Key,
                 () =>
                 {
@@ -524,7 +536,9 @@ public static class KeyValueGridClipboard
         if (editBox is not null)
         {
             AddTokenNames(VariableGoToDefinitionMenu.TokenNamesInTextBox(editBox));
-            return targets;
+            tokenNames = names;
+            extraGoto = gotoTargets;
+            return;
         }
 
         string? keyText = null;
@@ -540,7 +554,9 @@ public static class KeyValueGridClipboard
                 valueText = inheritedRow.VariableValue;
                 break;
             default:
-                return targets;
+                tokenNames = names;
+                extraGoto = gotoTargets;
+                return;
         }
 
         var cell = FindAncestor<DataGridCell>(originalSource);
@@ -558,7 +574,8 @@ public static class KeyValueGridClipboard
             AddTokenNames(VariableResolver.FindTokenNames(valueText));
         }
 
-        return targets;
+        tokenNames = names;
+        extraGoto = gotoTargets;
     }
 
     private static bool TryGetInheritedSelection(DataGrid grid, out InheritedVariableRow row)

@@ -10,8 +10,8 @@ using RequestExplorer.ViewModels.Nodes;
 namespace RequestExplorer.Views.MenuHelpers;
 
 /// <summary>
-/// Adds "Go to Definition" to a TextBox/TextBlock context menu when the caret/click
-/// is on a <c>{{name}}</c> token defined on an ancestor collection or folder.
+/// Adds "Go to Definition" for resolved <c>{{name}}</c> tokens and "Define Variable…"
+/// for tokens that have no ancestor definition.
 /// </summary>
 public static class VariableGoToDefinitionMenu
 {
@@ -64,8 +64,7 @@ public static class VariableGoToDefinitionMenu
 
         var menu = EnsureEditContextMenu(textBox);
         var from = FindOrigin(textBox);
-        var names = TokenNamesInTextBox(textBox);
-        SyncItems(menu, TargetsFromTokens(names, from));
+        SyncItems(menu, TokenNamesInTextBox(textBox), from);
     }
 
     private static void OnTextBlockMenuOpening(object sender, ContextMenuEventArgs e)
@@ -79,23 +78,18 @@ public static class VariableGoToDefinitionMenu
         var names = from is RequestNodeViewModel request
             ? VariableResolver.FindTokenNames(request.Address)
             : [];
-        var targets = TargetsFromTokens(names, from);
-        if (targets.Count == 0)
+        var created = textBlock.ContextMenu is null;
+        var menu = textBlock.ContextMenu ??= new ContextMenu();
+        SyncItems(menu, names, from);
+        if (!HasVariableMenuItems(menu) && menu.Items.Count == 0)
         {
-            if (textBlock.ContextMenu is { } existing)
+            if (created)
             {
-                ClearItems(existing);
-                if (existing.Items.Count == 0)
-                {
-                    e.Handled = true;
-                }
+                textBlock.ContextMenu = null;
             }
 
-            return;
+            e.Handled = true;
         }
-
-        var menu = textBlock.ContextMenu ??= new ContextMenu();
-        SyncItems(menu, targets);
     }
 
     public static IReadOnlyList<string> TokenNamesInTextBox(TextBox textBox) =>
@@ -105,12 +99,30 @@ public static class VariableGoToDefinitionMenu
             textBox.SelectionStart,
             textBox.SelectionLength);
 
-    public static IReadOnlyList<GoToDefinitionTarget> TargetsFromTokens(
+    public static void SyncItems(
+        ContextMenu menu,
         IEnumerable<string> names,
-        TreeNodeViewModel? from)
+        TreeNodeViewModel? from,
+        IReadOnlyList<GoToDefinitionTarget>? extraGotoTargets = null)
     {
-        var targets = new List<GoToDefinitionTarget>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        ClearItems(menu);
+
+        var gotoTargets = new List<GoToDefinitionTarget>();
+        var seenGoto = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (extraGotoTargets is not null)
+        {
+            foreach (var extra in extraGotoTargets)
+            {
+                if (seenGoto.Add(extra.Name))
+                {
+                    gotoTargets.Add(extra);
+                }
+            }
+        }
+
+        var undefined = new List<string>();
+        var seenUndefined = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var canDefine = VariableDefinitionLookup.ResolveOwner(from) is not null;
         foreach (var raw in names)
         {
             if (string.IsNullOrWhiteSpace(raw))
@@ -119,22 +131,21 @@ public static class VariableGoToDefinitionMenu
             }
 
             var name = raw.Trim();
-            if (!seen.Add(name) || !VariableDefinitionLookup.TryFind(from, name, out _, out _))
+            if (VariableDefinitionLookup.TryFind(from, name, out _, out _))
             {
-                continue;
+                if (seenGoto.Add(name))
+                {
+                    var captured = name;
+                    gotoTargets.Add(new GoToDefinitionTarget(captured, () => Navigate(from, captured)));
+                }
             }
-
-            var captured = name;
-            targets.Add(new GoToDefinitionTarget(captured, () => Navigate(from, captured)));
+            else if (canDefine && seenUndefined.Add(name))
+            {
+                undefined.Add(name);
+            }
         }
 
-        return targets;
-    }
-
-    public static void SyncItems(ContextMenu menu, IReadOnlyList<GoToDefinitionTarget> targets)
-    {
-        ClearItems(menu);
-        if (targets.Count == 0)
+        if (gotoTargets.Count == 0 && undefined.Count == 0)
         {
             return;
         }
@@ -151,25 +162,76 @@ public static class VariableGoToDefinitionMenu
             insertAt = 1;
         }
 
-        if (targets.Count == 1)
+        insertAt = InsertActionGroup(
+            menu,
+            insertAt,
+            "Go to _Definition",
+            gotoTargets.Select(t => (t.Name, t.Navigate)));
+        InsertActionGroup(
+            menu,
+            insertAt,
+            "Define _Variable…",
+            undefined.Select(n =>
+            {
+                var captured = n;
+                return (captured, (Action)(() => Define(from, captured)));
+            }));
+    }
+
+    public static bool HasVariableMenuItems(ContextMenu menu) =>
+        menu.Items.OfType<MenuItem>().Any(i => Equals(i.Tag, MenuTag));
+
+    public static void Navigate(TreeNodeViewModel? from, string name)
+    {
+        if (Application.Current?.MainWindow?.DataContext is not MainViewModel vm)
         {
-            var target = targets[0];
+            return;
+        }
+
+        vm.GoToVariableDefinition(name, from);
+    }
+
+    public static void Define(TreeNodeViewModel? from, string name)
+    {
+        if (Application.Current?.MainWindow?.DataContext is not MainViewModel vm)
+        {
+            return;
+        }
+
+        vm.DefineVariable(name, from);
+    }
+
+    private static int InsertActionGroup(
+        ContextMenu menu,
+        int insertAt,
+        string header,
+        IEnumerable<(string Name, Action Navigate)> targets)
+    {
+        var list = targets.ToList();
+        if (list.Count == 0)
+        {
+            return insertAt;
+        }
+
+        if (list.Count == 1)
+        {
+            var target = list[0];
             var item = new MenuItem
             {
-                Header = "Go to _Definition",
+                Header = header,
                 Tag = MenuTag
             };
             item.Click += (_, _) => target.Navigate();
             menu.Items.Insert(insertAt, item);
-            return;
+            return insertAt + 1;
         }
 
         var parent = new MenuItem
         {
-            Header = "Go to _Definition",
+            Header = header,
             Tag = MenuTag
         };
-        foreach (var target in targets)
+        foreach (var target in list)
         {
             var captured = target;
             var child = new MenuItem
@@ -182,16 +244,7 @@ public static class VariableGoToDefinitionMenu
         }
 
         menu.Items.Insert(insertAt, parent);
-    }
-
-    public static void Navigate(TreeNodeViewModel? from, string name)
-    {
-        if (Application.Current?.MainWindow?.DataContext is not MainViewModel vm)
-        {
-            return;
-        }
-
-        vm.GoToVariableDefinition(name, from);
+        return insertAt + 1;
     }
 
     public static TreeNodeViewModel? FindOrigin(DependencyObject? start)

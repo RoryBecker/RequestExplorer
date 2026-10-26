@@ -4,5 +4,6 @@ public enum KeyValueField
 {
     IsEnabled,
     Key,
-    Value
+    Value,
+    IsSecret
 }

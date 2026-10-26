@@ -144,6 +144,7 @@ public static class KeyValueGridSorting
             nameof(KeyValueItemViewModel.Key) => item.Key,
             nameof(KeyValueItemViewModel.Value) => item.Value,
             nameof(KeyValueItemViewModel.IsEnabled) => item.IsEnabled,
+            nameof(KeyValueItemViewModel.IsSecret) => item.IsSecret,
             nameof(KeyValueItemViewModel.HasKey) => item.HasKey,
             nameof(KeyValueItemViewModel.HasContent) => item.HasContent,
             _ => null

@@ -89,7 +89,7 @@ public static class PostmanCollectionMapper
                     PostmanId = request.Model.Id.ToString(),
                     Name = request.Name
                 },
-                Item = [ToRequestItem(VariableResolver.Resolve(request.Model, request))]
+                Item = [ToRequestItem(VariableResolver.Resolve(request.Model, request, includeSecretValues: false))]
             },
             _ => throw new InvalidOperationException("Unsupported node type.")
         };
@@ -111,7 +111,7 @@ public static class PostmanCollectionMapper
                     });
                     break;
                 case RequestNodeViewModel request:
-                    items.Add(ToRequestItem(VariableResolver.Resolve(request.Model, request)));
+                    items.Add(ToRequestItem(VariableResolver.Resolve(request.Model, request, includeSecretValues: false)));
                     break;
             }
         }
@@ -390,7 +390,7 @@ public static class PostmanCollectionMapper
             .Select(v => new PostmanKeyValue
             {
                 Key = v.Key,
-                Value = v.Value,
+                Value = v.IsSecret ? string.Empty : v.Value,
                 Disabled = v.IsEnabled ? null : true,
                 Type = "string"
             })

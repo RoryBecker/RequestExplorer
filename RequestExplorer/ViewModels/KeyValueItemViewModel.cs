@@ -17,6 +17,11 @@ public partial class KeyValueItemViewModel : ObservableObject
         _onFieldChanged = onFieldChanged;
         _key = model.Key;
         _value = model.Value;
+        _isSecret = model.IsSecret && !string.IsNullOrWhiteSpace(model.Key);
+        if (model.IsSecret != _isSecret)
+        {
+            model.IsSecret = _isSecret;
+        }
 
         // Blank / spare rows stay disabled until they have a name.
         var enabled = model.IsEnabled && !string.IsNullOrWhiteSpace(model.Key);
@@ -48,12 +53,16 @@ public partial class KeyValueItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasContent))]
     private string _value;
 
+    [ObservableProperty]
+    private bool _isSecret;
+
     public object? GetField(KeyValueField field) =>
         field switch
         {
             KeyValueField.IsEnabled => IsEnabled,
             KeyValueField.Key => Key,
             KeyValueField.Value => Value,
+            KeyValueField.IsSecret => IsSecret,
             _ => null
         };
 
@@ -72,6 +81,9 @@ public partial class KeyValueItemViewModel : ObservableObject
                     break;
                 case KeyValueField.Value:
                     Value = value as string ?? string.Empty;
+                    break;
+                case KeyValueField.IsSecret:
+                    IsSecret = value is true && HasKey;
                     break;
             }
         }
@@ -120,6 +132,22 @@ public partial class KeyValueItemViewModel : ObservableObject
         }
     }
 
+    partial void OnIsSecretChanged(bool value)
+    {
+        if (value && !HasKey)
+        {
+            SetSecretCore(false);
+            return;
+        }
+
+        var previous = Model.IsSecret;
+        Model.IsSecret = value;
+        if (!_silent && previous != value)
+        {
+            _onFieldChanged(this, KeyValueField.IsSecret, previous, value);
+        }
+    }
+
     private void SyncEnabledWithKey(string previousKey, string newKey)
     {
         var hadKey = !string.IsNullOrWhiteSpace(previousKey);
@@ -134,6 +162,31 @@ public partial class KeyValueItemViewModel : ObservableObject
         {
             // Naming a blank spare row turns it on.
             SetEnabledCore(true);
+        }
+
+        if (!hasKey && IsSecret)
+        {
+            SetSecretCore(false);
+        }
+    }
+
+    private void SetSecretCore(bool secret)
+    {
+        if (IsSecret == secret && Model.IsSecret == secret)
+        {
+            return;
+        }
+
+        var previousSilent = _silent;
+        _silent = true;
+        try
+        {
+            IsSecret = secret;
+            Model.IsSecret = secret;
+        }
+        finally
+        {
+            _silent = previousSilent;
         }
     }
 

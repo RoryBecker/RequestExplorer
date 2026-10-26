@@ -56,7 +56,7 @@ On first launch with an empty workspace, **Feature Tour** is created and selecte
 
 ### Variables
 
-- Define variables on collections and folders; children inherit them (with source and shadowing shown). Names are **case-insensitive**; nearest enabled ancestor wins
+- Define variables on collections and folders; children inherit them (with source and shadowing shown). Names are **case-insensitive**; nearest enabled ancestor wins. Tick **Secret** to omit the value from Postman export (local save keeps it)
 - Use `{{name}}` in URLs and other request fields; a variable value may itself contain `{{name}}` (nesting depth is set in Settings)
 - **Diagnose Variables** on a selection to find missing or disabled variables and jump to the affected nodes
 - **Go to Definition** (or **Ctrl+click** a `{{name}}` token) opens the defining Variables row. On an unresolved token, **Define Variable…** creates it on the nearest container. Works in the URL, params/headers/variables grids, and Auth Bearer
@@ -98,7 +98,7 @@ Postman round-trip keeps the tree and variables; RequestExplorer-only fields (de
 - **Tools → Settings…**
   - **General:** request timeout, optional “dev mode” (no timeout; Cancel still works), variable nesting depth, mouse back/forward for tree history, backup on startup, and how many backups to keep
   - **Experimental:** **Dirty Save** (off by default) — restore unsaved collections and undo history on the next launch; a Dirty Save button appears when you close with unsaved changes
-- Layout, filters, dark mode, and Run All options are remembered between sessions
+- Layout, filters, dark mode, editor tabs, and Run All options are remembered between sessions
 - Toolbar toggle for **dark mode** (moon icon)
 
 ## Keyboard shortcuts

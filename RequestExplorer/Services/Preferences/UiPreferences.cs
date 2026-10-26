@@ -93,6 +93,15 @@ public sealed class UiPreferences
     /// </summary>
     public string LastNewItemKind { get; set; } = "Request";
 
+    /// <summary>Request editor tab: 0 Description, 1 Body, 2 Params, 3 Headers, 4 Auth, 5 Raw Request.</summary>
+    public int SelectedRequestTabIndex { get; set; }
+
+    /// <summary>Collection editor tab: 0 Description, 1 Variables.</summary>
+    public int SelectedCollectionTabIndex { get; set; }
+
+    /// <summary>Folder editor tab: 0 Description, 1 Variables.</summary>
+    public int SelectedFolderTabIndex { get; set; }
+
     /// <summary>
     /// Experimental. When true, unsaved collections and undo history can be
     /// kept across launches (Dirty Save). Off until the user enables it.

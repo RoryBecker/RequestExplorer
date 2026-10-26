@@ -42,6 +42,7 @@ public static class VariableScopeMove
         var key = item.Key.Trim();
         var value = item.Value ?? string.Empty;
         var enabled = item.IsEnabled;
+        var isSecret = item.IsSecret;
         var sourceIndex = request.IndexOfKeyValue(listKind, item);
         if (sourceIndex < 0)
         {
@@ -58,9 +59,11 @@ public static class VariableScopeMove
 
             var oldValue = existing.Value ?? string.Empty;
             var oldEnabled = existing.IsEnabled;
+            var oldSecret = existing.IsSecret;
             request.RemoveKeyValueRow(listKind, item);
             target.ApplyVariableField(existing, KeyValueField.Value, value);
             target.ApplyVariableField(existing, KeyValueField.IsEnabled, enabled && existing.HasKey);
+            target.ApplyVariableField(existing, KeyValueField.IsSecret, isSecret && existing.HasKey);
 
             var label = listKind == KeyValueListKind.Params ? "param" : "header";
             RecordUndo(
@@ -69,6 +72,7 @@ public static class VariableScopeMove
                 [
                     new SetVariableFieldAction(target, existing, KeyValueField.Value, oldValue, "Restore variable value"),
                     new SetVariableFieldAction(target, existing, KeyValueField.IsEnabled, oldEnabled, "Restore variable enabled"),
+                    new SetVariableFieldAction(target, existing, KeyValueField.IsSecret, oldSecret, "Restore variable secret"),
                     new InsertKeyValueRowAction(request, listKind, item, sourceIndex, $"Restore {label}")
                 ]);
             target.RefreshVariablePresentation();
@@ -76,7 +80,7 @@ public static class VariableScopeMove
         }
 
         request.RemoveKeyValueRow(listKind, item);
-        var inserted = target.InsertVariableSnapshot(key, value, enabled, out var insertIndex);
+        var inserted = target.InsertVariableSnapshot(key, value, enabled, out var insertIndex, isSecret);
         var labelNew = listKind == KeyValueListKind.Params ? "param" : "header";
         RecordUndo(
             undoRecorder,
@@ -107,6 +111,7 @@ public static class VariableScopeMove
         var key = item.Key.Trim();
         var value = item.Value ?? string.Empty;
         var enabled = item.IsEnabled;
+        var isSecret = item.IsSecret;
         var sourceIndex = source.IndexOfVariable(item);
         if (sourceIndex < 0)
         {
@@ -123,9 +128,11 @@ public static class VariableScopeMove
 
             var oldValue = existing.Value ?? string.Empty;
             var oldEnabled = existing.IsEnabled;
+            var oldSecret = existing.IsSecret;
             source.RemoveVariableRow(item);
             target.ApplyVariableField(existing, KeyValueField.Value, value);
             target.ApplyVariableField(existing, KeyValueField.IsEnabled, enabled && existing.HasKey);
+            target.ApplyVariableField(existing, KeyValueField.IsSecret, isSecret && existing.HasKey);
 
             RecordUndo(
                 undoRecorder,
@@ -133,6 +140,7 @@ public static class VariableScopeMove
                 [
                     new SetVariableFieldAction(target, existing, KeyValueField.Value, oldValue, "Restore variable value"),
                     new SetVariableFieldAction(target, existing, KeyValueField.IsEnabled, oldEnabled, "Restore variable enabled"),
+                    new SetVariableFieldAction(target, existing, KeyValueField.IsSecret, oldSecret, "Restore variable secret"),
                     new InsertVariableRowAction(source, item, sourceIndex, "Restore variable")
                 ]);
             source.RefreshVariablePresentation();
@@ -141,7 +149,7 @@ public static class VariableScopeMove
         }
 
         source.RemoveVariableRow(item);
-        var inserted = target.InsertVariableSnapshot(key, value, enabled, out var insertIndex);
+        var inserted = target.InsertVariableSnapshot(key, value, enabled, out var insertIndex, isSecret);
         RecordUndo(
             undoRecorder,
             $"Move variable '{key}' to '{target.Name}'",

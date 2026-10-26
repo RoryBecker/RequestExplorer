@@ -19,15 +19,19 @@ public sealed class PostmanHoistClashValue
 {
     public PostmanHoistClashValue(
         string value,
-        IReadOnlyList<TreeNodeViewModel> definedOn)
+        IReadOnlyList<TreeNodeViewModel> definedOn,
+        bool isSecret)
     {
         Value = value;
         DefinedOn = definedOn;
+        IsSecret = isSecret;
     }
 
     public string Value { get; }
 
     public IReadOnlyList<TreeNodeViewModel> DefinedOn { get; }
+
+    public bool IsSecret { get; }
 }
 
 /// <summary>
@@ -48,26 +52,27 @@ public static class PostmanVariableHoistClash
             return [];
         }
 
-        var byName = new Dictionary<string, Dictionary<string, HashSet<TreeNodeViewModel>>>(
+        var byName = new Dictionary<string, Dictionary<string, ValueBucket>>(
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var request in EnumerateRequests(root))
         {
-            foreach (var (name, value, definedOn) in EffectiveDefinitions(request, root))
+            foreach (var (name, value, definedOn, isSecret) in EffectiveDefinitions(request, root))
             {
                 if (!byName.TryGetValue(name, out var byValue))
                 {
-                    byValue = new Dictionary<string, HashSet<TreeNodeViewModel>>(StringComparer.Ordinal);
+                    byValue = new Dictionary<string, ValueBucket>(StringComparer.Ordinal);
                     byName[name] = byValue;
                 }
 
-                if (!byValue.TryGetValue(value, out var nodes))
+                if (!byValue.TryGetValue(value, out var bucket))
                 {
-                    nodes = [];
-                    byValue[value] = nodes;
+                    bucket = new ValueBucket();
+                    byValue[value] = bucket;
                 }
 
-                nodes.Add(definedOn);
+                bucket.Nodes.Add(definedOn);
+                bucket.IsSecret |= isSecret;
             }
         }
 
@@ -83,9 +88,10 @@ public static class PostmanVariableHoistClash
                 .OrderBy(kv => kv.Key, StringComparer.Ordinal)
                 .Select(kv => new PostmanHoistClashValue(
                     kv.Key,
-                    kv.Value
+                    kv.Value.Nodes
                         .OrderBy(n => n.HierarchyPath, StringComparer.OrdinalIgnoreCase)
-                        .ToList()))
+                        .ToList(),
+                    kv.Value.IsSecret))
                 .ToList();
 
             clashes.Add(new PostmanHoistClash(name, values));
@@ -115,7 +121,7 @@ public static class PostmanVariableHoistClash
             foreach (var entry in clash.Values)
             {
                 Append(spans, "  ");
-                Append(spans, FormatValue(entry.Value));
+                Append(spans, FormatValue(entry));
                 Append(spans, " on ");
 
                 for (var i = 0; i < entry.DefinedOn.Count; i++)
@@ -140,7 +146,7 @@ public static class PostmanVariableHoistClash
         return new DiagnosisReport(spans);
     }
 
-    private static IEnumerable<(string Name, string Value, TreeNodeViewModel DefinedOn)> EffectiveDefinitions(
+    private static IEnumerable<(string Name, string Value, TreeNodeViewModel DefinedOn, bool IsSecret)> EffectiveDefinitions(
         RequestNodeViewModel request,
         TreeNodeViewModel root)
     {
@@ -162,7 +168,7 @@ public static class PostmanVariableHoistClash
                         continue;
                     }
 
-                    yield return (key, item.Value ?? string.Empty, container);
+                    yield return (key, item.Value ?? string.Empty, container, item.IsSecret);
                 }
             }
 
@@ -190,15 +196,27 @@ public static class PostmanVariableHoistClash
         }
     }
 
-    private static string FormatValue(string value)
+    private static string FormatValue(PostmanHoistClashValue entry)
     {
-        var preview = value.Replace('\r', ' ').Replace('\n', ' ');
+        if (entry.IsSecret)
+        {
+            return "(secret)";
+        }
+
+        var preview = entry.Value.Replace('\r', ' ').Replace('\n', ' ');
         if (preview.Length > ValuePreviewMaxChars)
         {
             preview = preview[..ValuePreviewMaxChars] + "…";
         }
 
         return "\"" + preview + "\"";
+    }
+
+    private sealed class ValueBucket
+    {
+        public HashSet<TreeNodeViewModel> Nodes { get; } = [];
+
+        public bool IsSecret { get; set; }
     }
 
     private static void Append(List<DiagnosisReportSpan> spans, string text) =>

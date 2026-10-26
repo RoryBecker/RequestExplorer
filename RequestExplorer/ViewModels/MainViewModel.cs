@@ -78,6 +78,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
         _isDarkMode = UiPreferences.IsDarkMode;
+        _selectedRequestTabIndex = ClampRequestTabIndex(UiPreferences.SelectedRequestTabIndex);
+        _selectedCollectionTabIndex = ClampContainerTabIndex(UiPreferences.SelectedCollectionTabIndex);
+        _selectedFolderTabIndex = ClampContainerTabIndex(UiPreferences.SelectedFolderTabIndex);
         ThemeService.Apply(_isDarkMode);
         _selectedExportFormat = ResolveExportFormat(UiPreferences.SelectedExportFormat);
         _isQuickExportWrap = UiPreferences.GetQuickExportWrap(_selectedExportFormat.Format.ToString());
@@ -139,6 +142,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.TreeFilterIncludeAncestors = TreeFilterIncludeAncestors;
         UiPreferences.TreeFilterIncludeName = TreeFilterIncludeName;
         UiPreferences.TreeFilterIncludeUrl = TreeFilterIncludeUrl;
+        UiPreferences.SelectedRequestTabIndex = SelectedRequestTabIndex;
+        UiPreferences.SelectedCollectionTabIndex = SelectedCollectionTabIndex;
+        UiPreferences.SelectedFolderTabIndex = SelectedFolderTabIndex;
         CaptureExpandedTreeNodes();
         CaptureSelectedTreeNode();
         _uiPreferencesService.Save(UiPreferences);
@@ -435,9 +441,13 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [ObservableProperty]
     private int _selectedRequestTabIndex;
 
-    /// <summary>0=Description, 1=Variables on collection/folder editors.</summary>
+    /// <summary>0=Description, 1=Variables on the collection editor.</summary>
     [ObservableProperty]
-    private int _selectedContainerTabIndex;
+    private int _selectedCollectionTabIndex;
+
+    /// <summary>0=Description, 1=Variables on the folder editor.</summary>
+    [ObservableProperty]
+    private int _selectedFolderTabIndex;
 
     [ObservableProperty]
     private bool _isRootDropIndicatorVisible;
@@ -832,7 +842,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         ExpandAncestors(target);
         target.IsExpanded = true;
         SelectOnly(target);
-        SelectedContainerTabIndex = 1;
+        SetContainerTabIndex(target, 1);
 
         if (item is null || target.IndexOfVariable(item) < 0)
         {
@@ -1439,10 +1449,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             return SelectedRequestTabIndex == ToTabIndex(target.Surface);
         }
 
-        if (target.Node is ContainerNodeViewModel
+        if (target.Node is ContainerNodeViewModel container
             && target.Surface is EditorSurface.Description or EditorSurface.Variables)
         {
-            return SelectedContainerTabIndex == ToContainerTabIndex(target.Surface);
+            return GetContainerTabIndex(container) == ToContainerTabIndex(target.Surface);
         }
 
         return true;
@@ -1456,10 +1466,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         {
             SelectedRequestTabIndex = ToTabIndex(target.Surface);
         }
-        else if (target.Node is ContainerNodeViewModel
+        else if (target.Node is ContainerNodeViewModel container
                  && target.Surface is EditorSurface.Description or EditorSurface.Variables)
         {
-            SelectedContainerTabIndex = ToContainerTabIndex(target.Surface);
+            SetContainerTabIndex(container, ToContainerTabIndex(target.Surface));
         }
     }
 
@@ -1480,6 +1490,25 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             EditorSurface.Variables => 1,
             _ => 0
         };
+
+    private int GetContainerTabIndex(ContainerNodeViewModel node) =>
+        node is CollectionNodeViewModel ? SelectedCollectionTabIndex : SelectedFolderTabIndex;
+
+    private void SetContainerTabIndex(ContainerNodeViewModel node, int index)
+    {
+        if (node is CollectionNodeViewModel)
+        {
+            SelectedCollectionTabIndex = index;
+        }
+        else
+        {
+            SelectedFolderTabIndex = index;
+        }
+    }
+
+    private static int ClampRequestTabIndex(int index) => Math.Clamp(index, 0, 5);
+
+    private static int ClampContainerTabIndex(int index) => Math.Clamp(index, 0, 1);
 
     private static string DescribeSurface(EditorSurface surface) =>
         surface switch

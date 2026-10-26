@@ -114,7 +114,7 @@
 
         <TabControl Grid.Row="3"
                     Margin="0,0,0,12"
-                    SelectedIndex="{Binding DataContext.SelectedContainerTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}">
+                    SelectedIndex="{Binding DataContext.SelectedFolderTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}">
             <TabItem Header="Description">
                 <TextBox Margin="8"
                          AcceptsReturn="True"
@@ -180,6 +180,20 @@
                                                         Width="2*"
                                                         MinWidth="80"
                                                         ElementStyle="{StaticResource KeyValueCellTextPlain}" />
+                                    <DataGridTemplateColumn Header="Secret"
+                                                            Width="58"
+                                                            CanUserSort="False">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSecret, Mode=OneWay}"
+                                                          IsEnabled="False"
+                                                          IsHitTestVisible="False"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          ToolTip="This value is omitted from Postman export" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTextColumn Header=""
                                                         Binding="{Binding StatusDisplay}"
                                                         Width="90"
@@ -247,6 +261,19 @@
                                                         Width="2*"
                                                         ElementStyle="{StaticResource KeyValueCellText}"
                                                         EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                                    <DataGridTemplateColumn Header="Secret"
+                                                            Width="58"
+                                                            SortMemberPath="IsSecret">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsSecret, UpdateSourceTrigger=PropertyChanged}"
+                                                          IsEnabled="{Binding HasKey}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          ToolTip="Omit this value from Postman export. Local save keeps the value." />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTemplateColumn Header=""
                                                             Width="36"
                                                             CanUserSort="False">

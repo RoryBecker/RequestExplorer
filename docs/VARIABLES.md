@@ -8,6 +8,8 @@ RequestExplorer resolves `{{name}}` tokens from **enabled** variables on the req
 2. Reference it in the URL, params, headers, body, or auth fields as `{{key}}`.
 3. On **Send** (and in Quick Export / tooltips), tokens are substituted from the parent scope.
 
+Tick **Secret** to keep the value out of **To Postman** / **To Postman (Flatten)** (the key is still exported, empty). Local save, send, copy/paste, and duplicate inside RequestExplorer keep the value. Default is off. The collections folder on disk is still the working copy, so it still contains secret values.
+
 **Diagnose Variables** (tree context menu) reports missing or disabled names under the selection.
 
 ### Hover tooltips

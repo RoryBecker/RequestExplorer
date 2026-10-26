@@ -212,17 +212,19 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             v.HasKey && string.Equals(v.Key.Trim(), key.Trim(), StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Inserts a new variable before the spare row. Returns the created VM and index.</summary>
-    public KeyValueItemViewModel InsertVariableSnapshot(
+        public KeyValueItemViewModel InsertVariableSnapshot(
         string key,
         string value,
         bool enabled,
-        out int index)
+        out int index,
+        bool isSecret = false)
     {
         var model = new KeyValueItem
         {
             Key = key,
             Value = value,
-            IsEnabled = enabled && !string.IsNullOrWhiteSpace(key)
+            IsEnabled = enabled && !string.IsNullOrWhiteSpace(key),
+            IsSecret = isSecret && !string.IsNullOrWhiteSpace(key)
         };
         var vm = CreateVariableVm(model);
         index = GetInsertBeforeSpareIndex(Variables);
@@ -252,7 +254,8 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             {
                 Key = row.Key ?? string.Empty,
                 Value = row.Value ?? string.Empty,
-                IsEnabled = row.IsEnabled && !string.IsNullOrWhiteSpace(row.Key)
+                IsEnabled = row.IsEnabled && !string.IsNullOrWhiteSpace(row.Key),
+                IsSecret = row.IsSecret && !string.IsNullOrWhiteSpace(row.Key)
             };
             var vm = CreateVariableVm(model);
             var index = GetInsertBeforeSpareIndex(Variables);
@@ -473,6 +476,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             KeyValueField.IsEnabled => $"Toggle variable '{item.Key}'",
             KeyValueField.Key => "Edit variable key",
             KeyValueField.Value => "Edit variable value",
+            KeyValueField.IsSecret => $"Toggle secret '{item.Key}'",
             _ => "Edit variable"
         };
 
@@ -563,6 +567,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         if (e.PropertyName is nameof(KeyValueItemViewModel.Key)
             or nameof(KeyValueItemViewModel.Value)
             or nameof(KeyValueItemViewModel.IsEnabled)
+            or nameof(KeyValueItemViewModel.IsSecret)
             or nameof(KeyValueItemViewModel.HasKey))
         {
             RefreshVariablePresentation();

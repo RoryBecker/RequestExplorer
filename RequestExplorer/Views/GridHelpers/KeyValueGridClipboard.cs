@@ -636,7 +636,8 @@ public static class KeyValueGridClipboard
         {
             IsEnabled = r.IsEnabled,
             Key = r.Key,
-            Value = r.Value
+            Value = r.Value,
+            IsSecret = r.IsSecret
         })).WriteToClipboard();
         return true;
     }
@@ -736,7 +737,8 @@ public static class KeyValueGridClipboard
             {
                 IsEnabled = r.IsEnabled,
                 Key = r.Key,
-                Value = r.Value
+                Value = r.Value,
+                IsSecret = r.IsSecret
             })
             .ToList();
 

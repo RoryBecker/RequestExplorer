@@ -33,14 +33,14 @@ public static partial class VariableResolver
     private static partial Regex TokenRegex();
 
     public static IReadOnlyDictionary<string, string> BuildScope(TreeNodeViewModel? requestNode) =>
-        BuildResolvedScope(requestNode, includeOrigin: false);
+        BuildResolvedScope(requestNode, includeOrigin: false, includeSecretValues: true);
 
     /// <summary>
     /// Scope starting at <paramref name="node"/> and walking ancestors (nearest wins).
     /// Use for container editors; for requests prefer <see cref="BuildScope"/> (parents only).
     /// </summary>
     public static IReadOnlyDictionary<string, string> BuildScopeFrom(TreeNodeViewModel? node) =>
-        BuildResolvedScope(node, includeOrigin: true);
+        BuildResolvedScope(node, includeOrigin: true, includeSecretValues: true);
 
     public static VariableResolveAnalysis Analyze(
         RequestDefinition model,
@@ -49,7 +49,7 @@ public static partial class VariableResolver
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(requestNode);
 
-        var session = new ResolveSession(requestNode, includeOrigin: false, MaxNestingDepth);
+        var session = new ResolveSession(requestNode, includeOrigin: false, MaxNestingDepth, includeSecretValues: true);
         foreach (var name in CollectReferencedNames(model))
         {
             session.ResolveName(name, depth: 1, chain: [], fallback: "{{" + name + "}}");
@@ -144,9 +144,10 @@ public static partial class VariableResolver
 
     private static IReadOnlyDictionary<string, string> BuildResolvedScope(
         TreeNodeViewModel? origin,
-        bool includeOrigin)
+        bool includeOrigin,
+        bool includeSecretValues)
     {
-        var session = new ResolveSession(origin, includeOrigin, MaxNestingDepth);
+        var session = new ResolveSession(origin, includeOrigin, MaxNestingDepth, includeSecretValues);
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var key in session.CollectKeys())
         {
@@ -402,12 +403,15 @@ public static partial class VariableResolver
     }
 
     /// <summary>Returns a deep copy of <paramref name="source"/> with variables substituted.</summary>
-    public static RequestDefinition Resolve(RequestDefinition source, TreeNodeViewModel requestNode)
+    public static RequestDefinition Resolve(
+        RequestDefinition source,
+        TreeNodeViewModel requestNode,
+        bool includeSecretValues = true)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(requestNode);
 
-        var variables = BuildScope(requestNode);
+        var variables = BuildResolvedScope(requestNode, includeOrigin: false, includeSecretValues);
         var clone = Clone(source);
         if (variables.Count == 0)
         {
@@ -472,16 +476,22 @@ public static partial class VariableResolver
         private readonly TreeNodeViewModel? _origin;
         private readonly bool _includeOrigin;
         private readonly int _maxDepth;
+        private readonly bool _includeSecretValues;
         private readonly HashSet<string> _missing = new(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _nestingReported = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _cache = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<VariableNestingError> _nestingErrors = [];
 
-        public ResolveSession(TreeNodeViewModel? origin, bool includeOrigin, int maxDepth)
+        public ResolveSession(
+            TreeNodeViewModel? origin,
+            bool includeOrigin,
+            int maxDepth,
+            bool includeSecretValues)
         {
             _origin = origin;
             _includeOrigin = includeOrigin;
             _maxDepth = ClampMaxNestingDepth(maxDepth);
+            _includeSecretValues = includeSecretValues;
         }
 
         public IReadOnlyList<VariableNestingError> NestingErrors => _nestingErrors;
@@ -501,6 +511,11 @@ public static partial class VariableResolver
                     foreach (var item in container.Variables)
                     {
                         if (!item.IsEnabled || string.IsNullOrWhiteSpace(item.Key))
+                        {
+                            continue;
+                        }
+
+                        if (!_includeSecretValues && item.IsSecret)
                         {
                             continue;
                         }
@@ -583,10 +598,17 @@ public static partial class VariableResolver
                             continue;
                         }
 
-                        if (string.Equals(item.Key.Trim(), name, StringComparison.OrdinalIgnoreCase))
+                        if (!string.Equals(item.Key.Trim(), name, StringComparison.OrdinalIgnoreCase))
                         {
-                            return item.Value ?? string.Empty;
+                            continue;
                         }
+
+                        if (!_includeSecretValues && item.IsSecret)
+                        {
+                            return null;
+                        }
+
+                        return item.Value ?? string.Empty;
                     }
                 }
 

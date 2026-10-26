@@ -64,7 +64,8 @@ public static class TreeNodeCloneService
                 {
                     IsEnabled = v.IsEnabled,
                     Key = v.Key,
-                    Value = v.Value
+                    Value = v.Value,
+                    IsSecret = v.IsSecret
                 })
                 .ToList()
         };

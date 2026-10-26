@@ -31,6 +31,8 @@ public sealed partial class InheritedVariableRow : ObservableObject
 
     public bool IsShadowed { get; }
 
+    public bool IsSecret => SourceItem.IsSecret;
+
     /// <summary>Collection or folder that defines this variable.</summary>
     public ContainerNodeViewModel SourceContainer { get; }
 
@@ -45,6 +47,11 @@ public sealed partial class InheritedVariableRow : ObservableObject
             or nameof(KeyValueItemViewModel.Key))
         {
             OnPropertyChanged(nameof(VariableValue));
+        }
+
+        if (e.PropertyName is nameof(KeyValueItemViewModel.IsSecret))
+        {
+            OnPropertyChanged(nameof(IsSecret));
         }
     }
 }

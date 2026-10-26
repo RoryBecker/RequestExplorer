@@ -3833,7 +3833,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [RelayCommand]
     private void ShowAbout()
     {
-        var dialog = new Views.AboutDialog(_persistence.StorageDirectory)
+        var dialog = new Views.AboutDialog(_persistence.StorageDirectory, _backups.BackupsDirectory)
         {
             Owner = Application.Current?.MainWindow
         };

@@ -599,7 +599,6 @@
                                 <MenuItem Header="New…" Command="{Binding NewItemCommand}" InputGestureText="Ctrl+N" />
                                 <MenuItem Header="Insert Folder Above" Command="{Binding InsertFolderAboveCommand}" InputGestureText="Ins" Tag="Node" />
                                 <MenuItem Header="Duplicate" Command="{Binding DuplicateNodeCommand}" InputGestureText="Ctrl+D" Tag="Node" />
-                                <MenuItem Header="Add Demo Collections" Command="{Binding RecreateDemoCollectionsCommand}" />
                                 <Separator />
                                 <MenuItem Header="Copy" Command="{Binding CopyNodeCommand}" InputGestureText="Ctrl+C" Tag="Node" />
                                 <MenuItem x:Name="CopyToCollectionMenuItem" Header="Copy to Collection" Tag="Node" />

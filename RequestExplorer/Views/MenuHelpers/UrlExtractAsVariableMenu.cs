@@ -83,18 +83,21 @@ public static class UrlExtractAsVariableMenu
 
     private static ContextMenu EnsureContextMenu(TextBox textBox)
     {
-        if (textBox.ContextMenu is { } existing
-            && existing.Items.OfType<MenuItem>().Any(i => Equals(i.Tag, ExtractMenuTag)))
+        var menu = textBox.ContextMenu ?? new ContextMenu();
+        if (menu.Items.Count == 0)
         {
-            return existing;
+            menu.Items.Add(new MenuItem { Header = "Cu_t", Command = ApplicationCommands.Cut });
+            menu.Items.Add(new MenuItem { Header = "Cop_y", Command = ApplicationCommands.Copy });
+            menu.Items.Add(new MenuItem { Header = "_Paste", Command = ApplicationCommands.Paste });
         }
 
-        var menu = new ContextMenu();
-        menu.Items.Add(new MenuItem { Header = "Cu_t", Command = ApplicationCommands.Cut });
-        menu.Items.Add(new MenuItem { Header = "Cop_y", Command = ApplicationCommands.Copy });
-        menu.Items.Add(new MenuItem { Header = "_Paste", Command = ApplicationCommands.Paste });
-        menu.Items.Add(new Separator { Tag = ExtractMenuTag });
+        if (menu.Items.OfType<MenuItem>().Any(i => Equals(i.Tag, ExtractMenuTag)))
+        {
+            textBox.ContextMenu = menu;
+            return menu;
+        }
 
+        menu.Items.Add(new Separator { Tag = ExtractMenuTag });
         var extract = new MenuItem
         {
             Header = "Extract as _Variable…",

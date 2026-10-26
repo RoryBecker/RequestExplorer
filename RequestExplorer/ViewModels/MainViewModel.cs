@@ -753,14 +753,42 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     public void GoToVariableDefinition(InheritedVariableRow row)
     {
         var target = row.SourceContainer;
-        ExpandAncestors(target);
-        target.IsExpanded = true;
-        SelectOnly(target);
-
         var item = row.SourceItem;
         if (item is null || target.IndexOfVariable(item) < 0)
         {
             item = target.FindVariableByKey(row.Key);
+        }
+
+        RevealVariableDefinition(target, item, row.Key);
+    }
+
+    /// <summary>
+    /// Selects the nearest ancestor that defines <paramref name="name"/>, starting from
+    /// <paramref name="from"/> (or its parent, when that is a request).
+    /// </summary>
+    public void GoToVariableDefinition(string name, TreeNodeViewModel? from)
+    {
+        if (!VariableDefinitionLookup.TryFind(from, name, out var container, out var item))
+        {
+            StatusMessage = $"No definition found for '{name}'";
+            return;
+        }
+
+        RevealVariableDefinition(container, item, name);
+    }
+
+    private void RevealVariableDefinition(
+        ContainerNodeViewModel target,
+        KeyValueItemViewModel? item,
+        string key)
+    {
+        ExpandAncestors(target);
+        target.IsExpanded = true;
+        SelectOnly(target);
+
+        if (item is null || target.IndexOfVariable(item) < 0)
+        {
+            item = target.FindVariableByKey(key);
         }
 
         // Defer until the Variables grid has loaded for the newly selected container.
@@ -769,7 +797,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             DispatcherPriority.Loaded);
 
         TreeRevealRequested?.Invoke([target]);
-        StatusMessage = $"Showing definition of '{row.Key}' on '{target.Name}'";
+        StatusMessage = $"Showing definition of '{key}' on '{target.Name}'";
     }
 
     public void ToggleSelection(TreeNodeViewModel node)

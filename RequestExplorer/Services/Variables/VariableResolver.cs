@@ -187,6 +187,44 @@ public static partial class VariableResolver
         return false;
     }
 
+    /// <summary>
+    /// Token names at a click/caret, or those intersecting a selection.
+    /// Empty when the pointer is not on a <c>{{name}}</c> token.
+    /// </summary>
+    public static IReadOnlyList<string> CollectTokenNames(
+        string? text,
+        int caretOrClick,
+        int selectionStart,
+        int selectionLength)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return [];
+        }
+
+        if (selectionLength > 0)
+        {
+            var start = Math.Clamp(selectionStart, 0, text.Length);
+            var length = Math.Clamp(selectionLength, 0, text.Length - start);
+            var names = FindTokenNames(text.Substring(start, length));
+            if (names.Count > 0)
+            {
+                return names;
+            }
+
+            if (TryFindTokenAt(text, start, out var selectedName, out _, out _))
+            {
+                return [selectedName];
+            }
+
+            return [];
+        }
+
+        return TryFindTokenAt(text, caretOrClick, out var name, out _, out _)
+            ? [name]
+            : [];
+    }
+
     public static IReadOnlyList<string> FindTokenNames(string? text)
     {
         if (string.IsNullOrEmpty(text))

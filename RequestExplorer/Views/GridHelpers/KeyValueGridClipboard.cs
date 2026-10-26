@@ -8,8 +8,10 @@ using System.Windows.Threading;
 using RequestExplorer.Models;
 using RequestExplorer.Services.KeyValue;
 using RequestExplorer.Services.Undo;
+using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
+using RequestExplorer.Views.MenuHelpers;
 
 namespace RequestExplorer.Views.GridHelpers;
 
@@ -80,22 +82,6 @@ public static class KeyValueGridClipboard
         }
 
         existing = menu.Items.OfType<MenuItem>().Select(m => m.Tag).ToHashSet();
-        if (!existing.Contains("kv-goto-definition"))
-        {
-            var insertAt = IndexOfFirstRowClipboardItem(menu);
-            // Place after Copy Name/Value when those were just inserted above.
-            var nameIndex = IndexOfTaggedMenuItem(menu, "kv-copy-value");
-            if (nameIndex >= 0)
-            {
-                insertAt = nameIndex + 1;
-            }
-
-            menu.Items.Insert(
-                insertAt,
-                CreateMenuItem("Go to _Definition", "kv-goto-definition", () => GoToDefinition(grid)));
-        }
-
-        existing = menu.Items.OfType<MenuItem>().Select(m => m.Tag).ToHashSet();
         if (existing.Contains("kv-copy"))
         {
             return;
@@ -131,19 +117,6 @@ public static class KeyValueGridClipboard
         }
 
         return menu.Items.Count;
-    }
-
-    private static int IndexOfTaggedMenuItem(ContextMenu menu, string tag)
-    {
-        for (var i = 0; i < menu.Items.Count; i++)
-        {
-            if (menu.Items[i] is MenuItem item && Equals(item.Tag, tag))
-            {
-                return i;
-            }
-        }
-
-        return -1;
     }
 
     private static void OnPreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
@@ -206,7 +179,6 @@ public static class KeyValueGridClipboard
             var canDuplicate = canCopyRows && TryGetPasteTarget(grid, out _, out _, out _);
             var canCopyField = TryGetPrimaryNameValue(grid, out _, out _);
             var isInherited = IsInheritedVariablesGrid(grid);
-            var canGoToDefinition = isInherited && TryGetInheritedSelection(grid, out _);
 
             // Inherited grids only need Name/Value + Go to Definition; hide row copy/paste there.
             var showRowClipboard = !isInherited;
@@ -237,12 +209,11 @@ public static class KeyValueGridClipboard
                 {
                     item.IsEnabled = canCopyField;
                 }
-                else if (Equals(item.Tag, "kv-goto-definition"))
-                {
-                    item.Visibility = isInherited ? Visibility.Visible : Visibility.Collapsed;
-                    item.IsEnabled = canGoToDefinition;
-                }
             }
+
+            VariableGoToDefinitionMenu.SyncItems(
+                grid.ContextMenu,
+                CollectGridDefinitionTargets(grid, e.OriginalSource as DependencyObject));
 
             foreach (var sep in grid.ContextMenu.Items.OfType<Separator>().Where(s => Equals(s.Tag, "kv-clipboard-sep")).ToList())
             {
@@ -512,15 +483,82 @@ public static class KeyValueGridClipboard
         e.Handled = true;
     }
 
-    private static void GoToDefinition(DataGrid grid)
+    private static IReadOnlyList<VariableGoToDefinitionMenu.GoToDefinitionTarget> CollectGridDefinitionTargets(
+        DataGrid grid,
+        DependencyObject? originalSource)
     {
-        if (!TryGetInheritedSelection(grid, out var inherited)
-            || Application.Current?.MainWindow?.DataContext is not MainViewModel vm)
+        var from = VariableGoToDefinitionMenu.FindOrigin(grid);
+        var targets = new List<VariableGoToDefinitionMenu.GoToDefinitionTarget>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddTokenNames(IEnumerable<string> names)
         {
-            return;
+            foreach (var target in VariableGoToDefinitionMenu.TargetsFromTokens(names, from))
+            {
+                if (seen.Add(target.Name))
+                {
+                    targets.Add(target);
+                }
+            }
         }
 
-        vm.GoToVariableDefinition(inherited);
+        var rowItem = FindAncestor<DataGridRow>(originalSource)?.Item
+                      ?? grid.CurrentItem
+                      ?? grid.SelectedItem;
+
+        if (rowItem is InheritedVariableRow inherited && seen.Add(inherited.Key))
+        {
+            var captured = inherited;
+            targets.Add(new VariableGoToDefinitionMenu.GoToDefinitionTarget(
+                captured.Key,
+                () =>
+                {
+                    if (Application.Current?.MainWindow?.DataContext is MainViewModel vm)
+                    {
+                        vm.GoToVariableDefinition(captured);
+                    }
+                }));
+        }
+
+        var editBox = originalSource as TextBox ?? FindAncestor<TextBox>(originalSource);
+        if (editBox is not null)
+        {
+            AddTokenNames(VariableGoToDefinitionMenu.TokenNamesInTextBox(editBox));
+            return targets;
+        }
+
+        string? keyText = null;
+        string? valueText = null;
+        switch (rowItem)
+        {
+            case KeyValueItemViewModel kv:
+                keyText = kv.Key;
+                valueText = kv.Value;
+                break;
+            case InheritedVariableRow inheritedRow:
+                keyText = inheritedRow.Key;
+                valueText = inheritedRow.VariableValue;
+                break;
+            default:
+                return targets;
+        }
+
+        var cell = FindAncestor<DataGridCell>(originalSource);
+        if (cell is { Column: { } column } && IsNameColumn(column))
+        {
+            AddTokenNames(VariableResolver.FindTokenNames(keyText));
+        }
+        else if (cell is { Column: { } valueColumn } && IsValueColumn(valueColumn))
+        {
+            AddTokenNames(VariableResolver.FindTokenNames(valueText));
+        }
+        else
+        {
+            AddTokenNames(VariableResolver.FindTokenNames(keyText));
+            AddTokenNames(VariableResolver.FindTokenNames(valueText));
+        }
+
+        return targets;
     }
 
     private static bool TryGetInheritedSelection(DataGrid grid, out InheritedVariableRow row)

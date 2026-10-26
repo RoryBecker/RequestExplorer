@@ -15,6 +15,7 @@
             <SolidColorBrush x:Key="App.SubtlePanelBrush" Color="#FFF9FAFB" />
             <SolidColorBrush x:Key="App.BorderBrush" Color="#FFD8DEE6" />
             <SolidColorBrush x:Key="App.TextBrush" Color="#FF1F2937" />
+            <SolidColorBrush x:Key="App.BrightTextBrush" Color="#FF1F2937" />
             <SolidColorBrush x:Key="App.MutedBrush" Color="#FF6B7280" />
             <SolidColorBrush x:Key="App.AccentBrush" Color="#FF2563EB" />
             <SolidColorBrush x:Key="App.DangerBrush" Color="#FFDC2626" />

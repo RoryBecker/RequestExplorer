@@ -155,22 +155,20 @@
                     ToolTip="Cancel in-flight request"
                     Command="{Binding DataContext.CancelSendCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
 
-            <TextBox Grid.Row="1"
-                     Grid.Column="1"
-                     Grid.ColumnSpan="3"
-                     Margin="0,4,0,0"
-                     MinHeight="22"
-                     Padding="6,2"
-                     FontSize="11"
-                     IsReadOnly="True"
-                     IsTabStop="False"
-                     BorderThickness="0"
-                     Background="Transparent"
-                     Foreground="{DynamicResource App.MutedBrush}"
-                     VerticalContentAlignment="Center"
-                     TextWrapping="Wrap"
-                     ToolTip="URL with {{variables}} resolved from parent collection/folder scope"
-                     Text="{Binding ResolvedAddress, Mode=OneWay}" />
+            <TextBlock Grid.Row="1"
+                       Grid.Column="1"
+                       Grid.ColumnSpan="3"
+                       Margin="0,4,0,0"
+                       MinHeight="22"
+                       Padding="6,2"
+                       FontSize="11"
+                       IsHitTestVisible="True"
+                       Background="Transparent"
+                       Foreground="{DynamicResource App.MutedBrush}"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap"
+                       ToolTip="URL with {{variables}} resolved from parent collection/folder scope; substituted values are bold"
+                       otherHelpers:ResolvedTextHighlight.Spans="{Binding ResolvedAddressSpans, Mode=OneWay}" />
         </Grid>
 
         <TabControl Grid.Row="3"

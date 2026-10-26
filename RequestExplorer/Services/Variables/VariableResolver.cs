@@ -60,16 +60,86 @@ public static partial class VariableResolver
 
     public static string Substitute(string? text, IReadOnlyDictionary<string, string> variables)
     {
-        if (string.IsNullOrEmpty(text) || variables.Count == 0)
+        var spans = SubstituteWithSpans(text, variables);
+        if (spans.Count == 0)
         {
-            return text ?? string.Empty;
+            return string.Empty;
         }
 
-        return TokenRegex().Replace(text, match =>
+        if (spans.Count == 1)
         {
+            return spans[0].Text;
+        }
+
+        var sb = new StringBuilder();
+        foreach (var span in spans)
+        {
+            sb.Append(span.Text);
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Substitutes <c>{{name}}</c> tokens and records which output slices came from a resolved variable.
+    /// Unresolved tokens are left as literal text and are not marked as from a variable.
+    /// </summary>
+    public static IReadOnlyList<ResolvedTextSpan> SubstituteWithSpans(
+        string? text,
+        IReadOnlyDictionary<string, string> variables)
+    {
+        text ??= string.Empty;
+        if (text.Length == 0)
+        {
+            return [];
+        }
+
+        variables ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var spans = new List<ResolvedTextSpan>();
+        var last = 0;
+        foreach (Match match in TokenRegex().Matches(text))
+        {
+            if (match.Index > last)
+            {
+                AppendSpan(spans, text[last..match.Index], fromVariable: false);
+            }
+
             var name = match.Groups[1].Value.Trim();
-            return variables.TryGetValue(name, out var value) ? value : match.Value;
-        });
+            if (name.Length > 0 && variables.TryGetValue(name, out var value))
+            {
+                AppendSpan(spans, value, fromVariable: true);
+            }
+            else
+            {
+                AppendSpan(spans, match.Value, fromVariable: false);
+            }
+
+            last = match.Index + match.Length;
+        }
+
+        if (last < text.Length)
+        {
+            AppendSpan(spans, text[last..], fromVariable: false);
+        }
+
+        return spans;
+    }
+
+    private static void AppendSpan(List<ResolvedTextSpan> spans, string text, bool fromVariable)
+    {
+        if (text.Length == 0)
+        {
+            return;
+        }
+
+        if (spans.Count > 0 && spans[^1].IsFromVariable == fromVariable)
+        {
+            var previous = spans[^1];
+            spans[^1] = previous with { Text = previous.Text + text };
+            return;
+        }
+
+        spans.Add(new ResolvedTextSpan(text, fromVariable));
     }
 
     private static IReadOnlyDictionary<string, string> BuildResolvedScope(

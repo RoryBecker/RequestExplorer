@@ -216,8 +216,28 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     {
         get
         {
+            var spans = ResolvedAddressSpans;
+            if (spans.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            if (spans.Count == 1)
+            {
+                return spans[0].Text;
+            }
+
+            return string.Concat(spans.Select(s => s.Text));
+        }
+    }
+
+    /// <summary>Resolved address slices; <see cref="ResolvedTextSpan.IsFromVariable"/> marks substituted tokens.</summary>
+    public IReadOnlyList<ResolvedTextSpan> ResolvedAddressSpans
+    {
+        get
+        {
             var scope = VariableResolver.BuildScope(this);
-            return VariableResolver.Substitute(Address, scope);
+            return VariableResolver.SubstituteWithSpans(Address, scope);
         }
     }
 
@@ -227,6 +247,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     public void NotifyResolvedAddressChanged()
     {
+        OnPropertyChanged(nameof(ResolvedAddressSpans));
         OnPropertyChanged(nameof(ResolvedAddress));
         OnPropertyChanged(nameof(ShowsResolvedAddress));
     }

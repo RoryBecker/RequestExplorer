@@ -9,7 +9,7 @@ Where RequestExplorer is strong for day-to-day local API work:
 - **Your files, no account.** Collections are ordinary JSON under `%LocalAppData%`. Copy, zip, git, or drop them onto another machine. There is no cloud workspace and nothing to sign in to.
 - **The tree is an editor.** Indent and outdent with **Alt+← / Alt+→**, wrap a node in a new folder, drag before/after/into, insert a folder above. Postman’s collection sidebar is a navigator; this tree is how you structure work.
 - **Folder variables that stay where you put them.** Children inherit; closer folders override; the Inherited grid shows the source and what is shadowed. Postman export hoists variables to the collection — RequestExplorer warns when sibling folders would clash, and can **Flatten** if you still want a Postman file.
-- **See what `{{name}}` will become.** Diagnose Variables on a subtree, hover tokens and keys for resolved values, nest `{{name}}` inside other variable values, and use `@date(…)` recipes without pre-request scripts.
+- **See what `{{name}}` will become.** Calculated URL with bold substitutions, Diagnose Variables on a subtree, hover tokens for resolved values, Go to Definition, and `@date(…)` recipes without pre-request scripts. Apply a variable into matching URLs — one request, or every descendant that still has the literal value.
 - **Undo is real.** Tree moves, edits, and imports sit on **Ctrl+Z / Ctrl+Y**, including multi-step history. You can also **Edit as JSON…** on any collection, folder, or request and apply the native model back.
 - **Run All with expectations, no test scripts.** Expected status, body (exact or contains), and timing. Opt folders or requests out of the batch and still diagnose them. Results are a local grid you can sort, stop, and rerun.
 - **Quick Export beside the request.** Live cURL, HTTP, Fetch, PowerShell, Python, HTTPie, and Postman snippets, with a diagnosis when variables will not resolve.
@@ -28,7 +28,7 @@ On first launch with an empty workspace, **Feature Tour** is created and selecte
 ### Collections tree
 
 - Organize requests in collections and nested folders
-- Multiline **Description** on collections and folders (same idea as request Body)
+- Multiline **Description** on collections, folders, and requests (the first tab in each editor; Variables is next on collections and folders)
 - Create, rename, duplicate, and delete nodes from the toolbar, **Edit** menu, or tree context menu
 - **Insert Folder Above** (**Ins**)
 - Multi-select for batch operations
@@ -44,6 +44,7 @@ On first launch with an empty workspace, **Feature Tour** is created and selecte
 
 - Verbs: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
 - URL, raw body (with content type), query params, headers (per-row on/off), and auth (None, Bearer, Basic, API Key)
+- Under the URL, a **calculated address** shows `{{variables}}` resolved from parent scope; substituted slices are bold
 - **Send** (**Alt+X**) and **Cancel** for in-flight requests
 - Unsaved changes show `*` on the request and ancestors — **Ctrl+S** saves the current collection
 
@@ -55,35 +56,13 @@ On first launch with an empty workspace, **Feature Tour** is created and selecte
 
 ### Variables
 
-- Define variables on collections and folders; children inherit them (with source and shadowing shown)
+- Define variables on collections and folders; children inherit them (with source and shadowing shown). Names are **case-insensitive**; nearest enabled ancestor wins
 - Use `{{name}}` in URLs and other request fields; a variable value may itself contain `{{name}}` (nesting depth is set in Settings)
 - **Diagnose Variables** on a selection to find missing or disabled variables and jump to the affected nodes
-- Variable **values** may be dynamic recipes (see below); the stored value stays the recipe, and send/tooltips use the computed result
-- Hover the **name** (key) of a variable in any Variables grid — including **Inherited** — to see a tooltip with the current calculated value (e.g. resolved `@date(…)` recipes). The same hover works on Params/Headers keys (shows that row’s value). Hovering `{{name}}` tokens in URL/body/auth fields shows each token’s resolved value.
-
-#### Dynamic date values
-
-Set a variable’s **value** to a recipe instead of a fixed string. Reference it as usual with `{{name}}`. Default zone is **UTC**.
-
-| Value (recipe) | Meaning |
-|----------------|---------|
-| `@date(today)` | UTC calendar date today (`yyyy-MM-dd`) |
-| `@date(today-7d)` | UTC date seven days ago |
-| `@date(today+3d)` | UTC date three days ahead |
-| `@date(today-7d, yyyyMMdd)` | Same offset with a custom [.NET date format](https://learn.microsoft.com/dotnet/standard/base-types/custom-date-and-time-format-strings) |
-| `@date(today, local)` | Local calendar date |
-| `@date(now)` | UTC date-time (`yyyy-MM-ddTHH:mm:ssZ`) |
-| `@date(now-1d)` | UTC instant one day earlier |
-| `@date(now, local)` | Local date-time (no `Z` by default) |
-
-Example: key `weekAgo`, value `@date(today-7d)`, then use `{{weekAgo}}` in the URL or body.
-
-Notes:
-
-- Offsets are whole days only (`±Nd`).
-- Invalid recipes are left unchanged (the literal `@date(…)` text is kept).
-
-Full reference: [docs/VARIABLES.md](docs/VARIABLES.md).
+- **Go to Definition** (or **Ctrl+click** a `{{name}}` token) opens the defining Variables row. On an unresolved token, **Define Variable…** creates it on the nearest container. Works in the URL, params/headers/variables grids, and Auth Bearer
+- Hover the **name** (key) of a variable in any Variables grid — including **Inherited** — to see a tooltip with the current calculated value (e.g. resolved `@date(…)` recipes). The same hover works on Params/Headers keys (shows that row’s value). Hovering `{{name}}` tokens in URL/body/auth fields shows each token’s resolved value
+- Dynamic recipes (`@date(…)`): [Variables - Dynamic](docs/VARIABLES-DYNAMIC.md)
+- Extract / replace / apply tokens into URLs: [Variables - Refactoring](docs/VARIABLES-REFACTORING.md)
 
 ### Expectations & Run All
 
@@ -142,6 +121,7 @@ Postman round-trip keeps the tree and variables; RequestExplorer-only fields (de
 | Alt+← / Alt+→ | Move out / in |
 | Alt+Shift+→ | Move to new sub-folder |
 | Esc | Clear text selection, or focus selected tree node |
+| Ctrl+click `{{name}}` | Go to that variable’s definition |
 
 ## Where your data lives
 
@@ -151,7 +131,7 @@ Postman round-trip keeps the tree and variables; RequestExplorer-only fields (de
 | `%LocalAppData%\RequestExplorer\preferences.json` | UI preferences (layout, filters, Run All options, etc.) |
 | `%LocalAppData%\RequestExplorer\backups\` | Rolling zip backups |
 
-Use **File → Open collections folder** to open the collections directory in Explorer.
+Use **File → Open collections folder** / **Open backups folder**, or click the paths in **Help → About RequestExplorer**.
 
 ## License
 

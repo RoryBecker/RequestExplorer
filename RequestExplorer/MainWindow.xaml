@@ -594,6 +594,7 @@
                             <ContextMenu x:Name="CollectionTreeContextMenu"
                                          DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                                 <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" Tag="Node" />
+                                <MenuItem Header="Apply Variables to URL…" Command="{Binding InjectUrlVariablesCommand}" Tag="Request" />
                                 <MenuItem Header="{Binding RunAllRequestsMenuHeader}" Command="{Binding RunAllRequestsCommand}" Tag="Node" />
                                 <Separator />
                                 <MenuItem Header="New…" Command="{Binding NewItemCommand}" InputGestureText="Ctrl+N" />

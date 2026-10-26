@@ -406,6 +406,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [NotifyCanExecuteChangedFor(nameof(PasteIntoNodeCommand))]
     [NotifyCanExecuteChangedFor(nameof(PasteAtRootCommand))]
     [NotifyCanExecuteChangedFor(nameof(DiagnoseVariablesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(InjectUrlVariablesCommand))]
     [NotifyCanExecuteChangedFor(nameof(RunAllRequestsCommand))]
     [NotifyCanExecuteChangedFor(nameof(CollapseChildrenCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExpandChildrenCommand))]
@@ -2456,6 +2457,41 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     }
 
     private bool CanDiagnoseVariables() => SelectedNode is not null;
+
+    [RelayCommand(CanExecute = nameof(CanInjectUrlVariables))]
+    private void InjectUrlVariables()
+    {
+        if (SelectedNode is not RequestNodeViewModel request)
+        {
+            return;
+        }
+
+        var address = request.Address ?? string.Empty;
+        var scope = VariableResolver.BuildScope(request);
+        var matches = UrlVariableInjector.FindMatches(address, scope);
+        var dialog = new Views.InjectUrlVariablesDialog(address, matches)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var updated = dialog.ResultAddress ?? address;
+        if (string.Equals(updated, address, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var previous = address;
+        request.ApplyAddress(updated);
+        RecordUndo(new SetRequestAddressAction(request, previous, "Apply variables to URL"));
+        StatusMessage = $"Updated URL for '{request.Name}'";
+    }
+
+    private bool CanInjectUrlVariables() => SelectedNode is RequestNodeViewModel;
 
     [RelayCommand(CanExecute = nameof(CanRunAllRequests))]
     private async Task RunAllRequestsAsync(TreeNodeViewModel? root = null)

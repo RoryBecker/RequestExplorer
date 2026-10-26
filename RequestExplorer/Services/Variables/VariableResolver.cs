@@ -187,6 +187,23 @@ public static partial class VariableResolver
         return false;
     }
 
+    /// <summary>Character ranges of <c>{{name}}</c> tokens in <paramref name="text"/>.</summary>
+    public static IReadOnlyList<(int Start, int Length)> GetTokenRanges(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return [];
+        }
+
+        var ranges = new List<(int Start, int Length)>();
+        foreach (Match match in TokenRegex().Matches(text))
+        {
+            ranges.Add((match.Index, match.Length));
+        }
+
+        return ranges;
+    }
+
     /// <summary>
     /// Token names at a click/caret, or those intersecting a selection.
     /// Empty when the pointer is not on a <c>{{name}}</c> token.

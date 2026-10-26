@@ -856,15 +856,16 @@ public partial class MainWindow : Window
             return;
         }
 
+        var isRequest = DataContext is MainViewModel { SelectedNode: RequestNodeViewModel };
         foreach (var item in CollectionTreeContextMenu.Items)
         {
-            var requiresNode = item switch
+            var tag = (item as FrameworkElement)?.Tag as string;
+            var visibility = tag switch
             {
-                FrameworkElement fe => Equals(fe.Tag, "Node"),
-                _ => false
+                "Request" => onNode && isRequest ? Visibility.Visible : Visibility.Collapsed,
+                "Node" => onNode ? Visibility.Visible : Visibility.Collapsed,
+                _ => Visibility.Visible
             };
-
-            var visibility = !requiresNode || onNode ? Visibility.Visible : Visibility.Collapsed;
             switch (item)
             {
                 case MenuItem menuItem:

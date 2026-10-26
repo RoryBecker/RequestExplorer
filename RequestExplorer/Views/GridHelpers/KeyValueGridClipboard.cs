@@ -218,6 +218,7 @@ public static class KeyValueGridClipboard
                 out var tokenNames,
                 out var extraGoto);
             VariableGoToDefinitionMenu.SyncItems(grid.ContextMenu, tokenNames, from, extraGoto);
+            ApplyVariableToUrlsMenu.SyncItems(grid, grid.ContextMenu);
 
             foreach (var sep in grid.ContextMenu.Items.OfType<Separator>().Where(s => Equals(s.Tag, "kv-clipboard-sep")).ToList())
             {

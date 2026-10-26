@@ -2493,6 +2493,67 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private bool CanInjectUrlVariables() => SelectedNode is RequestNodeViewModel;
 
+    public void ApplyVariableToUrls(ContainerNodeViewModel context, KeyValueItemViewModel definition)
+    {
+        if (context is null || definition is null || !definition.IsEnabled || !definition.HasKey)
+        {
+            return;
+        }
+
+        var name = definition.Key.Trim();
+        var matches = UrlVariableTreeApplicator.FindAffectedRequests(context, definition);
+        if (matches.Count == 0)
+        {
+            StatusMessage = $"No request URLs match '{name}'";
+            return;
+        }
+
+        var dialog = new Views.ApplyVariableToUrlsDialog(name, matches)
+        {
+            Owner = Application.Current?.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var selected = dialog.SelectedMatches;
+        var undoSteps = new List<IUndoAction>();
+        foreach (var match in selected)
+        {
+            var previous = match.Request.Address ?? string.Empty;
+            var updated = match.AppliedAddress;
+            if (string.Equals(updated, previous, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            match.Request.ApplyAddress(updated);
+            undoSteps.Add(new SetRequestAddressAction(
+                match.Request,
+                previous,
+                "Apply variable to URLs"));
+        }
+
+        if (undoSteps.Count == 0)
+        {
+            return;
+        }
+
+        RecordUndo(new CompositeUndoAction(
+            undoSteps.Count == 1
+                ? $"Apply variable '{name}' to URL"
+                : $"Apply variable '{name}' to {undoSteps.Count} URLs",
+            undoSteps,
+            selectAfter: [context],
+            selectAfterInverse: [context]));
+
+        StatusMessage = undoSteps.Count == 1
+            ? $"Updated URL for '{((SetRequestAddressAction)undoSteps[0]).Request.Name}'"
+            : $"Updated {undoSteps.Count} request URLs";
+    }
+
     [RelayCommand(CanExecute = nameof(CanRunAllRequests))]
     private async Task RunAllRequestsAsync(TreeNodeViewModel? root = null)
     {

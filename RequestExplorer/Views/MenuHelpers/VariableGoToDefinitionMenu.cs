@@ -38,9 +38,17 @@ public static class VariableGoToDefinitionMenu
         {
             case TextBox textBox:
                 textBox.ContextMenuOpening -= OnTextBoxMenuOpening;
+                textBox.Loaded -= OnTextBoxLoaded;
+                textBox.PreviewMouseLeftButtonDown -= OnTextBoxCtrlClick;
                 if (e.NewValue is true)
                 {
                     textBox.ContextMenuOpening += OnTextBoxMenuOpening;
+                    textBox.Loaded += OnTextBoxLoaded;
+                    textBox.PreviewMouseLeftButtonDown += OnTextBoxCtrlClick;
+                    if (textBox.IsLoaded)
+                    {
+                        EnsureEditContextMenu(textBox);
+                    }
                 }
 
                 break;
@@ -53,6 +61,41 @@ public static class VariableGoToDefinitionMenu
 
                 break;
         }
+    }
+
+    private static void OnTextBoxLoaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox textBox)
+        {
+            EnsureEditContextMenu(textBox);
+        }
+    }
+
+    /// <summary>Ctrl+click a <c>{{name}}</c> token jumps to its definition (or offers Define Variable).</summary>
+    private static void OnTextBoxCtrlClick(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left
+            || Keyboard.Modifiers != ModifierKeys.Control
+            || sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        var from = FindOrigin(textBox);
+        var names = TokenNamesAtPoint(textBox, e);
+        if (names.Count == 0)
+        {
+            return;
+        }
+
+        var name = names[0];
+        if (!VariableDefinitionLookup.TryFind(from, name, out _, out _))
+        {
+            return;
+        }
+
+        Navigate(from, name);
+        e.Handled = true;
     }
 
     private static void OnTextBoxMenuOpening(object sender, ContextMenuEventArgs e)
@@ -92,12 +135,45 @@ public static class VariableGoToDefinitionMenu
         }
     }
 
-    public static IReadOnlyList<string> TokenNamesInTextBox(TextBox textBox) =>
-        VariableResolver.CollectTokenNames(
+    public static IReadOnlyList<string> TokenNamesInTextBox(TextBox textBox)
+    {
+        var names = VariableResolver.CollectTokenNames(
             textBox.Text,
             GetCharIndex(textBox),
             textBox.SelectionStart,
             textBox.SelectionLength);
+        if (names.Count > 0)
+        {
+            return names;
+        }
+
+        // Short fields such as Bearer often contain a single {{token}}; offer it even
+        // when the click/caret is not exactly on the braces.
+        return VariableResolver.FindTokenNames(textBox.Text);
+    }
+
+    private static IReadOnlyList<string> TokenNamesAtPoint(TextBox textBox, MouseEventArgs e)
+    {
+        try
+        {
+            var index = textBox.GetCharacterIndexFromPoint(e.GetPosition(textBox), true);
+            var names = VariableResolver.CollectTokenNames(
+                textBox.Text,
+                index,
+                textBox.SelectionStart,
+                textBox.SelectionLength);
+            if (names.Count > 0)
+            {
+                return names;
+            }
+        }
+        catch
+        {
+            // Hit-testing can fail while the visual is updating.
+        }
+
+        return VariableResolver.FindTokenNames(textBox.Text);
+    }
 
     public static void SyncItems(
         ContextMenu menu,

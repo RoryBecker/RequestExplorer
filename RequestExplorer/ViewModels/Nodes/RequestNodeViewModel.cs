@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Text;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
@@ -254,7 +255,29 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         OnPropertyChanged(nameof(ResolvedAddressSpans));
         OnPropertyChanged(nameof(ResolvedAddress));
         OnPropertyChanged(nameof(ShowsResolvedAddress));
+        CopyResolvedAddressCommand.NotifyCanExecuteChanged();
     }
+
+    [RelayCommand(CanExecute = nameof(CanCopyResolvedAddress))]
+    private void CopyResolvedAddress()
+    {
+        var text = ResolvedAddress;
+        if (string.IsNullOrEmpty(text))
+        {
+            return;
+        }
+
+        try
+        {
+            Clipboard.SetText(text);
+        }
+        catch
+        {
+            // Clipboard can be locked by another process.
+        }
+    }
+
+    private bool CanCopyResolvedAddress() => !string.IsNullOrEmpty(ResolvedAddress);
 
     partial void OnAddressChanged(string value)
     {

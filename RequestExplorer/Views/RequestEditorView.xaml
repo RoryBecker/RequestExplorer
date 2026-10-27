@@ -155,21 +155,35 @@
                     ToolTip="Cancel in-flight request"
                     Command="{Binding DataContext.CancelSendCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
 
-            <TextBlock Grid.Row="1"
+            <DockPanel Grid.Row="1"
                        Grid.Column="1"
                        Grid.ColumnSpan="3"
                        Margin="0,4,0,0"
-                       MinHeight="22"
-                       Padding="6,2"
-                       FontSize="11"
-                       IsHitTestVisible="True"
-                       Background="Transparent"
-                       Foreground="{DynamicResource App.MutedBrush}"
-                       VerticalAlignment="Center"
-                       TextWrapping="Wrap"
-                       ToolTip="URL with {{variables}} resolved from parent collection/folder scope; substituted values are bold"
-                       menuHelpers:VariableGoToDefinitionMenu.IsEnabled="True"
-                       otherHelpers:ResolvedTextHighlight.Spans="{Binding ResolvedAddressSpans, Mode=OneWay}" />
+                       LastChildFill="True">
+                <Button DockPanel.Dock="Left"
+                        Style="{StaticResource ToolbarIconButton}"
+                        Width="22"
+                        Height="22"
+                        Margin="0,0,4,0"
+                        VerticalAlignment="Top"
+                        ToolTip="Copy calculated URL"
+                        Command="{Binding CopyResolvedAddressCommand}">
+                    <TextBlock Style="{StaticResource ToolbarIconText}"
+                               FontSize="12"
+                               Text="&#xE8C8;" />
+                </Button>
+                <TextBlock MinHeight="22"
+                           Padding="6,2"
+                           FontSize="11"
+                           IsHitTestVisible="True"
+                           Background="Transparent"
+                           Foreground="{DynamicResource App.MutedBrush}"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           ToolTip="URL with {{variables}} resolved from parent collection/folder scope; substituted values are bold"
+                           menuHelpers:VariableGoToDefinitionMenu.IsEnabled="True"
+                           otherHelpers:ResolvedTextHighlight.Spans="{Binding ResolvedAddressSpans, Mode=OneWay}" />
+            </DockPanel>
         </Grid>
 
         <TabControl Grid.Row="3"

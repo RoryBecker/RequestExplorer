@@ -392,7 +392,9 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             }
         }
 
-        foreach (var row in rows.OrderBy(r => r.Key, StringComparer.OrdinalIgnoreCase))
+        // Nearest ancestor first, each ancestor in its own list order (not A–Z),
+        // so a parent reorder shows up on child Inherited grids.
+        foreach (var row in rows)
         {
             InheritedVariables.Add(row);
         }
@@ -522,6 +524,27 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         IsDirty = true;
         EnsureVariableSpareRow();
         RefreshVariablePresentation();
+    }
+
+    public bool TryApplyKeyValueOrder(
+        ObservableCollection<KeyValueItemViewModel> list,
+        IReadOnlyList<KeyValueItemViewModel> newOrder)
+    {
+        if (!ReferenceEquals(list, Variables) || KeyValueListReorder.SameOrder(list, newOrder))
+        {
+            return false;
+        }
+
+        var previous = list.ToArray();
+        KeyValueListReorder.ApplyOrder(list, newOrder);
+        OnKeyValueListReordered(list);
+
+        if (!_suppressFieldUndo && _undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
+        {
+            _undoRecorder.Record(new ReorderVariableListAction(this, previous, "Reorder variables"));
+        }
+
+        return true;
     }
 
     private void EnsureVariableSpareRow()

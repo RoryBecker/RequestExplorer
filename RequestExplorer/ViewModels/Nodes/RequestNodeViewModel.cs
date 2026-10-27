@@ -1099,6 +1099,45 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         }
     }
 
+    public bool TryApplyKeyValueOrder(
+        ObservableCollection<KeyValueItemViewModel> list,
+        IReadOnlyList<KeyValueItemViewModel> newOrder)
+    {
+        KeyValueListKind listKind;
+        string description;
+        if (ReferenceEquals(list, Params))
+        {
+            listKind = KeyValueListKind.Params;
+            description = "Reorder params";
+        }
+        else if (ReferenceEquals(list, Headers))
+        {
+            listKind = KeyValueListKind.Headers;
+            description = "Reorder headers";
+        }
+        else
+        {
+            return false;
+        }
+
+        if (KeyValueListReorder.SameOrder(list, newOrder))
+        {
+            return false;
+        }
+
+        var previous = list.ToArray();
+        KeyValueListReorder.ApplyOrder(list, newOrder);
+        OnKeyValueListReordered(list);
+
+        if (!_suppressFieldUndo && _undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
+        {
+            _undoRecorder.Record(
+                new ReorderKeyValueListAction(this, listKind, previous, description));
+        }
+
+        return true;
+    }
+
     private void EnsureParamSpareRow()
     {
         if (!_ensuringSpare && KeyValueSpareRowHelper.HasValidTrailingSpare(Params))

@@ -52,6 +52,10 @@ public sealed class DirtyUndoActionDto
     public List<Guid>? SelectAfter { get; set; }
 
     public List<Guid>? SelectAfterInverse { get; set; }
+
+    public List<Guid>? ItemIds { get; set; }
+
+    public List<int>? ItemIndices { get; set; }
 }
 
 public sealed class KeyValueItemSnapshot

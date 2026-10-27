@@ -22,6 +22,8 @@ public static class DirtyUndoMapper
     public const string RemoveKeyValueRow = "RemoveKeyValueRow";
     public const string InsertVariableRow = "InsertVariableRow";
     public const string RemoveVariableRow = "RemoveVariableRow";
+    public const string ReorderKeyValueList = "ReorderKeyValueList";
+    public const string ReorderVariableList = "ReorderVariableList";
     public const string Composite = "Composite";
 
     public static readonly JsonSerializerOptions JsonOptions = new()
@@ -261,9 +263,89 @@ public static class DirtyUndoMapper
                     Item = SnapshotItem(removeVar.Item)
                 };
 
+            case ReorderKeyValueListAction reorderKv:
+                return SerializeReorder(
+                    ReorderKeyValueList,
+                    reorderKv.Description,
+                    reorderKv.Order,
+                    items,
+                    item => reorderKv.Request.IndexOfKeyValue(reorderKv.ListKind, item),
+                    requestId: TryGetId(reorderKv.Request),
+                    listKind: reorderKv.ListKind.ToString());
+
+            case ReorderVariableListAction reorderVar:
+                return SerializeReorder(
+                    ReorderVariableList,
+                    reorderVar.Description,
+                    reorderVar.Order,
+                    items,
+                    reorderVar.Container.IndexOfVariable,
+                    containerId: TryGetId(reorderVar.Container));
+
             default:
                 return null;
         }
+    }
+
+    private static DirtyUndoActionDto SerializeReorder(
+        string type,
+        string description,
+        IReadOnlyList<KeyValueItemViewModel> order,
+        Dictionary<KeyValueItemViewModel, Guid> items,
+        Func<KeyValueItemViewModel, int> indexOf,
+        Guid? requestId = null,
+        Guid? containerId = null,
+        string? listKind = null)
+    {
+        var ids = new List<Guid>(order.Count);
+        var indices = new List<int>(order.Count);
+        foreach (var item in order)
+        {
+            ids.Add(GetItemId(item, items));
+            indices.Add(indexOf(item));
+        }
+
+        return new DirtyUndoActionDto
+        {
+            Type = type,
+            Description = description,
+            RequestId = requestId,
+            ContainerId = containerId,
+            ListKind = listKind,
+            ItemIds = ids,
+            ItemIndices = indices
+        };
+    }
+
+    private static bool TryResolveOrderedItems(
+        DirtyUndoActionDto dto,
+        Func<DirtyUndoActionDto, KeyValueItemViewModel?> resolve,
+        out List<KeyValueItemViewModel> items)
+    {
+        items = [];
+        if (dto.ItemIds is not { Count: > 0 } ids)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < ids.Count; i++)
+        {
+            var itemDto = new DirtyUndoActionDto
+            {
+                ItemId = ids[i],
+                ItemIndex = dto.ItemIndices is { } indices && i < indices.Count
+                    ? indices[i]
+                    : null
+            };
+            if (resolve(itemDto) is not { } item)
+            {
+                return false;
+            }
+
+            items.Add(item);
+        }
+
+        return items.Count > 0;
     }
 
     private static DirtyUndoActionDto SerializeNodeAction(
@@ -505,6 +587,42 @@ public static class DirtyUndoMapper
                         removeVarContainer,
                         removeVarItem,
                         dto.Index ?? 0,
+                        dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
+                case ReorderKeyValueList:
+                    if (context.ResolveNode(dto.RequestId) is not RequestNodeViewModel reorderKvRequest
+                        || !Enum.TryParse<KeyValueListKind>(dto.ListKind, ignoreCase: true, out var reorderKind)
+                        || !TryResolveOrderedItems(
+                            dto,
+                            itemDto => context.ResolveListItem(reorderKvRequest, reorderKind, itemDto),
+                            out var reorderKvItems))
+                    {
+                        return false;
+                    }
+
+                    action = new ReorderKeyValueListAction(
+                        reorderKvRequest,
+                        reorderKind,
+                        reorderKvItems,
+                        dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
+                case ReorderVariableList:
+                    if (context.ResolveNode(dto.ContainerId) is not ContainerNodeViewModel reorderVarContainer
+                        || !TryResolveOrderedItems(
+                            dto,
+                            itemDto => context.ResolveVariableItem(reorderVarContainer, itemDto),
+                            out var reorderVarItems))
+                    {
+                        return false;
+                    }
+
+                    action = new ReorderVariableListAction(
+                        reorderVarContainer,
+                        reorderVarItems,
                         dto.Description);
                     action.HistoryId = dto.HistoryId;
                     return true;

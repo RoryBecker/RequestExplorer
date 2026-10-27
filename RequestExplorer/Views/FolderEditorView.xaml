@@ -14,6 +14,7 @@
             <Setter Property="CanUserResizeColumns" Value="True" />
             <Setter Property="gridHelpers:KeyValueGridSorting.SpareAwareSort" Value="True" />
             <Setter Property="gridHelpers:KeyValueGridClipboard.EnableRowClipboard" Value="True" />
+            <Setter Property="gridHelpers:KeyValueGridReorder.EnableRowReorder" Value="True" />
             <Setter Property="menuHelpers:KeyValueGridVariableMenus.EnableMoveMenus" Value="True" />
             <Setter Property="HeadersVisibility" Value="Column" />
             <Setter Property="GridLinesVisibility" Value="Horizontal" />

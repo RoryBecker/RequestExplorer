@@ -136,6 +136,7 @@
                      VerticalContentAlignment="Center"
                      otherHelpers:VariableTokenToolTips.IsEnabled="True"
                      menuHelpers:UrlExtractAsVariableMenu.IsEnabled="True"
+                     menuHelpers:UrlReplaceWithVariableMenu.IsEnabled="True"
                      menuHelpers:VariableGoToDefinitionMenu.IsEnabled="True"
                      Text="{Binding Address, UpdateSourceTrigger=PropertyChanged}" />
 

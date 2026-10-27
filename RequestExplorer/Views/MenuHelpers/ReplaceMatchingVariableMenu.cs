@@ -86,7 +86,7 @@ public static class ReplaceMatchingVariableMenu
                 Header = $"Replace with {{{{{EscapeMnemonic(captured)}}}}}",
                 Tag = MenuTag
             };
-            item.Click += (_, _) => ReplaceSelection(textBox, captured);
+            item.Click += (_, _) => ReplaceSelectionWithToken(textBox, captured);
             menu.Items.Add(item);
         }
     }
@@ -136,7 +136,7 @@ public static class ReplaceMatchingVariableMenu
         return names;
     }
 
-    private static void ReplaceSelection(TextBox textBox, string variableName)
+    internal static void ReplaceSelectionWithToken(TextBox textBox, string variableName)
     {
         if (textBox.SelectionLength <= 0)
         {

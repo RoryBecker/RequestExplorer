@@ -10,6 +10,8 @@ On the request **URL** field, select a slice and choose **Extract as Variable…
 
 When selected text already matches a scoped variable’s value, the URL context menu offers **Replace with {{name}}** for each match.
 
+With any selection, **Replace with** lists every enabled ancestor variable (nearest first, that container’s order). Choose one to swap the selection for `{{name}}`. The item is hidden when the request has no variables further up the tree.
+
 ## Apply Variables to URL…
 
 Right-click a **request** in the tree. The dialog lists ancestor variables whose values appear in that request’s URL. Tick which literals to replace with `{{name}}`. Overlapping replacements cannot be applied together; the preview bolds injected tokens the same way as the calculated URL.

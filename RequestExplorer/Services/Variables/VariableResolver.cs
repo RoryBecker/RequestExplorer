@@ -170,8 +170,7 @@ public static partial class VariableResolver
         foreach (Match match in TokenRegex().Matches(text))
         {
             var end = match.Index + match.Length;
-            // Allow hovering the character just after the token (caret-style).
-            if (charIndex >= match.Index && charIndex <= end)
+            if (charIndex >= match.Index && charIndex < end)
             {
                 name = match.Groups[1].Value.Trim();
                 if (name.Length == 0)
@@ -224,18 +223,12 @@ public static partial class VariableResolver
         {
             var start = Math.Clamp(selectionStart, 0, text.Length);
             var length = Math.Clamp(selectionLength, 0, text.Length - start);
-            var names = FindTokenNames(text.Substring(start, length));
-            if (names.Count > 0)
-            {
-                return names;
-            }
-
-            if (TryFindTokenAt(text, start, out var selectedName, out _, out _))
+            if (TryFindTokenAt(text, start, out var selectedName, out var tokenStart, out var tokenLength)
+                && start >= tokenStart
+                && start + length <= tokenStart + tokenLength)
             {
                 return [selectedName];
             }
-
-            return [];
         }
 
         return TryFindTokenAt(text, caretOrClick, out var name, out _, out _)

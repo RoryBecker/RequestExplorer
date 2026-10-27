@@ -135,44 +135,30 @@ public static class VariableGoToDefinitionMenu
         }
     }
 
-    public static IReadOnlyList<string> TokenNamesInTextBox(TextBox textBox)
-    {
-        var names = VariableResolver.CollectTokenNames(
+    public static IReadOnlyList<string> TokenNamesInTextBox(TextBox textBox) =>
+        VariableResolver.CollectTokenNames(
             textBox.Text,
             GetCharIndex(textBox),
             textBox.SelectionStart,
             textBox.SelectionLength);
-        if (names.Count > 0)
-        {
-            return names;
-        }
-
-        // Short fields such as Bearer often contain a single {{token}}; offer it even
-        // when the click/caret is not exactly on the braces.
-        return VariableResolver.FindTokenNames(textBox.Text);
-    }
 
     private static IReadOnlyList<string> TokenNamesAtPoint(TextBox textBox, MouseEventArgs e)
     {
         try
         {
             var index = textBox.GetCharacterIndexFromPoint(e.GetPosition(textBox), true);
-            var names = VariableResolver.CollectTokenNames(
+            return VariableResolver.CollectTokenNames(
                 textBox.Text,
                 index,
-                textBox.SelectionStart,
-                textBox.SelectionLength);
-            if (names.Count > 0)
-            {
-                return names;
-            }
+                selectionStart: 0,
+                selectionLength: 0);
         }
         catch
         {
             // Hit-testing can fail while the visual is updating.
         }
 
-        return VariableResolver.FindTokenNames(textBox.Text);
+        return [];
     }
 
     public static void SyncItems(

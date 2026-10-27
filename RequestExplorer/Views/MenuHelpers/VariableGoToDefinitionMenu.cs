@@ -336,6 +336,11 @@ public static class VariableGoToDefinitionMenu
             {
                 return container;
             }
+
+            if (current is FrameworkElement { DataContext: MainViewModel main })
+            {
+                return main.SelectedRequest ?? main.SelectedNode;
+            }
         }
 
         return null;

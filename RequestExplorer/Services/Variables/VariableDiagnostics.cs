@@ -103,13 +103,13 @@ public static class VariableDiagnostics
 
             var detailIndent = Indent(leafDepth + 1);
             Append(spans, detailIndent);
-            Append(spans, FormatIssueSummary(item));
+            AppendVariableText(spans, FormatIssueSummary(item), item.Request);
 
             if (item.DisabledHints.Count > 0)
             {
                 Append(spans, "\n");
                 Append(spans, detailIndent);
-                AppendDisabledHints(spans, item.DisabledHints);
+                AppendDisabledHints(spans, item.Request, item.DisabledHints);
             }
 
             previousSegments = segments;
@@ -124,8 +124,15 @@ public static class VariableDiagnostics
     private static void AppendLink(List<DiagnosisReportSpan> spans, string text, TreeNodeViewModel node) =>
         spans.Add(new DiagnosisReportSpan(text, node));
 
+    private static void AppendVariableText(
+        List<DiagnosisReportSpan> spans,
+        string text,
+        TreeNodeViewModel from) =>
+        spans.Add(new DiagnosisReportSpan(text, variableFrom: from));
+
     private static void AppendDisabledHints(
         List<DiagnosisReportSpan> spans,
+        TreeNodeViewModel request,
         IReadOnlyList<DisabledVariableHint> hints)
     {
         var groups = hints
@@ -140,9 +147,8 @@ public static class VariableDiagnostics
             }
 
             var group = groups[g];
-            Append(spans, "{{");
-            Append(spans, group.Key);
-            Append(spans, "}} disabled on ");
+            AppendVariableText(spans, "{{" + group.Key + "}}", request);
+            Append(spans, " disabled on ");
 
             var locations = group
                 .GroupBy(h => h.Container ?? (object)h.Location)

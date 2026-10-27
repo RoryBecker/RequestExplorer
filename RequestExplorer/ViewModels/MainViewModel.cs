@@ -817,7 +817,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             $"Value for '{key}' (will be added on '{parent.Name}'):",
             string.Empty)
         {
-            Owner = Application.Current?.MainWindow
+            Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                    ?? Application.Current?.MainWindow
         };
         if (dialog.ShowDialog() != true)
         {

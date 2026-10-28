@@ -18,8 +18,9 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     private const int TooltipValueMaxChars = 64;
 
     private bool _ensuringSpare;
-    private bool _suppressFieldUndo;
     private IUndoRecorder? _undoRecorder;
+
+    protected bool SuppressFieldUndo;
 
     protected ContainerNodeViewModel(string name, List<KeyValueItem> modelVariables, string? description = null)
         : base(name)
@@ -71,14 +72,14 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     /// <summary>Sets description without recording a per-keystroke undo (caller records as needed).</summary>
     public void ApplyDescription(string value)
     {
-        _suppressFieldUndo = true;
+        SuppressFieldUndo = true;
         try
         {
             Description = value ?? string.Empty;
         }
         finally
         {
-            _suppressFieldUndo = false;
+            SuppressFieldUndo = false;
         }
     }
 
@@ -106,7 +107,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
 
     private void RecordDescriptionUndo(string previous)
     {
-        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        if (SuppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
         {
             return;
         }
@@ -143,7 +144,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         KeyValueField field,
         object? value)
     {
-        _suppressFieldUndo = true;
+        SuppressFieldUndo = true;
         try
         {
             item.SetFieldSilent(field, value);
@@ -152,7 +153,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         }
         finally
         {
-            _suppressFieldUndo = false;
+            SuppressFieldUndo = false;
         }
 
         RefreshVariablePresentation();
@@ -160,7 +161,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
 
     public void RemoveVariableRow(KeyValueItemViewModel item)
     {
-        _suppressFieldUndo = true;
+        SuppressFieldUndo = true;
         try
         {
             ModelVariables.Remove(item.Model);
@@ -170,7 +171,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         }
         finally
         {
-            _suppressFieldUndo = false;
+            SuppressFieldUndo = false;
         }
 
         RefreshVariablePresentation();
@@ -178,7 +179,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
 
     public void InsertVariableRow(KeyValueItemViewModel item, int index)
     {
-        _suppressFieldUndo = true;
+        SuppressFieldUndo = true;
         try
         {
             if (Variables.Contains(item))
@@ -199,7 +200,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         }
         finally
         {
-            _suppressFieldUndo = false;
+            SuppressFieldUndo = false;
         }
 
         RefreshVariablePresentation();
@@ -467,7 +468,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         object? oldValue,
         object? newValue)
     {
-        if (_suppressFieldUndo || _ensuringSpare
+        if (SuppressFieldUndo || _ensuringSpare
             || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
         {
             return;
@@ -491,7 +492,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         int index,
         string description)
     {
-        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        if (SuppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
         {
             return;
         }
@@ -539,7 +540,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         KeyValueListReorder.ApplyOrder(list, newOrder);
         OnKeyValueListReordered(list);
 
-        if (!_suppressFieldUndo && _undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
+        if (!SuppressFieldUndo && _undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
         {
             _undoRecorder.Record(new ReorderVariableListAction(this, previous, "Reorder variables"));
         }

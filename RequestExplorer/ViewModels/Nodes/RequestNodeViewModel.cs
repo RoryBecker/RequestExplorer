@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Globalization;
 using System.Text;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -210,8 +211,15 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     partial void OnVerbChanged(HttpVerb value)
     {
+        var previous = Model.Verb;
+        if (previous == value)
+        {
+            return;
+        }
+
         Model.Verb = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.Verb, previous, "Change verb");
     }
 
     protected override string? GetSearchUrl() => Address;
@@ -281,6 +289,8 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     partial void OnAddressChanged(string value)
     {
+        value ??= string.Empty;
+        var previous = Model.Address ?? string.Empty;
         Model.Address = value;
         OnPropertyChanged(nameof(SearchText));
         NotifyResolvedAddressChanged();
@@ -290,50 +300,104 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         }
 
         MarkDirty();
+        if (!string.Equals(previous, value, StringComparison.Ordinal))
+        {
+            RecordAddressUndo(previous);
+        }
+
         SyncParamsFromAddress(value);
         RaiseSearchTextInvalidated();
     }
 
     partial void OnAuthTypeChanged(AuthType value)
     {
+        var previous = Model.Authentication.Type;
+        if (previous == value)
+        {
+            return;
+        }
+
         Model.Authentication.Type = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.AuthType, previous, "Change auth type");
     }
 
     partial void OnBearerTokenChanged(string value)
     {
+        var previous = Model.Authentication.BearerToken ?? string.Empty;
+        if (string.Equals(previous, value, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         Model.Authentication.BearerToken = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.BearerToken, previous, "Edit bearer token");
     }
 
     partial void OnBasicUsernameChanged(string value)
     {
+        var previous = Model.Authentication.BasicUsername ?? string.Empty;
+        if (string.Equals(previous, value, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         Model.Authentication.BasicUsername = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.BasicUsername, previous, "Edit basic username");
     }
 
     partial void OnBasicPasswordChanged(string value)
     {
+        var previous = Model.Authentication.BasicPassword ?? string.Empty;
+        if (string.Equals(previous, value, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         Model.Authentication.BasicPassword = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.BasicPassword, previous, "Edit basic password");
     }
 
     partial void OnApiKeyNameChanged(string value)
     {
+        var previous = Model.Authentication.ApiKeyName ?? string.Empty;
+        if (string.Equals(previous, value, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         Model.Authentication.ApiKeyName = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.ApiKeyName, previous, "Edit API key name");
     }
 
     partial void OnApiKeyValueChanged(string value)
     {
+        var previous = Model.Authentication.ApiKeyValue ?? string.Empty;
+        if (string.Equals(previous, value, StringComparison.Ordinal))
+        {
+            return;
+        }
+
         Model.Authentication.ApiKeyValue = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.ApiKeyValue, previous, "Edit API key value");
     }
 
     partial void OnApiKeyLocationChanged(ApiKeyLocation value)
     {
+        var previous = Model.Authentication.ApiKeyLocation;
+        if (previous == value)
+        {
+            return;
+        }
+
         Model.Authentication.ApiKeyLocation = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.ApiKeyLocation, previous, "Change API key location");
     }
 
     /// <summary>Sets description without recording a per-keystroke undo (caller records as needed).</summary>
@@ -375,71 +439,107 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             new SetRequestDescriptionAction(this, previous, "Edit description"));
     }
 
+    public void ApplyOptOutOfAutoRun(bool value)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            OptOutOfAutoRun = value;
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
     partial void OnOptOutOfAutoRunChanged(bool value)
     {
-        if (Model.OptOutOfAutoRun != value)
+        var previous = Model.OptOutOfAutoRun;
+        if (previous != value)
         {
             Model.OptOutOfAutoRun = value;
             MarkDirty();
+            RecordOptOutUndo(previous);
         }
 
         NotifyAutoRunExclusionChanged();
     }
 
+    private void RecordOptOutUndo(bool previous)
+    {
+        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        _undoRecorder.Record(
+            new SetOptOutOfAutoRunAction(this, previous, "Toggle opt out of auto run"));
+    }
+
     partial void OnExpectedStatusCodeChanged(int value)
     {
-        if (Model.ExpectedStatusCode == value)
+        var previous = Model.ExpectedStatusCode;
+        if (previous == value)
         {
             return;
         }
 
         Model.ExpectedStatusCode = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.ExpectedStatusCode, previous, "Edit expected status");
     }
 
     partial void OnExpectBodyEnabledChanged(bool value)
     {
-        if (Model.ExpectBodyEnabled == value)
+        var previous = Model.ExpectBodyEnabled;
+        if (previous == value)
         {
             return;
         }
 
         Model.ExpectBodyEnabled = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.ExpectBodyEnabled, previous, "Toggle expected body");
     }
 
     partial void OnExpectBodyContainsChanged(bool value)
     {
-        if (Model.ExpectBodyContains == value)
+        var previous = Model.ExpectBodyContains;
+        if (previous == value)
         {
             return;
         }
 
         Model.ExpectBodyContains = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.ExpectBodyContains, previous, "Toggle expected body contains");
     }
 
     partial void OnExpectedBodyChanged(string value)
     {
         value ??= string.Empty;
-        if (string.Equals(Model.ExpectedBody, value, StringComparison.Ordinal))
+        var previous = Model.ExpectedBody ?? string.Empty;
+        if (string.Equals(previous, value, StringComparison.Ordinal))
         {
             return;
         }
 
         Model.ExpectedBody = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.ExpectedBody, previous, "Edit expected body");
     }
 
     partial void OnExpectTimingEnabledChanged(bool value)
     {
-        if (Model.ExpectTimingEnabled == value)
+        var previous = Model.ExpectTimingEnabled;
+        if (previous == value)
         {
             return;
         }
 
         Model.ExpectTimingEnabled = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.ExpectTimingEnabled, previous, "Toggle expected timing");
     }
 
     partial void OnExpectedTimingMillisecondsChanged(double value)
@@ -450,13 +550,15 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             return;
         }
 
-        if (Math.Abs(Model.ExpectedTimingMilliseconds - value) < 0.0001)
+        var previous = Model.ExpectedTimingMilliseconds;
+        if (Math.Abs(previous - value) < 0.0001)
         {
             return;
         }
 
         Model.ExpectedTimingMilliseconds = value;
         MarkDirty();
+        RecordEditorFieldUndo(RequestEditorField.ExpectedTimingMilliseconds, previous, "Edit expected timing");
     }
 
     [RelayCommand(CanExecute = nameof(CanCopyExpectationsFromLastRun))]
@@ -467,8 +569,24 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             return;
         }
 
-        ExpectedBody = LastResponse.BodyText ?? string.Empty;
-        ExpectBodyEnabled = true;
+        var previousBody = ExpectedBody ?? string.Empty;
+        var previousEnabled = ExpectBodyEnabled;
+        var nextBody = LastResponse.BodyText ?? string.Empty;
+        _suppressFieldUndo = true;
+        try
+        {
+            ExpectedBody = nextBody;
+            ExpectBodyEnabled = true;
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+
+        RecordCopiedExpectationsUndo(
+            "Copy expected body from last run",
+            (RequestEditorField.ExpectedBody, previousBody),
+            (RequestEditorField.ExpectBodyEnabled, previousEnabled));
     }
 
     [RelayCommand(CanExecute = nameof(CanCopyExpectationsFromLastRun))]
@@ -479,8 +597,23 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             return;
         }
 
-        ExpectedTimingMilliseconds = Math.Round(ms, 3);
-        ExpectTimingEnabled = true;
+        var previousTiming = ExpectedTimingMilliseconds;
+        var previousEnabled = ExpectTimingEnabled;
+        _suppressFieldUndo = true;
+        try
+        {
+            ExpectedTimingMilliseconds = Math.Round(ms, 3);
+            ExpectTimingEnabled = true;
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+
+        RecordCopiedExpectationsUndo(
+            "Copy expected timing from last run",
+            (RequestEditorField.ExpectedTimingMilliseconds, previousTiming),
+            (RequestEditorField.ExpectTimingEnabled, previousEnabled));
     }
 
     private bool CanCopyExpectationsFromLastRun() => LastResponse.CanCopyExpectationsFromLastRun;
@@ -546,7 +679,188 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     /// <summary>Sets the address without recording a per-keystroke undo (caller records as needed).</summary>
     public void ApplyAddress(string value)
     {
-        Address = value ?? string.Empty;
+        _suppressFieldUndo = true;
+        try
+        {
+            Address = value ?? string.Empty;
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    public object? GetEditorField(RequestEditorField field) =>
+        field switch
+        {
+            RequestEditorField.Verb => Verb,
+            RequestEditorField.AuthType => AuthType,
+            RequestEditorField.BearerToken => BearerToken ?? string.Empty,
+            RequestEditorField.BasicUsername => BasicUsername ?? string.Empty,
+            RequestEditorField.BasicPassword => BasicPassword ?? string.Empty,
+            RequestEditorField.ApiKeyName => ApiKeyName ?? string.Empty,
+            RequestEditorField.ApiKeyValue => ApiKeyValue ?? string.Empty,
+            RequestEditorField.ApiKeyLocation => ApiKeyLocation,
+            RequestEditorField.ExpectedStatusCode => ExpectedStatusCode,
+            RequestEditorField.ExpectBodyEnabled => ExpectBodyEnabled,
+            RequestEditorField.ExpectBodyContains => ExpectBodyContains,
+            RequestEditorField.ExpectedBody => ExpectedBody ?? string.Empty,
+            RequestEditorField.ExpectTimingEnabled => ExpectTimingEnabled,
+            RequestEditorField.ExpectedTimingMilliseconds => ExpectedTimingMilliseconds,
+            _ => null
+        };
+
+    public void ApplyEditorField(RequestEditorField field, object? value)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            switch (field)
+            {
+                case RequestEditorField.Verb:
+                    Verb = ParseEnum(value, Verb);
+                    break;
+                case RequestEditorField.AuthType:
+                    AuthType = ParseEnum(value, AuthType);
+                    break;
+                case RequestEditorField.BearerToken:
+                    BearerToken = ToStringValue(value);
+                    break;
+                case RequestEditorField.BasicUsername:
+                    BasicUsername = ToStringValue(value);
+                    break;
+                case RequestEditorField.BasicPassword:
+                    BasicPassword = ToStringValue(value);
+                    break;
+                case RequestEditorField.ApiKeyName:
+                    ApiKeyName = ToStringValue(value);
+                    break;
+                case RequestEditorField.ApiKeyValue:
+                    ApiKeyValue = ToStringValue(value);
+                    break;
+                case RequestEditorField.ApiKeyLocation:
+                    ApiKeyLocation = ParseEnum(value, ApiKeyLocation);
+                    break;
+                case RequestEditorField.ExpectedStatusCode:
+                    ExpectedStatusCode = ToInt32(value, ExpectedStatusCode);
+                    break;
+                case RequestEditorField.ExpectBodyEnabled:
+                    ExpectBodyEnabled = value is true;
+                    break;
+                case RequestEditorField.ExpectBodyContains:
+                    ExpectBodyContains = value is true;
+                    break;
+                case RequestEditorField.ExpectedBody:
+                    ExpectedBody = ToStringValue(value);
+                    break;
+                case RequestEditorField.ExpectTimingEnabled:
+                    ExpectTimingEnabled = value is true;
+                    break;
+                case RequestEditorField.ExpectedTimingMilliseconds:
+                    ExpectedTimingMilliseconds = ToDouble(value, ExpectedTimingMilliseconds);
+                    break;
+            }
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    private void RecordAddressUndo(string previous)
+    {
+        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        _undoRecorder.Record(new SetRequestAddressAction(this, previous, "Edit URL"));
+    }
+
+    private void RecordEditorFieldUndo(RequestEditorField field, object? previous, string description)
+    {
+        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        _undoRecorder.Record(new SetRequestEditorFieldAction(this, field, previous, description));
+    }
+
+    private void RecordCopiedExpectationsUndo(
+        string description,
+        params (RequestEditorField Field, object? Previous)[] steps)
+    {
+        if (_undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        var undoSteps = new List<IUndoAction>();
+        foreach (var (field, previous) in steps)
+        {
+            if (Equals(GetEditorField(field), previous))
+            {
+                continue;
+            }
+
+            undoSteps.Add(new SetRequestEditorFieldAction(this, field, previous, description));
+        }
+
+        if (undoSteps.Count == 0)
+        {
+            return;
+        }
+
+        _undoRecorder.Record(
+            undoSteps.Count == 1
+                ? undoSteps[0]
+                : new CompositeUndoAction(description, undoSteps));
+    }
+
+    private static string ToStringValue(object? value) =>
+        value as string ?? value?.ToString() ?? string.Empty;
+
+    private static int ToInt32(object? value, int fallback)
+    {
+        if (value is int i)
+        {
+            return i;
+        }
+
+        return int.TryParse(ToStringValue(value), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : fallback;
+    }
+
+    private static double ToDouble(object? value, double fallback)
+    {
+        if (value is double d)
+        {
+            return d;
+        }
+
+        if (value is int i)
+        {
+            return i;
+        }
+
+        return double.TryParse(ToStringValue(value), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed
+            : fallback;
+    }
+
+    private static TEnum ParseEnum<TEnum>(object? value, TEnum fallback)
+        where TEnum : struct, Enum
+    {
+        if (value is TEnum typed)
+        {
+            return typed;
+        }
+
+        return Enum.TryParse(ToStringValue(value), ignoreCase: true, out TEnum parsed)
+            ? parsed
+            : fallback;
     }
 
     private void RecordBodyUndo(RequestBodyField field, string? oldValue, string description)

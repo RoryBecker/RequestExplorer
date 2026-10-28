@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using RequestExplorer.Models;
+using RequestExplorer.Services.Undo;
 
 namespace RequestExplorer.ViewModels.Nodes;
 
@@ -23,15 +24,47 @@ public sealed partial class CollectionNodeViewModel : ContainerNodeViewModel
     [ObservableProperty]
     private bool _optOutOfAutoRun;
 
+    public void ApplyOptOutOfAutoRun(bool value)
+    {
+        SuppressFieldUndo = true;
+        try
+        {
+            OptOutOfAutoRun = value;
+        }
+        finally
+        {
+            SuppressFieldUndo = false;
+        }
+    }
+
     partial void OnOptOutOfAutoRunChanged(bool value)
     {
-        if (Model.OptOutOfAutoRun != value)
+        var previous = Model.OptOutOfAutoRun;
+        if (previous == value)
         {
-            Model.OptOutOfAutoRun = value;
+            NotifyAutoRunExclusionChanged();
+            return;
+        }
+
+        Model.OptOutOfAutoRun = value;
+        if (UndoRecorder?.IsApplyingHistory != true)
+        {
             IsDirty = true;
         }
 
+        RecordOptOutUndo(previous);
         NotifyAutoRunExclusionChanged();
+    }
+
+    private void RecordOptOutUndo(bool previous)
+    {
+        if (SuppressFieldUndo || UndoRecorder is null || UndoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        UndoRecorder.Record(
+            new SetOptOutOfAutoRunAction(this, previous, "Toggle opt out of auto run"));
     }
 
     /// <summary>

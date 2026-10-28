@@ -3,7 +3,7 @@ using RequestExplorer.ViewModels.Nodes;
 
 namespace RequestExplorer.Services.Undo;
 
-public sealed class SetRequestAddressAction : IUndoAction
+public sealed class SetRequestAddressAction : IUndoAction, ICoalescingUndoAction
 {
     private readonly RequestNodeViewModel _request;
     private readonly string _address;
@@ -26,6 +26,11 @@ public sealed class SetRequestAddressAction : IUndoAction
     public IEnumerable<TreeNodeViewModel> GetAffectedNodes() => [_request];
 
     public UndoRevealTarget? RevealTarget => new(_request, EditorSurface.None);
+
+    public bool CanCoalesceWith(IUndoAction incoming) =>
+        incoming is SetRequestAddressAction other
+        && ReferenceEquals(_request, other._request)
+        && string.Equals(Description, other.Description, StringComparison.Ordinal);
 
     public IUndoAction Execute(IUndoContext context)
     {

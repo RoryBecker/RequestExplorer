@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RequestExplorer.Models;
@@ -14,6 +15,8 @@ public static class DirtyUndoMapper
     public const string SetRequestDescription = "SetRequestDescription";
     public const string SetRequestBodyField = "SetRequestBodyField";
     public const string SetRequestAddress = "SetRequestAddress";
+    public const string SetRequestEditorField = "SetRequestEditorField";
+    public const string SetOptOutOfAutoRun = "SetOptOutOfAutoRun";
     public const string SetKeyValueField = "SetKeyValueField";
     public const string SetVariableField = "SetVariableField";
     public const string InsertNode = "InsertNode";
@@ -178,6 +181,26 @@ public static class DirtyUndoMapper
                     Description = address.Description,
                     RequestId = TryGetId(address.Request),
                     StringValue = address.Address
+                };
+
+            case SetRequestEditorFieldAction editor:
+                var editorDto = new DirtyUndoActionDto
+                {
+                    Type = SetRequestEditorField,
+                    Description = editor.Description,
+                    RequestId = TryGetId(editor.Request),
+                    Field = editor.Field.ToString()
+                };
+                WriteEditorValue(editorDto, editor.Value);
+                return editorDto;
+
+            case SetOptOutOfAutoRunAction optOut:
+                return new DirtyUndoActionDto
+                {
+                    Type = SetOptOutOfAutoRun,
+                    Description = optOut.Description,
+                    NodeId = TryGetId(optOut.Node),
+                    BoolValue = optOut.Value
                 };
 
             case SetKeyValueFieldAction kv:
@@ -463,6 +486,34 @@ public static class DirtyUndoMapper
                     action.HistoryId = dto.HistoryId;
                     return true;
 
+                case SetRequestEditorField:
+                    if (context.ResolveNode(dto.RequestId) is not RequestNodeViewModel editorRequest
+                        || !Enum.TryParse<RequestEditorField>(dto.Field, ignoreCase: true, out var editorField))
+                    {
+                        return false;
+                    }
+
+                    action = new SetRequestEditorFieldAction(
+                        editorRequest,
+                        editorField,
+                        ParseEditorValue(editorField, dto),
+                        dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
+                case SetOptOutOfAutoRun:
+                    if (context.ResolveNode(dto.NodeId) is not { } optOutNode)
+                    {
+                        return false;
+                    }
+
+                    action = new SetOptOutOfAutoRunAction(
+                        optOutNode,
+                        dto.BoolValue ?? false,
+                        dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
                 case SetKeyValueField:
                     if (context.ResolveNode(dto.RequestId) is not RequestNodeViewModel kvRequest
                         || !Enum.TryParse<KeyValueListKind>(dto.ListKind, ignoreCase: true, out var kvKind)
@@ -679,6 +730,45 @@ public static class DirtyUndoMapper
 
     private static object? FieldValue(DirtyUndoActionDto dto) =>
         dto.BoolValue.HasValue ? dto.BoolValue.Value : dto.StringValue;
+
+    private static void WriteEditorValue(DirtyUndoActionDto dto, object? value)
+    {
+        switch (value)
+        {
+            case bool flag:
+                dto.BoolValue = flag;
+                break;
+            case int number:
+                dto.StringValue = number.ToString(CultureInfo.InvariantCulture);
+                break;
+            case double real:
+                dto.StringValue = real.ToString("G17", CultureInfo.InvariantCulture);
+                break;
+            case Enum named:
+                dto.StringValue = named.ToString();
+                break;
+            default:
+                dto.StringValue = value as string ?? value?.ToString();
+                break;
+        }
+    }
+
+    private static object? ParseEditorValue(RequestEditorField field, DirtyUndoActionDto dto) =>
+        field switch
+        {
+            RequestEditorField.ExpectBodyEnabled
+                or RequestEditorField.ExpectBodyContains
+                or RequestEditorField.ExpectTimingEnabled => dto.BoolValue ?? false,
+            RequestEditorField.ExpectedStatusCode =>
+                int.TryParse(dto.StringValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var status)
+                    ? status
+                    : 200,
+            RequestEditorField.ExpectedTimingMilliseconds =>
+                double.TryParse(dto.StringValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var ms)
+                    ? ms
+                    : 300d,
+            _ => dto.StringValue ?? string.Empty
+        };
 
     private static Guid GetItemId(
         KeyValueItemViewModel item,

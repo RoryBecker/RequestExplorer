@@ -7,8 +7,9 @@ using RequestExplorer.ViewModels.Nodes;
 namespace RequestExplorer.Views.MenuHelpers;
 
 /// <summary>
-/// URL field: "Replace with" submenu listing every enabled ancestor variable,
-/// shown when text is selected and the request has variables further up the tree.
+/// URL field: "Insert" and "Replace with" submenus listing every enabled ancestor variable.
+/// Both items stay visible; Insert is enabled with a caret (no selection), Replace with
+/// when there is a selection to replace.
 /// </summary>
 public static class UrlReplaceWithVariableMenu
 {
@@ -63,17 +64,10 @@ public static class UrlReplaceWithVariableMenu
         var menu = EnsureContextMenu(textBox);
         ClearItems(menu);
 
-        if (textBox.SelectionLength <= 0
-            || textBox.DataContext is not RequestNodeViewModel request)
-        {
-            return;
-        }
-
-        var variables = CollectAncestorVariables(request);
-        if (variables.Count == 0)
-        {
-            return;
-        }
+        var request = textBox.DataContext as RequestNodeViewModel;
+        var variables = request is null ? [] : CollectAncestorVariables(request);
+        var hasVariables = variables.Count > 0;
+        var hasSelection = textBox.SelectionLength > 0;
 
         var insertAt = InsertIndex(menu);
         if (insertAt > 0 && menu.Items[insertAt - 1] is not Separator)
@@ -82,10 +76,34 @@ public static class UrlReplaceWithVariableMenu
             insertAt++;
         }
 
+        menu.Items.Insert(
+            insertAt++,
+            CreateSubmenu(
+                "_Insert",
+                variables,
+                isEnabled: hasVariables && !hasSelection,
+                name => ReplaceMatchingVariableMenu.InsertTokenAtCaret(textBox, name)));
+
+        menu.Items.Insert(
+            insertAt,
+            CreateSubmenu(
+                "_Replace with",
+                variables,
+                isEnabled: hasVariables && hasSelection,
+                name => ReplaceMatchingVariableMenu.ReplaceSelectionWithToken(textBox, name)));
+    }
+
+    private static MenuItem CreateSubmenu(
+        string header,
+        IReadOnlyList<AncestorVariable> variables,
+        bool isEnabled,
+        Action<string> onPick)
+    {
         var parent = new MenuItem
         {
-            Header = "_Replace with",
-            Tag = MenuTag
+            Header = header,
+            Tag = MenuTag,
+            IsEnabled = isEnabled
         };
 
         foreach (var variable in variables)
@@ -97,11 +115,11 @@ public static class UrlReplaceWithVariableMenu
                 Tag = MenuTag,
                 ToolTip = FormatTooltip(variable)
             };
-            item.Click += (_, _) => ReplaceMatchingVariableMenu.ReplaceSelectionWithToken(textBox, name);
+            item.Click += (_, _) => onPick(name);
             parent.Items.Add(item);
         }
 
-        menu.Items.Insert(insertAt, parent);
+        return parent;
     }
 
     private static List<AncestorVariable> CollectAncestorVariables(TreeNodeViewModel request)

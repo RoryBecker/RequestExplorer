@@ -2,15 +2,20 @@
 
 Commands that turn literal URL text into `{{name}}` tokens (or the reverse extract). Matching uses the variable’s **resolved** value (including `@date(…)` recipes), skips slices that are already `{{tokens}}`, and ignores empty values. Names are case-insensitive; nearest enabled ancestor wins.
 
-## Extract as Variable…
+## Extract as New Variable…
 
-On the request **URL** field, select a slice and choose **Extract as Variable…**. That creates an enabled variable on the parent collection or folder and replaces the selection with `{{name}}`.
+On the request **URL** field, select a slice and choose **Extract as New Variable…**. That creates an enabled variable on the parent collection or folder and replaces the selection with `{{name}}`.
 
-## Replace with {{name}}
+## Insert / Replace with {{name}}
 
-When selected text already matches a scoped variable’s value, the URL context menu offers **Replace with {{name}}** for each match.
+The URL context menu always offers **Insert** and **Replace with**, listing every enabled ancestor variable (nearest first, that container’s order).
 
-With any selection, **Replace with** lists every enabled ancestor variable (nearest first, that container’s order). Choose one to swap the selection for `{{name}}`. The item is hidden when the request has no variables further up the tree.
+- **Insert** is enabled when the caret has no selection — it puts `{{name}}` at the caret.
+- **Replace with** is enabled when text is selected — it swaps the selection for `{{name}}`.
+
+Both stay disabled when the request has no variables further up the tree.
+
+When selected text already matches a scoped variable’s value, the menu also offers **Replace with {{name}}** for each match.
 
 ## Apply Variables to URL…
 

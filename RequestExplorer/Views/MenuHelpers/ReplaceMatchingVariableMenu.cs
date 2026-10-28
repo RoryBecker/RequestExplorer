@@ -143,13 +143,22 @@ public static class ReplaceMatchingVariableMenu
             return;
         }
 
-        var start = textBox.SelectionStart;
-        var length = textBox.SelectionLength;
+        InsertToken(textBox, variableName, "Replace with variable in address");
+    }
+
+    internal static void InsertTokenAtCaret(TextBox textBox, string variableName) =>
+        InsertToken(textBox, variableName, "Insert variable in address");
+
+    private static void InsertToken(TextBox textBox, string variableName, string undoDescription)
+    {
+        var length = Math.Max(0, textBox.SelectionLength);
+        var start = length > 0 ? textBox.SelectionStart : textBox.CaretIndex;
         var token = "{{" + variableName + "}}";
         var current = textBox.Text ?? string.Empty;
-        if (start < 0 || length < 0 || start + length > current.Length)
+        start = Math.Clamp(start, 0, current.Length);
+        if (start + length > current.Length)
         {
-            return;
+            length = current.Length - start;
         }
 
         var newText = string.Concat(
@@ -157,7 +166,7 @@ public static class ReplaceMatchingVariableMenu
             token,
             current.AsSpan(start + length));
 
-        if (TryReplaceBoundAddress(textBox, newText))
+        if (TryReplaceBoundAddress(textBox, newText, undoDescription))
         {
             textBox.CaretIndex = Math.Min(start + token.Length, newText.Length);
             textBox.SelectionLength = 0;
@@ -172,7 +181,7 @@ public static class ReplaceMatchingVariableMenu
         textBox.Focus();
     }
 
-    private static bool TryReplaceBoundAddress(TextBox textBox, string newAddress)
+    private static bool TryReplaceBoundAddress(TextBox textBox, string newAddress, string undoDescription)
     {
         if (textBox.DataContext is not RequestNodeViewModel request)
         {
@@ -196,10 +205,7 @@ public static class ReplaceMatchingVariableMenu
 
         if (GetUndoRecorder(request) is { IsApplyingHistory: false } recorder)
         {
-            recorder.Record(new SetRequestAddressAction(
-                request,
-                previous,
-                $"Replace with variable in address"));
+            recorder.Record(new SetRequestAddressAction(request, previous, undoDescription));
         }
 
         BindingOperations.GetBindingExpression(textBox, TextBox.TextProperty)?.UpdateTarget();

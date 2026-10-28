@@ -9,7 +9,7 @@ using RequestExplorer.ViewModels.Nodes;
 namespace RequestExplorer.Views.MenuHelpers;
 
 /// <summary>
-/// Adds "Extract as Variable" to a TextBox context menu when text is selected
+/// Adds "Extract as New Variable…" to a TextBox context menu
 /// (intended for the request URL field).
 /// </summary>
 public static class UrlExtractAsVariableMenu
@@ -72,13 +72,6 @@ public static class UrlExtractAsVariableMenu
         var canExtract = textBox.SelectionLength > 0
                          && textBox.DataContext is RequestNodeViewModel { Parent: ContainerNodeViewModel };
         extractItem.IsEnabled = canExtract;
-        extractItem.Visibility = canExtract ? Visibility.Visible : Visibility.Collapsed;
-
-        if (menu.Items.OfType<Separator>().FirstOrDefault(s => Equals(s.Tag, ExtractMenuTag))
-            is { } separator)
-        {
-            separator.Visibility = extractItem.Visibility;
-        }
     }
 
     private static ContextMenu EnsureContextMenu(TextBox textBox)
@@ -100,8 +93,9 @@ public static class UrlExtractAsVariableMenu
         menu.Items.Add(new Separator { Tag = ExtractMenuTag });
         var extract = new MenuItem
         {
-            Header = "Extract as _Variable…",
-            Tag = ExtractMenuTag
+            Header = "Extract as New _Variable…",
+            Tag = ExtractMenuTag,
+            IsEnabled = false
         };
         extract.Click += (_, _) => OnExtractClick(textBox);
         menu.Items.Add(extract);
@@ -125,7 +119,7 @@ public static class UrlExtractAsVariableMenu
         var parentName = request.Parent?.Name ?? "parent";
 
         var dialog = new NamePromptDialog(
-            "Extract as Variable",
+            "Extract as New Variable",
             $"Variable name (will be added on '{parentName}'):",
             VariableExtract.SuggestVariableName(selected))
         {
@@ -156,7 +150,7 @@ public static class UrlExtractAsVariableMenu
                 MessageBox.Show(
                     owner,
                     "Variable name cannot be empty.",
-                    "Extract as Variable",
+                    "Extract as New Variable",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 break;
@@ -165,7 +159,7 @@ public static class UrlExtractAsVariableMenu
                 MessageBox.Show(
                     owner,
                     "Variable name cannot contain '{{' or '}}'.",
-                    "Extract as Variable",
+                    "Extract as New Variable",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 break;
@@ -184,7 +178,7 @@ public static class UrlExtractAsVariableMenu
                 MessageBox.Show(
                     owner,
                     "This request has no parent collection or folder to hold variables.",
-                    "Extract as Variable",
+                    "Extract as New Variable",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
                 break;

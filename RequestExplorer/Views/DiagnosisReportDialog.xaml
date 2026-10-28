@@ -35,7 +35,7 @@
                    Margin="0,8,0,0"
                    FontSize="11"
                    Foreground="{DynamicResource App.MutedBrush}"
-                   Text="Click a node name to select it. Right-click {{variable}} to define it or go to its definition." />
+                   Text="Click a node name to select it. Right-click {{variable}} (or press F12) to define it or go to its definition." />
 
         <DockPanel Grid.Row="2" Margin="0,12,0,0" LastChildFill="False">
             <Button x:Name="FlattenExportButton"

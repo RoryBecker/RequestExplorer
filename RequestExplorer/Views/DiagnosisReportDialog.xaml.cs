@@ -33,6 +33,7 @@ public partial class DiagnosisReportDialog : Window
         Title = title;
         _navigateToNode = navigateToNode;
         ReportBox.Document = BuildDocument(report);
+        ReportBox.PreviewKeyDown += ReportBox_OnPreviewKeyDown;
         FlattenExportButton.Visibility = showFlattenExport
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -151,6 +152,43 @@ public partial class DiagnosisReportDialog : Window
         };
         link.Click += NodeLink_OnClick;
         return link;
+    }
+
+    private void ReportBox_OnPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F12 || Keyboard.Modifiers != ModifierKeys.None)
+        {
+            return;
+        }
+
+        var link = FindHyperlink(ReportBox.CaretPosition);
+        if (link is not { Tag: TreeNodeViewModel from })
+        {
+            return;
+        }
+
+        var text = new TextRange(link.ContentStart, link.ContentEnd).Text;
+        if (VariableGoToDefinitionMenu.TryGoToDefinition(from, VariableResolver.FindTokenNames(text)))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private static Hyperlink? FindHyperlink(TextPointer? pointer)
+    {
+        for (DependencyObject? current = pointer?.Parent as DependencyObject;
+             current is not null;
+             current = current is FrameworkContentElement content
+                 ? content.Parent
+                 : LogicalTreeHelper.GetParent(current))
+        {
+            if (current is Hyperlink link)
+            {
+                return link;
+            }
+        }
+
+        return null;
     }
 
     private void NodeLink_OnClick(object sender, RoutedEventArgs e)

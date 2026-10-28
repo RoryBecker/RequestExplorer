@@ -242,6 +242,16 @@ public static class KeyValueGridClipboard
             return;
         }
 
+        if (e.Key == Key.F12 && Keyboard.Modifiers == ModifierKeys.None)
+        {
+            if (TryGoToDefinition(grid, e.OriginalSource as DependencyObject))
+            {
+                e.Handled = true;
+            }
+
+            return;
+        }
+
         if (e.Key is Key.Enter or Key.Return
             && Keyboard.Modifiers == ModifierKeys.None
             && TryHandleEnterNavigation(grid, e.OriginalSource as DependencyObject))
@@ -488,9 +498,31 @@ public static class KeyValueGridClipboard
         e.Handled = true;
     }
 
+    private static bool TryGoToDefinition(DataGrid grid, DependencyObject? originalSource)
+    {
+        CollectGridVariableTokens(
+            grid,
+            originalSource,
+            useCaret: true,
+            out var tokenNames,
+            out var extraGoto);
+        return VariableGoToDefinitionMenu.TryGoToDefinition(
+            VariableGoToDefinitionMenu.FindOrigin(grid),
+            tokenNames,
+            extraGoto);
+    }
+
     private static void CollectGridVariableTokens(
         DataGrid grid,
         DependencyObject? originalSource,
+        out List<string> tokenNames,
+        out List<VariableGoToDefinitionMenu.GoToDefinitionTarget> extraGoto) =>
+        CollectGridVariableTokens(grid, originalSource, useCaret: false, out tokenNames, out extraGoto);
+
+    private static void CollectGridVariableTokens(
+        DataGrid grid,
+        DependencyObject? originalSource,
+        bool useCaret,
         out List<string> tokenNames,
         out List<VariableGoToDefinitionMenu.GoToDefinitionTarget> extraGoto)
     {
@@ -536,7 +568,7 @@ public static class KeyValueGridClipboard
         var editBox = originalSource as TextBox ?? FindAncestor<TextBox>(originalSource);
         if (editBox is not null)
         {
-            AddTokenNames(VariableGoToDefinitionMenu.TokenNamesInTextBox(editBox));
+            AddTokenNames(VariableGoToDefinitionMenu.TokenNamesInTextBox(editBox, useMousePosition: !useCaret));
             tokenNames = names;
             extraGoto = gotoTargets;
             return;

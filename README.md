@@ -59,7 +59,7 @@ On first launch with an empty workspace, **Feature Tour** is created and selecte
 - Define variables on collections and folders; children inherit them (with source and shadowing shown). Names are **case-insensitive**; nearest enabled ancestor wins. Tick **Secret** to omit the value from Postman export (local save keeps it)
 - Use `{{name}}` in URLs and other request fields; a variable value may itself contain `{{name}}` (nesting depth is set in Settings)
 - **Diagnose Variables** on a selection to find missing or disabled variables and jump to the affected nodes
-- **Go to Definition** (or **Ctrl+click** a `{{name}}` token) opens the defining Variables row. On an unresolved token, **Define Variable…** creates it on the nearest container. Works in the URL, params/headers/variables grids, and Auth Bearer
+- **Go to Definition** (**F12**, or **Ctrl+click** a `{{name}}` token) opens the defining Variables row. On an unresolved token, **Define Variable…** creates it on the nearest container. Works in the URL, params/headers/variables grids, and Auth Bearer
 - Hover the **name** (key) of a variable in any Variables grid — including **Inherited** — to see a tooltip with the current calculated value (e.g. resolved `@date(…)` recipes). The same hover works on Params/Headers keys (shows that row’s value). Hovering `{{name}}` tokens in URL/body/auth fields shows each token’s resolved value
 - Dynamic recipes (`@date(…)`): [Variables - Dynamic](docs/VARIABLES-DYNAMIC.md)
 - Extract / replace / apply tokens into URLs: [Variables - Refactoring](docs/VARIABLES-REFACTORING.md)

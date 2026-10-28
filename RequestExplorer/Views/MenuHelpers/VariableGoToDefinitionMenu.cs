@@ -40,11 +40,13 @@ public static class VariableGoToDefinitionMenu
                 textBox.ContextMenuOpening -= OnTextBoxMenuOpening;
                 textBox.Loaded -= OnTextBoxLoaded;
                 textBox.PreviewMouseLeftButtonDown -= OnTextBoxCtrlClick;
+                textBox.PreviewKeyDown -= OnTextBoxPreviewKeyDown;
                 if (e.NewValue is true)
                 {
                     textBox.ContextMenuOpening += OnTextBoxMenuOpening;
                     textBox.Loaded += OnTextBoxLoaded;
                     textBox.PreviewMouseLeftButtonDown += OnTextBoxCtrlClick;
+                    textBox.PreviewKeyDown += OnTextBoxPreviewKeyDown;
                     if (textBox.IsLoaded)
                     {
                         EnsureEditContextMenu(textBox);
@@ -54,9 +56,13 @@ public static class VariableGoToDefinitionMenu
                 break;
             case TextBlock textBlock:
                 textBlock.ContextMenuOpening -= OnTextBlockMenuOpening;
+                textBlock.PreviewKeyDown -= OnTextBlockPreviewKeyDown;
                 if (e.NewValue is true)
                 {
+                    textBlock.Focusable = true;
+                    KeyboardNavigation.SetIsTabStop(textBlock, false);
                     textBlock.ContextMenuOpening += OnTextBlockMenuOpening;
+                    textBlock.PreviewKeyDown += OnTextBlockPreviewKeyDown;
                 }
 
                 break;
@@ -98,6 +104,36 @@ public static class VariableGoToDefinitionMenu
         e.Handled = true;
     }
 
+    private static void OnTextBoxPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F12 || Keyboard.Modifiers != ModifierKeys.None || sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        if (TryGoToDefinition(FindOrigin(textBox), TokenNamesInTextBox(textBox, useMousePosition: false)))
+        {
+            e.Handled = true;
+        }
+    }
+
+    private static void OnTextBlockPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.F12 || Keyboard.Modifiers != ModifierKeys.None || sender is not TextBlock textBlock)
+        {
+            return;
+        }
+
+        var from = FindOrigin(textBlock);
+        var names = from is RequestNodeViewModel request
+            ? VariableResolver.FindTokenNames(request.Address)
+            : [];
+        if (TryGoToDefinition(from, names))
+        {
+            e.Handled = true;
+        }
+    }
+
     private static void OnTextBoxMenuOpening(object sender, ContextMenuEventArgs e)
     {
         if (sender is not TextBox textBox)
@@ -135,12 +171,15 @@ public static class VariableGoToDefinitionMenu
         }
     }
 
-    public static IReadOnlyList<string> TokenNamesInTextBox(TextBox textBox) =>
+    public static IReadOnlyList<string> TokenNamesInTextBox(TextBox textBox, bool useMousePosition = true) =>
         VariableResolver.CollectTokenNames(
             textBox.Text,
-            GetCharIndex(textBox),
+            useMousePosition ? GetCharIndex(textBox) : CaretIndex(textBox),
             textBox.SelectionStart,
             textBox.SelectionLength);
+
+    private static int CaretIndex(TextBox textBox) =>
+        textBox.SelectionLength > 0 ? textBox.SelectionStart : textBox.CaretIndex;
 
     private static IReadOnlyList<string> TokenNamesAtPoint(TextBox textBox, MouseEventArgs e)
     {
@@ -242,6 +281,39 @@ public static class VariableGoToDefinitionMenu
 
     public static bool HasVariableMenuItems(ContextMenu menu) =>
         menu.Items.OfType<MenuItem>().Any(i => Equals(i.Tag, MenuTag));
+
+    /// <summary>
+    /// Navigates to the first defined token the context menu would offer as Go to Definition.
+    /// Prefers names under the caret; falls back to <paramref name="extraGotoTargets"/>.
+    /// </summary>
+    public static bool TryGoToDefinition(
+        TreeNodeViewModel? from,
+        IEnumerable<string> names,
+        IReadOnlyList<GoToDefinitionTarget>? extraGotoTargets = null)
+    {
+        foreach (var raw in names)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                continue;
+            }
+
+            var name = raw.Trim();
+            if (VariableDefinitionLookup.TryFind(from, name, out _, out _))
+            {
+                Navigate(from, name);
+                return true;
+            }
+        }
+
+        if (extraGotoTargets is { Count: > 0 })
+        {
+            extraGotoTargets[0].Navigate();
+            return true;
+        }
+
+        return false;
+    }
 
     public static void Navigate(TreeNodeViewModel? from, string name)
     {

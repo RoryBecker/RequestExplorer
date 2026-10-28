@@ -73,7 +73,7 @@
                       VerticalAlignment="Center"
                       HorizontalAlignment="Right"
                       Content="Opt out of auto run"
-                      ToolTip="Skip this request when using Run All Requests. Diagnose Variables still includes it."
+                      ToolTip="Skip this request when using Run Requests. Diagnose Requests still includes it."
                       IsChecked="{Binding OptOutOfAutoRun}" />
             <TextBlock DockPanel.Dock="Right"
                        VerticalAlignment="Center"

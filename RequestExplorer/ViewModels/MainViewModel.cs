@@ -558,21 +558,25 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     public string RedoMenuHeader =>
         _history.CanRedo ? $"_Redo {_history.RedoDescription}" : "_Redo";
 
-    public string RunAllRequestsMenuHeader => FormatRunAllRequestsMenuHeader(SelectedNode, includeMnemonic: true);
+    public string RunAllRequestsMenuHeader => FormatRequestCountMenuHeader("Run _Requests", SelectedNode, includeOptedOut: false);
+
+    public string DiagnoseRequestsMenuHeader => FormatRequestCountMenuHeader("Diagnose _Requests", SelectedNode, includeOptedOut: true);
 
     public bool HasUndoHistory => _history.CanUndo;
 
     public bool HasRedoHistory => _history.CanRedo;
 
-    public string FormatRunAllRequestsMenuHeader(TreeNodeViewModel? root, bool includeMnemonic = false)
+    private static string FormatRequestCountMenuHeader(string label, TreeNodeViewModel? root, bool includeOptedOut)
     {
-        var label = includeMnemonic ? "Run _All Requests" : "Run All Requests";
         if (root is null)
         {
             return label;
         }
 
-        var count = EnumerateRequestsInHierarchy(root).Count();
+        var requests = EnumerateRequestsInHierarchy(root);
+        var count = includeOptedOut
+            ? requests.Count()
+            : requests.Count(r => !r.IsExcludedFromAutoRun);
         return count > 0 ? $"{label} ({count})" : label;
     }
 
@@ -625,6 +629,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         NotifyMoveAmongSiblingsCanExecuteChanged();
         OnPropertyChanged(nameof(SelectionSummary));
         OnPropertyChanged(nameof(RunAllRequestsMenuHeader));
+        OnPropertyChanged(nameof(DiagnoseRequestsMenuHeader));
         RefreshQuickExport();
         RecordTreeNavigation(newValue);
     }
@@ -1086,6 +1091,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             or nameof(RequestNodeViewModel.OptOutOfAutoRun))
         {
             OnPropertyChanged(nameof(RunAllRequestsMenuHeader));
+            OnPropertyChanged(nameof(DiagnoseRequestsMenuHeader));
             RunAllRequestsCommand.NotifyCanExecuteChanged();
         }
 
@@ -2992,7 +2998,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         dialog = new Views.RunAllResultsDialog(
-            $"Run All — {root.Name}",
+            $"Run Requests — {root.Name}",
             rows,
             () => _sendCts?.Cancel(),
             ExecutePassAsync,

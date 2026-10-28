@@ -10,7 +10,7 @@ RequestExplorer resolves `{{name}}` tokens from **enabled** variables on the req
 
 Tick **Secret** to keep the value out of **To Postman** / **To Postman (Flatten)** (the key is still exported, empty). Local save, send, copy/paste, and duplicate inside RequestExplorer keep the value. Default is off. The collections folder on disk is still the working copy, so it still contains secret values.
 
-**Diagnose Variables** (tree context menu) reports missing or disabled names under the selection.
+**Diagnose Requests** (tree context menu) reports missing or disabled names under the selection.
 
 ### Hover tooltips
 

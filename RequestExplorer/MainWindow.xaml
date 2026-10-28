@@ -593,9 +593,12 @@
                         <TreeView.ContextMenu>
                             <ContextMenu x:Name="CollectionTreeContextMenu"
                                          DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-                                <MenuItem Header="Diagnose Variables" Command="{Binding DiagnoseVariablesCommand}" Tag="Node" />
-                                <MenuItem Header="Apply Variables to URL…" Command="{Binding InjectUrlVariablesCommand}" Tag="Request" />
                                 <MenuItem Header="{Binding RunAllRequestsMenuHeader}" Command="{Binding RunAllRequestsCommand}" Tag="Node" />
+                                <MenuItem Header="{Binding DiagnoseRequestsMenuHeader}" Command="{Binding DiagnoseVariablesCommand}" Tag="Node" />
+                                <MenuItem Header="Apply Variables to URL…" Command="{Binding InjectUrlVariablesCommand}" Tag="Request" />
+                                <MenuItem x:Name="ApplyVariableToUrlsTreeMenuItem"
+                                          Header="Apply Variable…"
+                                          Tag="Container" />
                                 <Separator />
                                 <MenuItem Header="New…" Command="{Binding NewItemCommand}" InputGestureText="Ctrl+N" />
                                 <MenuItem Header="Insert Folder Above" Command="{Binding InsertFolderAboveCommand}" InputGestureText="Ins" Tag="Node" />

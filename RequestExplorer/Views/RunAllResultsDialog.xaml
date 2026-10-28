@@ -1,7 +1,7 @@
 <Window x:Class="RequestExplorer.Views.RunAllResultsDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Run All Requests"
+        Title="Run Requests"
         Height="480"
         Width="860"
         MinHeight="320"

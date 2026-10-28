@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
+using System.Windows.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels.Nodes;
@@ -52,13 +53,18 @@ public sealed partial class ApplyVariableToUrlsViewModel : ObservableObject
 
         Rows = new ObservableCollection<ApplyVariableToUrlRow>(
             matches.Select(m => new ApplyVariableToUrlRow(m)));
+        ShadowSkipCount = Rows.Count(r => r.IsShadowed);
+        HasShadowedSkips = ShadowSkipCount > 0;
 
         foreach (var row in Rows)
         {
             row.PropertyChanged += Row_OnPropertyChanged;
         }
 
-        SelectedRow = Rows.FirstOrDefault();
+        RowsView = CollectionViewSource.GetDefaultView(Rows);
+        RowsView.Filter = FilterRow;
+
+        SelectedRow = Rows.FirstOrDefault(r => !r.IsShadowed) ?? Rows.FirstOrDefault();
         RefreshCanConfirm();
     }
 
@@ -66,8 +72,14 @@ public sealed partial class ApplyVariableToUrlsViewModel : ObservableObject
 
     public ObservableCollection<ApplyVariableToUrlRow> Rows { get; }
 
+    public ICollectionView RowsView { get; }
+
+    public int ShadowSkipCount { get; }
+
+    public bool HasShadowedSkips { get; }
+
     public IReadOnlyList<UrlVariableTreeApplicator.RequestMatch> SelectedMatches =>
-        Rows.Where(r => r.IsChecked).Select(r => r.Match).ToList();
+        Rows.Where(r => r.IsChecked && !r.IsShadowed).Select(r => r.Match).ToList();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PreviewSpans))]
@@ -76,8 +88,25 @@ public sealed partial class ApplyVariableToUrlsViewModel : ObservableObject
     [ObservableProperty]
     private bool _canConfirm;
 
+    [ObservableProperty]
+    private bool _showShadowedSkips;
+
     public IReadOnlyList<ResolvedTextSpan> PreviewSpans =>
-        SelectedRow?.Match.PreviewSpans ?? [];
+        SelectedRow is { IsShadowed: false } row
+            ? row.Match.PreviewSpans
+            : [];
+
+    partial void OnShowShadowedSkipsChanged(bool value)
+    {
+        RowsView.Refresh();
+        if (SelectedRow is null || (!value && SelectedRow.IsShadowed))
+        {
+            SelectedRow = Rows.FirstOrDefault(r => !r.IsShadowed) ?? Rows.FirstOrDefault();
+        }
+    }
+
+    private bool FilterRow(object item) =>
+        item is ApplyVariableToUrlRow row && (ShowShadowedSkips || !row.IsShadowed);
 
     private void Row_OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -88,7 +117,7 @@ public sealed partial class ApplyVariableToUrlsViewModel : ObservableObject
     }
 
     private void RefreshCanConfirm() =>
-        CanConfirm = Rows.Any(r => r.IsChecked);
+        CanConfirm = Rows.Any(r => r.IsChecked && !r.IsShadowed);
 }
 
 public sealed partial class ApplyVariableToUrlRow : ObservableObject
@@ -98,10 +127,17 @@ public sealed partial class ApplyVariableToUrlRow : ObservableObject
         Match = match;
         Path = match.Request.HierarchyPath;
         Address = match.OriginalAddress;
-        MatchSummary = match.Match.Spans.Count == 1
-            ? $"1 · {match.Match.ReplacedLength} chars"
-            : $"{match.Match.Spans.Count} · {match.Match.ReplacedLength} chars";
-        _isChecked = true;
+        IsShadowed = match.IsShadowed;
+        ShadowReason = match.ShadowReason;
+        MatchSummary = match.IsShadowed
+            ? "Shadowed"
+            : match.Match.Spans.Count == 1
+                ? $"1 · {match.Match.ReplacedLength} chars"
+                : $"{match.Match.Spans.Count} · {match.Match.ReplacedLength} chars";
+        _isChecked = !match.IsShadowed;
+        ToolTip = match.IsShadowed
+            ? match.ShadowReason
+            : match.Request.HierarchyPath;
     }
 
     public UrlVariableTreeApplicator.RequestMatch Match { get; }
@@ -112,8 +148,24 @@ public sealed partial class ApplyVariableToUrlRow : ObservableObject
 
     public string MatchSummary { get; }
 
+    public bool IsShadowed { get; }
+
+    public string ShadowReason { get; }
+
+    public string ToolTip { get; }
+
+    public bool CanCheck => !IsShadowed;
+
     public RequestNodeViewModel Request => Match.Request;
 
     [ObservableProperty]
     private bool _isChecked;
+
+    partial void OnIsCheckedChanged(bool value)
+    {
+        if (IsShadowed && value)
+        {
+            IsChecked = false;
+        }
+    }
 }

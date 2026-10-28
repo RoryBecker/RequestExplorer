@@ -11,6 +11,7 @@
         ShowInTaskbar="False"
         Background="{DynamicResource App.PanelBrush}">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <Style x:Key="KeyValueGrid" TargetType="DataGrid">
             <Setter Property="AutoGenerateColumns" Value="False" />
             <Setter Property="CanUserAddRows" Value="False" />
@@ -64,10 +65,22 @@
 
         <DataGrid Grid.Row="1"
                   Style="{StaticResource KeyValueGrid}"
-                  ItemsSource="{Binding Rows}"
+                  ItemsSource="{Binding RowsView}"
                   SelectedItem="{Binding SelectedRow, Mode=TwoWay}"
                   CanUserSortColumns="True"
                   HeadersVisibility="Column">
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="ToolTip" Value="{Binding ToolTip}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsShadowed}" Value="True">
+                            <Setter Property="Opacity" Value="0.62" />
+                            <Setter Property="FontStyle" Value="Italic" />
+                            <Setter Property="Foreground" Value="{DynamicResource App.MutedBrush}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="On"
                                         Width="44"
@@ -76,6 +89,7 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding IsChecked, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
+                                      IsEnabled="{Binding CanCheck}"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center" />
                         </DataTemplate>
@@ -125,21 +139,28 @@
             </ScrollViewer>
         </DockPanel>
 
-        <StackPanel Grid.Row="3"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Margin="0,16,0,0">
-            <Button Content="OK"
-                    Width="88"
-                    Margin="0,0,8,0"
-                    Style="{StaticResource PrimaryButton}"
-                    IsDefault="True"
-                    IsEnabled="{Binding CanConfirm}"
-                    Click="Ok_Click" />
-            <Button Content="Cancel"
-                    Width="88"
-                    IsCancel="True"
-                    Click="Cancel_Click" />
-        </StackPanel>
+        <DockPanel Grid.Row="3" Margin="0,16,0,0" LastChildFill="False">
+            <CheckBox DockPanel.Dock="Left"
+                      VerticalAlignment="Center"
+                      Content="{Binding ShadowSkipCount, StringFormat=Show shadowed skips ({0})}"
+                      IsChecked="{Binding ShowShadowedSkips}"
+                      Visibility="{Binding HasShadowedSkips, Converter={StaticResource BoolToVis}}"
+                      ToolTip="Requests whose URL matches this value but would resolve the token from a closer folder. They are never applied." />
+            <StackPanel DockPanel.Dock="Right"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right">
+                <Button Content="OK"
+                        Width="88"
+                        Margin="0,0,8,0"
+                        Style="{StaticResource PrimaryButton}"
+                        IsDefault="True"
+                        IsEnabled="{Binding CanConfirm}"
+                        Click="Ok_Click" />
+                <Button Content="Cancel"
+                        Width="88"
+                        IsCancel="True"
+                        Click="Cancel_Click" />
+            </StackPanel>
+        </DockPanel>
     </Grid>
 </Window>

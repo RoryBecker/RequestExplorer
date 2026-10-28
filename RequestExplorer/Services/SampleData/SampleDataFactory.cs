@@ -24,7 +24,7 @@ public static class SampleDataFactory
             Description = """
                 Walk through Request Explorer using the folders below. Select a folder to read how that feature works, then try the requests inside it.
 
-                Collection variables (host, client, region) are inherited by every request unless a closer folder overrides them.
+                Collection variables (host, client, region) are inherited by every request unless a closer folder overrides them. Variables - Apply (Right Click) has URLs that still use those values as literals.
                 """
         };
         collection.Variables.Add(Var("host", "https://httpbin.org"));
@@ -34,6 +34,7 @@ public static class SampleDataFactory
         Add(collection, BuildSendFolder());
         Add(collection, BuildDiagnosisFolder());
         Add(collection, BuildVariablesFolder());
+        Add(collection, BuildApplyVariablesFolder());
         Add(collection, BuildMovementFolder());
         Add(collection, BuildExportingFolder());
         return collection;
@@ -69,9 +70,9 @@ public static class SampleDataFactory
     {
         var folder = new FolderDefinition
         {
-            Name = "Right Click - Run All Requests",
+            Name = "Run Requests (Right Click)",
             Description = """
-                Right-click this folder and choose Run All Requests.
+                Right-click this folder and choose Run Requests.
 
                 That sends every request under the folder (unless opted out). Use the child folders to see status codes, expectation pass/fail, and skip behaviour.
                 """
@@ -81,7 +82,7 @@ public static class SampleDataFactory
         {
             Name = "Status codes",
             Description = """
-                Each request expects the HTTP status in its name. Right-click this folder → Run All Requests.
+                Each request expects the HTTP status in its name. Right-click this folder → Run Requests.
 
                 2xx, 4xx, and 5xx all pass when the expected code matches the response.
                 """
@@ -104,7 +105,7 @@ public static class SampleDataFactory
             Description = """
                 Open a request and look at Expectations (status, body, timing). Green means met; red means failed.
 
-                Right-click this folder → Run All Requests to see mixed results in one pass.
+                Right-click this folder → Run Requests to see mixed results in one pass.
                 """
         };
         Add(expectations, TourReq(
@@ -151,9 +152,9 @@ public static class SampleDataFactory
         {
             Name = "Opted out",
             Description = """
-                Right-click this folder → Run All Requests.
+                Right-click this folder → Run Requests.
 
-                "Runs in Run All" is sent. The opted-out request and everything in "Opted-out folder" are skipped. Diagnose Variables still includes opted-out nodes.
+                "Runs in Run All" is sent. The opted-out request and everything in "Opted-out folder" are skipped. Diagnose Requests still includes opted-out nodes.
                 """
         };
         Add(optedOut, TourReq("Runs in Run All", HttpVerb.GET, "{{host}}/get"));
@@ -167,7 +168,7 @@ public static class SampleDataFactory
             Name = "Opted-out folder",
             OptOutOfAutoRun = true,
             Description = """
-                This folder is opted out of auto run (checkbox in the header). Right-click a parent and Run All Requests — the request inside is skipped with the folder.
+                This folder is opted out of auto run (checkbox in the header). Right-click a parent and Run Requests — the request inside is skipped with the folder.
                 """
         };
         Add(optedFolder, TourReq("Skipped with the folder", HttpVerb.GET, "{{host}}/get"));
@@ -248,6 +249,96 @@ public static class SampleDataFactory
             HttpVerb.GET,
             "{{host}}/get?today={{today}}&now={{now}}&weekAgo={{weekAgo}}&label={{label}}"));
         Add(folder, calculated);
+
+        return folder;
+    }
+
+    private static FolderDefinition BuildApplyVariablesFolder()
+    {
+        var folder = new FolderDefinition
+        {
+            Name = "Variables - Apply (Right Click)",
+            Description = """
+                These URLs still contain variable values as plain text.
+
+                Right-click a request → Apply Variables to URL… to tokenise that one address.
+                Right-click a folder (or Feature Tour) that defines variables → Apply Variable… to replace one name in every descendant URL that still has the literal.
+                """
+        };
+
+        var oneUrl = new FolderDefinition
+        {
+            Name = "Apply Variables to URL",
+            Description = """
+                Right-click a request → Apply Variables to URL…
+
+                The first request can take host, client, and region in one dialog. The last request already uses tokens, so that command has nothing to replace.
+                """
+        };
+        Add(oneUrl, TourReq(
+            "Hardcoded host, client, and region",
+            HttpVerb.GET,
+            "https://httpbin.org/get?client=RequestExplorer&region=global"));
+        Add(oneUrl, TourReq(
+            "Hardcoded host only",
+            HttpVerb.GET,
+            "https://httpbin.org/uuid"));
+        Add(oneUrl, TourReq(
+            "Already using tokens",
+            HttpVerb.GET,
+            "{{host}}/get?client={{client}}&region={{region}}"));
+        Add(folder, oneUrl);
+
+        var many = new FolderDefinition
+        {
+            Name = "Apply Variable",
+            Description = """
+                This folder defines tenant=acme and version=v1.
+
+                Right-click this folder → Apply Variable… → {{tenant}} (or {{version}}). Confirm which descendant URLs to update. The last request is already tokenised.
+                """
+        };
+        many.Variables.Add(Var("tenant", "acme"));
+        many.Variables.Add(Var("version", "v1"));
+        Add(many, TourReq(
+            "Both literals in the path",
+            HttpVerb.GET,
+            "{{host}}/anything/acme/v1"));
+        Add(many, TourReq(
+            "Only tenant",
+            HttpVerb.GET,
+            "{{host}}/anything/acme"));
+        Add(many, TourReq(
+            "Query string literals",
+            HttpVerb.GET,
+            "{{host}}/get?tenant=acme&version=v1"));
+        Add(many, TourReq(
+            "Already using {{tenant}} and {{version}}",
+            HttpVerb.GET,
+            "{{host}}/anything/{{tenant}}/{{version}}"));
+        Add(folder, many);
+
+        var shadowed = new FolderDefinition
+        {
+            Name = "Shadowed skip",
+            Description = """
+                This folder sets region=eu, which wins over Feature Tour's region=global.
+
+                Right-click Feature Tour → Apply Variable… → {{region}}. "Still has collection value" is a shadowed skip (tick Show shadowed skips) — injecting {{region}} here would resolve to eu, not global.
+
+                Right-click this folder → Apply Variable… → {{region}} to replace eu in "Hardcoded eu".
+                """
+        };
+        shadowed.Variables.Add(Var("region", "eu"));
+        Add(shadowed, TourReq(
+            "Still has collection value",
+            HttpVerb.GET,
+            "{{host}}/get?region=global"));
+        Add(shadowed, TourReq(
+            "Hardcoded eu",
+            HttpVerb.GET,
+            "{{host}}/get?region=eu"));
+        Add(folder, shadowed);
 
         return folder;
     }

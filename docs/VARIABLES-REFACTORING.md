@@ -23,11 +23,11 @@ Right-click a **request** in the tree. The dialog lists ancestor variables whose
 
 ## Apply Variable to URLs…
 
-Right-click a **Local** or **Inherited** variable row. The dialog lists descendant requests whose URLs would actually change. All rows start checked; uncheck any to skip.
+Right-click a **Local** or **Inherited** variable row, or **Apply Variable…** on a collection or folder that has local variables (one submenu item per enabled name). The dialog lists descendant requests whose URLs contain that variable’s resolved value. Applyable rows start checked; uncheck any to skip.
 
 - **Local** — every matching descendant request under the collection or folder you are editing.
 - **Inherited** — only descendants of that same editor node, not the whole tree under the definition.
-- Closer definitions that **shadow** the same name are skipped, so injecting `{{name}}` would not resolve to this row.
+- Closer definitions that **shadow** the same name are never applied (injecting `{{name}}` would resolve to the closer row). Those requests stay in the dialog as disabled skips, hidden until you tick **Show shadowed skips**. Hover a skip to see which folder or collection wins.
 
 ## Related code
 

@@ -9,7 +9,7 @@ Where RequestExplorer is strong for day-to-day local API work:
 - **Your files, no account.** Collections are ordinary JSON under `%LocalAppData%`. Copy, zip, git, or drop them onto another machine. There is no cloud workspace and nothing to sign in to.
 - **The tree is an editor.** Indent and outdent with **Alt+← / Alt+→**, wrap a node in a new folder, drag before/after/into, insert a folder above. Postman’s collection sidebar is a navigator; this tree is how you structure work.
 - **Folder variables that stay where you put them.** Children inherit; closer folders override; the Inherited grid shows the source and what is shadowed. Postman export hoists variables to the collection — RequestExplorer warns when sibling folders would clash, and can **Flatten** if you still want a Postman file.
-- **See what `{{name}}` will become.** Calculated URL with bold substitutions, Diagnose Variables on a subtree, hover tokens for resolved values, Go to Definition, and `@date(…)` recipes without pre-request scripts. Apply a variable into matching URLs — one request, or every descendant that still has the literal value.
+- **See what `{{name}}` will become.** Calculated URL with bold substitutions, Diagnose Requests on a subtree, hover tokens for resolved values, Go to Definition, and `@date(…)` recipes without pre-request scripts. Apply a variable into matching URLs — one request, or every descendant that still has the literal value.
 - **Undo is real.** Tree moves, edits, and imports sit on **Ctrl+Z / Ctrl+Y**, including multi-step history. You can also **Edit as JSON…** on any collection, folder, or request and apply the native model back.
 - **Run All with expectations, no test scripts.** Expected status, body (exact or contains), and timing. Opt folders or requests out of the batch and still diagnose them. Results are a local grid you can sort, stop, and rerun.
 - **Quick Export beside the request.** Live cURL, HTTP, Fetch, PowerShell, Python, HTTPie, and Postman snippets, with a diagnosis when variables will not resolve.
@@ -58,7 +58,7 @@ On first launch with an empty workspace, **Feature Tour** is created and selecte
 
 - Define variables on collections and folders; children inherit them (with source and shadowing shown). Names are **case-insensitive**; nearest enabled ancestor wins. Tick **Secret** to omit the value from Postman export (local save keeps it)
 - Use `{{name}}` in URLs and other request fields; a variable value may itself contain `{{name}}` (nesting depth is set in Settings)
-- **Diagnose Variables** on a selection to find missing or disabled variables and jump to the affected nodes
+- **Diagnose Requests** on a selection to find missing or disabled variables and jump to the affected nodes
 - **Go to Definition** (**F12**, or **Ctrl+click** a `{{name}}` token) opens the defining Variables row. On an unresolved token, **Define Variable…** creates it on the nearest container. Works in the URL, params/headers/variables grids, and Auth Bearer
 - Hover the **name** (key) of a variable in any Variables grid — including **Inherited** — to see a tooltip with the current calculated value (e.g. resolved `@date(…)` recipes). The same hover works on Params/Headers keys (shows that row’s value). Hovering `{{name}}` tokens in URL/body/auth fields shows each token’s resolved value
 - Dynamic recipes (`@date(…)`): [Variables - Dynamic](docs/VARIABLES-DYNAMIC.md)
@@ -67,7 +67,7 @@ On first launch with an empty workspace, **Feature Tour** is created and selecte
 ### Expectations & Run All
 
 - Per request: expected status code; optional max response time; optional body check (exact match or contains)
-- **Run All** runs every request under the selected collection, folder, or single request. Folders/requests can **Opt out of auto run** (they still appear in the results as opted out; Diagnose Variables still includes them)
+- **Run All** runs every request under the selected collection, folder, or single request. Folders/requests can **Opt out of auto run** (they still appear in the results as opted out; Diagnose Requests still includes them)
 - Results dialog: parallel threads (1–10), optional timing checks, sortable grid with Response / Body / Time / Met highlighting, stop remaining, and per-row rerun
 - Double-click a result row to select that request in the tree
 

@@ -19,13 +19,16 @@ public static class UrlVariableTreeApplicator
 
         public required IReadOnlyList<ResolvedTextSpan> PreviewSpans { get; init; }
 
+        public bool IsShadowed { get; init; }
+
+        public string ShadowReason { get; init; } = string.Empty;
+
         public string OriginalAddress => Request.Address ?? string.Empty;
     }
 
     /// <summary>
-    /// Requests under <paramref name="scanRoot"/> whose URL would change if
-    /// <paramref name="definition"/> were injected, and for which that row is
-    /// the nearest enabled definition of its name.
+    /// Requests under <paramref name="scanRoot"/> whose URL contains this definition's
+    /// resolved value. Rows where a closer definition wins are included as shadowed skips.
     /// </summary>
     public static IReadOnlyList<RequestMatch> FindAffectedRequests(
         TreeNodeViewModel scanRoot,
@@ -40,23 +43,27 @@ public static class UrlVariableTreeApplicator
             return [];
         }
 
+        var owner = FindOwner(scanRoot, definition);
+        if (owner is null)
+        {
+            return [];
+        }
+
+        var value = ResolveDefinitionValue(owner, definition, name);
+        if (string.IsNullOrEmpty(value))
+        {
+            return [];
+        }
+
+        var singleton = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [name] = value
+        };
+
         var results = new List<RequestMatch>();
         foreach (var request in EnumerateRequests(scanRoot))
         {
-            if (!IsWinningDefinition(request, definition, name))
-            {
-                continue;
-            }
-
-            var scope = VariableResolver.BuildScope(request);
-            if (!scope.TryGetValue(name, out var value) || string.IsNullOrEmpty(value))
-            {
-                continue;
-            }
-
-            var matches = UrlVariableInjector.FindMatches(
-                request.Address,
-                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [name] = value });
+            var matches = UrlVariableInjector.FindMatches(request.Address, singleton);
             if (matches.Count == 0)
             {
                 continue;
@@ -68,21 +75,80 @@ public static class UrlVariableTreeApplicator
                 continue;
             }
 
+            var winning = FindWinningDefinition(request, name);
+            var shadowed = winning.Item is not null && !ReferenceEquals(winning.Item, definition);
             results.Add(new RequestMatch
             {
                 Request = request,
                 Match = matches[0],
-                AppliedAddress = applied.Text,
-                PreviewSpans = applied.Spans
+                AppliedAddress = shadowed ? request.Address ?? string.Empty : applied.Text,
+                PreviewSpans = shadowed ? [] : applied.Spans,
+                IsShadowed = shadowed,
+                ShadowReason = shadowed && winning.Container is not null
+                    ? $"Uses {name} on {winning.Container.Name}"
+                    : string.Empty
             });
         }
 
         return results;
     }
 
-    private static bool IsWinningDefinition(
-        RequestNodeViewModel request,
+    private static string ResolveDefinitionValue(
+        ContainerNodeViewModel owner,
         KeyValueItemViewModel definition,
+        string name)
+    {
+        var scope = VariableResolver.BuildScopeFrom(owner);
+        if (IsFirstEnabledNamed(owner, definition, name)
+            && scope.TryGetValue(name, out var value))
+        {
+            return value ?? string.Empty;
+        }
+
+        var raw = VariableValueRecipes.Resolve(definition.Value);
+        return VariableResolver.Substitute(raw, scope);
+    }
+
+    private static bool IsFirstEnabledNamed(
+        ContainerNodeViewModel owner,
+        KeyValueItemViewModel definition,
+        string name)
+    {
+        foreach (var item in owner.Variables)
+        {
+            if (!item.IsEnabled || !item.HasKey)
+            {
+                continue;
+            }
+
+            if (!string.Equals(item.Key.Trim(), name, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return ReferenceEquals(item, definition);
+        }
+
+        return false;
+    }
+
+    private static ContainerNodeViewModel? FindOwner(
+        TreeNodeViewModel scanRoot,
+        KeyValueItemViewModel definition)
+    {
+        for (var node = scanRoot; node is not null; node = node.Parent)
+        {
+            if (node is ContainerNodeViewModel container && container.Variables.Contains(definition))
+            {
+                return container;
+            }
+        }
+
+        return null;
+    }
+
+    private static (ContainerNodeViewModel? Container, KeyValueItemViewModel? Item) FindWinningDefinition(
+        RequestNodeViewModel request,
         string name)
     {
         for (var node = request.Parent; node is not null; node = node.Parent)
@@ -104,11 +170,11 @@ public static class UrlVariableTreeApplicator
                     continue;
                 }
 
-                return ReferenceEquals(item, definition);
+                return (container, item);
             }
         }
 
-        return false;
+        return (null, null);
     }
 
     private static IEnumerable<RequestNodeViewModel> EnumerateRequests(TreeNodeViewModel root)

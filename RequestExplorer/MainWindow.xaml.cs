@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 using RequestExplorer.Views;
@@ -846,6 +847,7 @@ public partial class MainWindow : Window
         if (onNode)
         {
             PopulateCopyToCollectionMenu(CopyToCollectionMenuItem, vm);
+            PopulateApplyVariableMenu(ApplyVariableToUrlsTreeMenuItem, vm);
         }
     }
 
@@ -857,12 +859,14 @@ public partial class MainWindow : Window
         }
 
         var isRequest = DataContext is MainViewModel { SelectedNode: RequestNodeViewModel };
+        var isContainer = DataContext is MainViewModel { SelectedNode: ContainerNodeViewModel };
         foreach (var item in CollectionTreeContextMenu.Items)
         {
             var tag = (item as FrameworkElement)?.Tag as string;
             var visibility = tag switch
             {
                 "Request" => onNode && isRequest ? Visibility.Visible : Visibility.Collapsed,
+                "Container" => onNode && isContainer ? Visibility.Visible : Visibility.Collapsed,
                 "Node" => onNode ? Visibility.Visible : Visibility.Collapsed,
                 _ => Visibility.Visible
             };
@@ -932,6 +936,49 @@ public partial class MainWindow : Window
                 separator.Visibility = Visibility.Collapsed;
             }
         }
+    }
+
+    private static void PopulateApplyVariableMenu(MenuItem menu, MainViewModel vm)
+    {
+        menu.Items.Clear();
+        if (vm.SelectedNode is not ContainerNodeViewModel container)
+        {
+            menu.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var added = 0;
+        foreach (var variable in container.Variables)
+        {
+            if (!variable.IsEnabled || !variable.HasKey)
+            {
+                continue;
+            }
+
+            var name = variable.Key.Trim();
+            if (!seen.Add(name))
+            {
+                continue;
+            }
+
+            var definition = variable;
+            var canApply = UrlVariableTreeApplicator.FindAffectedRequests(container, definition).Count > 0;
+            var item = new MenuItem
+            {
+                Header = "{{" + name.Replace("_", "__", StringComparison.Ordinal) + "}}",
+                IsEnabled = canApply,
+                ToolTip = canApply
+                    ? $"Replace this value with {{{{{name}}}}} in descendant request URLs"
+                    : "No descendant URLs contain this value"
+            };
+            item.Click += (_, _) => vm.ApplyVariableToUrls(container, definition);
+            menu.Items.Add(item);
+            added++;
+        }
+
+        menu.Visibility = added > 0 ? Visibility.Visible : Visibility.Collapsed;
+        menu.IsEnabled = added > 0;
     }
 
     private static void PopulateCopyToCollectionMenu(MenuItem menu, MainViewModel vm)

@@ -1,4 +1,5 @@
 using RequestExplorer.Models;
+using RequestExplorer.Services.Preferences;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
@@ -12,6 +13,7 @@ public static class HeaderInheritance
     /// <summary>
     /// Builds the header list used for Send / export: local request headers first (list order),
     /// then nearest ancestor headers for names not already taken by an enabled local row.
+    /// Non-inheritable ancestor rows seal the name (no farther fall-through).
     /// </summary>
     public static List<KeyValueItem> BuildEffectiveHeaders(RequestNodeViewModel request)
     {
@@ -56,6 +58,11 @@ public static class HeaderInheritance
                     continue;
                 }
 
+                if (!InheritedGridPreferences.IsEffectivelyInheritable(header.IsInheritable))
+                {
+                    continue;
+                }
+
                 result.Add(CloneItem(header.Model, key));
             }
         }
@@ -78,6 +85,7 @@ public static class HeaderInheritance
             IsEnabled = source.IsEnabled,
             Key = key,
             Value = source.Value ?? string.Empty,
-            IsSecret = source.IsSecret
+            IsSecret = source.IsSecret,
+            IsInheritable = source.IsInheritable
         };
 }

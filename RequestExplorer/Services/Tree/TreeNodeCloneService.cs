@@ -65,7 +65,8 @@ public static class TreeNodeCloneService
                     IsEnabled = v.IsEnabled,
                     Key = v.Key,
                     Value = v.Value,
-                    IsSecret = v.IsSecret
+                    IsSecret = v.IsSecret,
+                    IsInheritable = v.IsInheritable
                 })
                 .ToList(),
             Headers = collection.Headers
@@ -74,7 +75,8 @@ public static class TreeNodeCloneService
                     IsEnabled = h.IsEnabled,
                     Key = h.Key,
                     Value = h.Value,
-                    IsSecret = h.IsSecret
+                    IsSecret = h.IsSecret,
+                    IsInheritable = h.IsInheritable
                 })
                 .ToList()
         };

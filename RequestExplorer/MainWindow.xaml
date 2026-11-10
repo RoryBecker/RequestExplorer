@@ -659,8 +659,8 @@
                                                        FontSize="11"
                                                        Foreground="{DynamicResource App.MutedBrush}"
                                                        VerticalAlignment="Center"
-                                                       ToolTip="{Binding VariablesTooltip}"
-                                                       Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
+                                                       ToolTip="{Binding DefinedScopeTooltip}"
+                                                       Visibility="{Binding ShowDefinedScopeGlyph, Converter={StaticResource BoolToVis}}" />
                                             <TextBlock Text="{Binding DisplayName}"
                                                        FontWeight="SemiBold"
                                                        VerticalAlignment="Center"
@@ -701,8 +701,8 @@
                                                        FontSize="11"
                                                        Foreground="{DynamicResource App.MutedBrush}"
                                                        VerticalAlignment="Center"
-                                                       ToolTip="{Binding VariablesTooltip}"
-                                                       Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
+                                                       ToolTip="{Binding DefinedScopeTooltip}"
+                                                       Visibility="{Binding ShowDefinedScopeGlyph, Converter={StaticResource BoolToVis}}" />
                                             <TextBlock Text="{Binding DisplayName}"
                                                        VerticalAlignment="Center"
                                                        TextTrimming="CharacterEllipsis"

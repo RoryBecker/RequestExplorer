@@ -669,7 +669,8 @@ public static class KeyValueGridClipboard
             IsEnabled = r.IsEnabled,
             Key = r.Key,
             Value = r.Value,
-            IsSecret = r.IsSecret
+            IsSecret = r.IsSecret,
+            IsInheritable = r.IsInheritable
         })).WriteToClipboard();
         return true;
     }
@@ -779,7 +780,8 @@ public static class KeyValueGridClipboard
                 IsEnabled = r.IsEnabled,
                 Key = r.Key,
                 Value = r.Value,
-                IsSecret = r.IsSecret
+                IsSecret = r.IsSecret,
+                IsInheritable = r.IsInheritable
             })
             .ToList();
 

@@ -70,10 +70,15 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     public bool ShowInheritedHeadersGrid =>
         HasInheritedHeaders || InheritedGridPreferences.ShowEmptyInheritedGrids;
 
+    public bool ShowInheritBreakControl => InheritedGridPreferences.EnableInheritBreakControl;
+
     private void OnInheritedGridPreferencesChanged()
     {
         OnPropertyChanged(nameof(ShowInheritedVariablesGrid));
         OnPropertyChanged(nameof(ShowInheritedHeadersGrid));
+        OnPropertyChanged(nameof(ShowInheritBreakControl));
+        RefreshInheritedVariables();
+        RefreshInheritedHeaders();
     }
 
     protected List<KeyValueItem> ModelVariables { get; }
@@ -106,6 +111,41 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     [ObservableProperty]
     private string _headersTooltip = string.Empty;
 
+    /// <summary>Tree glyph when this container defines local variables and/or headers.</summary>
+    public bool ShowDefinedScopeGlyph => HasDefinedVariables || HasDefinedHeaders;
+
+    /// <summary>Tooltip for the tree scope glyph (variables and/or headers).</summary>
+    public string DefinedScopeTooltip
+    {
+        get
+        {
+            if (HasDefinedVariables && HasDefinedHeaders)
+            {
+                return VariablesTooltip + "\n\n" + HeadersTooltip;
+            }
+
+            return HasDefinedVariables ? VariablesTooltip : HeadersTooltip;
+        }
+    }
+
+    partial void OnHasDefinedVariablesChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowDefinedScopeGlyph));
+        OnPropertyChanged(nameof(DefinedScopeTooltip));
+    }
+
+    partial void OnHasDefinedHeadersChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowDefinedScopeGlyph));
+        OnPropertyChanged(nameof(DefinedScopeTooltip));
+    }
+
+    partial void OnVariablesTooltipChanged(string value) =>
+        OnPropertyChanged(nameof(DefinedScopeTooltip));
+
+    partial void OnHeadersTooltipChanged(string value) =>
+        OnPropertyChanged(nameof(DefinedScopeTooltip));
+
     /// <summary>Selected row in the Local Variables grid (also used by Go to Definition).</summary>
     [ObservableProperty]
     private KeyValueItemViewModel? _selectedVariable;
@@ -115,7 +155,10 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     private KeyValueItemViewModel? _selectedHeader;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDefinedDescription))]
     private string _description = string.Empty;
+
+    public bool HasDefinedDescription => !string.IsNullOrWhiteSpace(Description);
 
     public void AttachUndoRecorder(IUndoRecorder recorder) => _undoRecorder = recorder;
 
@@ -265,19 +308,21 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             v.HasKey && string.Equals(v.Key.Trim(), key.Trim(), StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Inserts a new variable before the spare row. Returns the created VM and index.</summary>
-        public KeyValueItemViewModel InsertVariableSnapshot(
+    public KeyValueItemViewModel InsertVariableSnapshot(
         string key,
         string value,
         bool enabled,
         out int index,
-        bool isSecret = false)
+        bool isSecret = false,
+        bool isInheritable = true)
     {
         var model = new KeyValueItem
         {
             Key = key,
             Value = value,
             IsEnabled = enabled && !string.IsNullOrWhiteSpace(key),
-            IsSecret = isSecret && !string.IsNullOrWhiteSpace(key)
+            IsSecret = isSecret && !string.IsNullOrWhiteSpace(key),
+            IsInheritable = isInheritable && !string.IsNullOrWhiteSpace(key)
         };
         var vm = CreateVariableVm(model);
         index = GetInsertBeforeSpareIndex(Variables);
@@ -308,7 +353,8 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
                 Key = row.Key ?? string.Empty,
                 Value = row.Value ?? string.Empty,
                 IsEnabled = row.IsEnabled && !string.IsNullOrWhiteSpace(row.Key),
-                IsSecret = row.IsSecret && !string.IsNullOrWhiteSpace(row.Key)
+                IsSecret = row.IsSecret && !string.IsNullOrWhiteSpace(row.Key),
+                IsInheritable = row.IsInheritable && !string.IsNullOrWhiteSpace(row.Key)
             };
             var vm = CreateVariableVm(model);
             var index = GetInsertBeforeSpareIndex(Variables);
@@ -453,6 +499,11 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
                     continue;
                 }
 
+                if (!InheritedGridPreferences.IsEffectivelyInheritable(variable.IsInheritable))
+                {
+                    continue;
+                }
+
                 rows.Add(new InheritedVariableRow(
                     key,
                     ancestor.Name,
@@ -550,6 +601,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             KeyValueField.Key => "Edit variable key",
             KeyValueField.Value => "Edit variable value",
             KeyValueField.IsSecret => $"Toggle secret '{item.Key}'",
+            KeyValueField.IsInheritable => $"Toggle inherit '{item.Key}'",
             _ => "Edit variable"
         };
 
@@ -695,6 +747,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
             or nameof(KeyValueItemViewModel.Value)
             or nameof(KeyValueItemViewModel.IsEnabled)
             or nameof(KeyValueItemViewModel.IsSecret)
+            or nameof(KeyValueItemViewModel.IsInheritable)
             or nameof(KeyValueItemViewModel.HasKey))
         {
             RefreshVariablePresentation();

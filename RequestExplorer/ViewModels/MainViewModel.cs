@@ -89,6 +89,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _treeFilterIncludeUrl = UiPreferences.TreeFilterIncludeUrl;
         _showEmptyInheritedGrids = UiPreferences.ShowEmptyInheritedGrids;
         InheritedGridPreferences.ShowEmptyInheritedGrids = _showEmptyInheritedGrids;
+        InheritedGridPreferences.EnableInheritBreakControl = UiPreferences.EnableInheritBreakControl;
         EnsureValidTreeSearchScope();
         SyncTreeSearchScope();
         ApplyHttpTimeoutSettings();
@@ -1689,6 +1690,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 break;
             case RequestNodeViewModel request:
                 request.RefreshInheritedHeaders();
+                request.NotifyResolvedAddressChanged();
                 break;
         }
 
@@ -3890,6 +3892,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.EnableMouseTreeNavigation = dialog.EnableMouseTreeNavigation;
         UiPreferences.BackupOnStartup = dialog.BackupOnStartup;
         UiPreferences.EnableDirtySave = dialog.EnableDirtySave;
+        UiPreferences.EnableInheritBreakControl = dialog.EnableInheritBreakControl;
         UiPreferences.BackupRetentionCount =
             BackupService.ClampRetention(dialog.BackupRetentionCount);
         UiPreferences.VariableNestingMaxDepth =
@@ -3897,11 +3900,16 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.ShowEmptyInheritedGrids = dialog.ShowEmptyInheritedGrids;
         ShowEmptyInheritedGrids = dialog.ShowEmptyInheritedGrids;
         InheritedGridPreferences.ShowEmptyInheritedGrids = dialog.ShowEmptyInheritedGrids;
+        InheritedGridPreferences.EnableInheritBreakControl = dialog.EnableInheritBreakControl;
         ApplyHttpTimeoutSettings();
         ApplyVariableNestingSettings();
         ApplyDirtySaveSetting();
         PersistUiPreferences();
         RefreshQuickExport();
+        foreach (var collection in Collections)
+        {
+            RefreshInheritedPresentation(collection);
+        }
 
         StatusMessage = UiPreferences.DevModeIgnoreTimeout
             ? "Settings saved — timeout ignored (dev mode)"

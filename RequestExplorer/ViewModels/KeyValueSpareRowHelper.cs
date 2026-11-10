@@ -43,7 +43,7 @@ internal static class KeyValueSpareRowHelper
                 return;
             }
 
-            var item = new KeyValueItem { IsEnabled = false };
+            var item = new KeyValueItem { IsEnabled = false, IsInheritable = false };
             modelList.Add(item);
             viewModels.Add(createVm(item));
         }

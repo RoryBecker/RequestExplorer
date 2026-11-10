@@ -31,7 +31,8 @@ public sealed class KeyValueClipboardPayload
                     IsEnabled = i.IsEnabled,
                     Key = i.Key ?? string.Empty,
                     Value = i.Value ?? string.Empty,
-                    IsSecret = i.IsSecret
+                    IsSecret = i.IsSecret,
+                    IsInheritable = i.IsInheritable
                 })
                 .ToList()
         };

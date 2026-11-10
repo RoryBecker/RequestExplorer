@@ -23,6 +23,14 @@ public partial class KeyValueItemViewModel : ObservableObject
             model.IsSecret = _isSecret;
         }
 
+        // Blank / spare rows are not inheritable; naming a row defaults Inherit on.
+        var hasKey = !string.IsNullOrWhiteSpace(model.Key);
+        _isInheritable = hasKey && model.IsInheritable;
+        if (model.IsInheritable != _isInheritable)
+        {
+            model.IsInheritable = _isInheritable;
+        }
+
         // Blank / spare rows stay disabled until they have a name.
         var enabled = model.IsEnabled && !string.IsNullOrWhiteSpace(model.Key);
         _isEnabled = enabled;
@@ -56,6 +64,9 @@ public partial class KeyValueItemViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSecret;
 
+    [ObservableProperty]
+    private bool _isInheritable = true;
+
     public object? GetField(KeyValueField field) =>
         field switch
         {
@@ -63,6 +74,7 @@ public partial class KeyValueItemViewModel : ObservableObject
             KeyValueField.Key => Key,
             KeyValueField.Value => Value,
             KeyValueField.IsSecret => IsSecret,
+            KeyValueField.IsInheritable => IsInheritable,
             _ => null
         };
 
@@ -84,6 +96,9 @@ public partial class KeyValueItemViewModel : ObservableObject
                     break;
                 case KeyValueField.IsSecret:
                     IsSecret = value is true && HasKey;
+                    break;
+                case KeyValueField.IsInheritable:
+                    IsInheritable = HasKey && value is not false;
                     break;
             }
         }
@@ -148,6 +163,22 @@ public partial class KeyValueItemViewModel : ObservableObject
         }
     }
 
+    partial void OnIsInheritableChanged(bool value)
+    {
+        if (value && !HasKey)
+        {
+            SetInheritableCore(false);
+            return;
+        }
+
+        var previous = Model.IsInheritable;
+        Model.IsInheritable = value;
+        if (!_silent && previous != value)
+        {
+            _onFieldChanged(this, KeyValueField.IsInheritable, previous, value);
+        }
+    }
+
     private void SyncEnabledWithKey(string previousKey, string newKey)
     {
         var hadKey = !string.IsNullOrWhiteSpace(previousKey);
@@ -168,6 +199,16 @@ public partial class KeyValueItemViewModel : ObservableObject
         {
             SetSecretCore(false);
         }
+
+        if (!hasKey && IsInheritable)
+        {
+            SetInheritableCore(false);
+        }
+        else if (hasKey && !hadKey && !IsInheritable)
+        {
+            // Naming a spare row defaults Inherit on.
+            SetInheritableCore(true);
+        }
     }
 
     private void SetSecretCore(bool secret)
@@ -183,6 +224,26 @@ public partial class KeyValueItemViewModel : ObservableObject
         {
             IsSecret = secret;
             Model.IsSecret = secret;
+        }
+        finally
+        {
+            _silent = previousSilent;
+        }
+    }
+
+    private void SetInheritableCore(bool inheritable)
+    {
+        if (IsInheritable == inheritable && Model.IsInheritable == inheritable)
+        {
+            return;
+        }
+
+        var previousSilent = _silent;
+        _silent = true;
+        try
+        {
+            IsInheritable = inheritable;
+            Model.IsInheritable = inheritable;
         }
         finally
         {

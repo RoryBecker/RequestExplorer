@@ -5,6 +5,7 @@ using System.Text;
 using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
 using RequestExplorer.Services.KeyValue;
+using RequestExplorer.Services.Preferences;
 using RequestExplorer.Services.Undo;
 using RequestExplorer.ViewModels;
 
@@ -112,13 +113,15 @@ public abstract partial class ContainerNodeViewModel
         string key,
         string value,
         bool enabled,
-        out int index)
+        out int index,
+        bool isInheritable = true)
     {
         var model = new KeyValueItem
         {
             Key = key,
             Value = value,
-            IsEnabled = enabled && !string.IsNullOrWhiteSpace(key)
+            IsEnabled = enabled && !string.IsNullOrWhiteSpace(key),
+            IsInheritable = isInheritable && !string.IsNullOrWhiteSpace(key)
         };
         var vm = CreateHeaderVm(model);
         index = GetInsertBeforeSpareIndex(Headers);
@@ -147,7 +150,8 @@ public abstract partial class ContainerNodeViewModel
             {
                 Key = row.Key ?? string.Empty,
                 Value = row.Value ?? string.Empty,
-                IsEnabled = row.IsEnabled && !string.IsNullOrWhiteSpace(row.Key)
+                IsEnabled = row.IsEnabled && !string.IsNullOrWhiteSpace(row.Key),
+                IsInheritable = row.IsInheritable && !string.IsNullOrWhiteSpace(row.Key)
             };
             var vm = CreateHeaderVm(model);
             var index = GetInsertBeforeSpareIndex(Headers);
@@ -207,6 +211,11 @@ public abstract partial class ContainerNodeViewModel
 
                 var key = header.Key.Trim();
                 if (!seenKeys.Add(key))
+                {
+                    continue;
+                }
+
+                if (!InheritedGridPreferences.IsEffectivelyInheritable(header.IsInheritable))
                 {
                     continue;
                 }
@@ -305,6 +314,7 @@ public abstract partial class ContainerNodeViewModel
             KeyValueField.IsEnabled => $"Toggle header '{item.Key}'",
             KeyValueField.Key => "Edit header key",
             KeyValueField.Value => "Edit header value",
+            KeyValueField.IsInheritable => $"Toggle inherit '{item.Key}'",
             _ => "Edit header"
         };
 
@@ -374,6 +384,7 @@ public abstract partial class ContainerNodeViewModel
         if (e.PropertyName is nameof(KeyValueItemViewModel.Key)
             or nameof(KeyValueItemViewModel.Value)
             or nameof(KeyValueItemViewModel.IsEnabled)
+            or nameof(KeyValueItemViewModel.IsInheritable)
             or nameof(KeyValueItemViewModel.HasKey))
         {
             RefreshHeaderPresentation();

@@ -14,4 +14,11 @@ public sealed class KeyValueItem
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsSecret { get; set; }
+
+    /// <summary>
+    /// When false on a collection/folder definition, inheritance stops here for this name
+    /// (descendants get neither this value nor a farther ancestor's). Default true.
+    /// Disabled rows still fall through; this is a chain break, not a skip.
+    /// </summary>
+    public bool IsInheritable { get; set; } = true;
 }

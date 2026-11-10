@@ -195,7 +195,19 @@
 
         <TabControl Grid.Row="3"
                     SelectedIndex="{Binding DataContext.SelectedRequestTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}">
-            <TabItem Header="Description">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Description" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE81E;"
+                                   Margin="6,0,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding HasDefinedDescription, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </TabItem.Header>
                 <TextBox Margin="8"
                          AcceptsReturn="True"
                          AcceptsTab="True"
@@ -207,7 +219,19 @@
                          FontSize="13"
                          Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
             </TabItem>
-            <TabItem Header="Body">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Body" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE81E;"
+                                   Margin="6,0,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding HasDefinedBody, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </TabItem.Header>
                 <DockPanel Margin="8">
                     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBlock DockPanel.Dock="Left"
@@ -235,7 +259,19 @@
                 </DockPanel>
             </TabItem>
 
-            <TabItem Header="Params">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Params" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE81E;"
+                                   Margin="6,0,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding HasDefinedParams, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </TabItem.Header>
                 <DataGrid Style="{StaticResource KeyValueGrid}"
                           Margin="8"
                           ItemsSource="{Binding Params}">
@@ -280,7 +316,20 @@
                 </DataGrid>
             </TabItem>
 
-            <TabItem Header="Headers">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Headers" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE81E;"
+                                   Margin="6,0,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   ToolTip="{Binding HeadersTooltip}"
+                                   Visibility="{Binding HasDefinedHeaders, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </TabItem.Header>
                 <DockPanel Margin="8">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -420,7 +469,19 @@
                 </DockPanel>
             </TabItem>
 
-            <TabItem Header="Auth">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Auth" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE81E;"
+                                   Margin="6,0,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding HasDefinedAuth, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </TabItem.Header>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="12" MaxWidth="520" HorizontalAlignment="Left">
                         <TextBlock Margin="0,0,0,6" FontWeight="SemiBold" Text="Type" />

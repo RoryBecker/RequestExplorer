@@ -67,4 +67,6 @@ public sealed class KeyValueItemSnapshot
     public string Value { get; set; } = string.Empty;
 
     public bool IsSecret { get; set; }
+
+    public bool IsInheritable { get; set; } = true;
 }

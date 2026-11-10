@@ -903,7 +903,8 @@ public static class DirtyUndoMapper
             IsEnabled = item.IsEnabled,
             Key = item.Key ?? string.Empty,
             Value = item.Value ?? string.Empty,
-            IsSecret = item.IsSecret
+            IsSecret = item.IsSecret,
+            IsInheritable = item.IsInheritable
         };
 
     private static List<Guid>? ToNodeIds(IReadOnlyList<TreeNodeViewModel>? nodes)

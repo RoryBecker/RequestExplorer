@@ -196,7 +196,8 @@ public sealed class DirtyUndoBindContext
             IsEnabled = snapshot.IsEnabled,
             Key = snapshot.Key,
             Value = snapshot.Value,
-            IsSecret = snapshot.IsSecret
+            IsSecret = snapshot.IsSecret,
+            IsInheritable = snapshot.IsInheritable
         };
 
     private static Guid? TryGetId(TreeNodeViewModel node) =>

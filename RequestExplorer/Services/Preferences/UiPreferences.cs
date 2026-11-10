@@ -113,6 +113,12 @@ public sealed class UiPreferences
     /// </summary>
     public bool EnableDirtySave { get; set; }
 
+    /// <summary>
+    /// Experimental. When true, collection/folder Variables and Headers show an Inherit
+    /// checkbox that can break the inheritance chain for that name.
+    /// </summary>
+    public bool EnableInheritBreakControl { get; set; }
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

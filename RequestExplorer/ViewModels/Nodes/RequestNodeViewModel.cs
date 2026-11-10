@@ -71,6 +71,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
         EnsureParamSpareRow();
         EnsureHeaderSpareRow();
+        RefreshDefinedHeadersGlyph();
 
         // Prefer explicit params → URL; otherwise hydrate params from a query in the address.
         if (Params.Any(p => !string.IsNullOrWhiteSpace(p.Key)))
@@ -82,6 +83,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             SyncParamsFromAddress(Address);
         }
 
+        RefreshDefinedParamsGlyph();
         _trackDirty = true;
 
         Params.CollectionChanged += OnParamsCollectionChanged;
@@ -94,7 +96,10 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             }
         };
         InheritedGridPreferences.Changed += () =>
+        {
             OnPropertyChanged(nameof(ShowInheritedHeadersGrid));
+            RefreshInheritedHeaders();
+        };
         LastResponse.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(ResponseViewModel.CanCopyExpectationsFromLastRun)
@@ -128,10 +133,33 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     public ObservableCollection<InheritedHeaderRow> InheritedHeaders { get; } = [];
 
     [ObservableProperty]
+    private bool _hasDefinedParams;
+
+    [ObservableProperty]
+    private bool _hasDefinedHeaders;
+
+    [ObservableProperty]
     private bool _hasInheritedHeaders;
+
+    [ObservableProperty]
+    private string _headersTooltip = string.Empty;
 
     public bool ShowInheritedHeadersGrid =>
         HasInheritedHeaders || InheritedGridPreferences.ShowEmptyInheritedGrids;
+
+    public bool HasDefinedDescription => !string.IsNullOrWhiteSpace(Description);
+
+    /// <summary>
+    /// True when body differs from the default empty body with Content-Type application/json.
+    /// </summary>
+    public bool HasDefinedBody =>
+        !string.IsNullOrWhiteSpace(BodyContent)
+        || !string.Equals(
+            BodyContentType?.Trim(),
+            "application/json",
+            StringComparison.OrdinalIgnoreCase);
+
+    public bool HasDefinedAuth => AuthType != AuthType.None;
 
     /// <summary>
     /// Most recent send/diagnosis result for this request in the current session only.
@@ -150,6 +178,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     [NotifyPropertyChangedFor(nameof(IsAuthBearer))]
     [NotifyPropertyChangedFor(nameof(IsAuthBasic))]
     [NotifyPropertyChangedFor(nameof(IsAuthApiKey))]
+    [NotifyPropertyChangedFor(nameof(HasDefinedAuth))]
     private AuthType _authType;
 
     [ObservableProperty]
@@ -171,9 +200,11 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     private ApiKeyLocation _apiKeyLocation;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDefinedBody))]
     private string _bodyContent;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDefinedBody))]
     private string _bodyContentType;
 
     [ObservableProperty]
@@ -198,6 +229,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     private bool _optOutOfAutoRun;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDefinedDescription))]
     private string _description = string.Empty;
 
     public bool IsAuthNone => AuthType == AuthType.None;
@@ -1134,6 +1166,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
         EnsureParamSpareRow();
         RecordFieldUndo(KeyValueListKind.Params, item, field, oldValue, newValue);
+        RefreshDefinedParamsGlyph();
     }
 
     private void OnHeaderFieldChanged(
@@ -1145,7 +1178,56 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         MarkDirty();
         EnsureHeaderSpareRow();
         RecordFieldUndo(KeyValueListKind.Headers, item, field, oldValue, newValue);
+        RefreshDefinedHeadersGlyph();
         RefreshInheritedHeaders();
+    }
+
+    private void RefreshDefinedParamsGlyph()
+    {
+        HasDefinedParams = Params.Any(p => p.IsEnabled && p.HasKey);
+    }
+
+    private void RefreshDefinedHeadersGlyph()
+    {
+        var defined = Headers
+            .Where(h => h.IsEnabled && h.HasKey)
+            .OrderBy(h => h.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        HasDefinedHeaders = defined.Count > 0;
+
+        if (defined.Count == 0)
+        {
+            HeadersTooltip = string.Empty;
+            return;
+        }
+
+        const int tooltipMaxLines = 20;
+        const int tooltipValueMaxChars = 64;
+        var sb = new StringBuilder();
+        var lines = 0;
+        foreach (var item in defined)
+        {
+            if (lines >= tooltipMaxLines)
+            {
+                sb.AppendLine("…");
+                break;
+            }
+
+            var value = item.Value ?? string.Empty;
+            if (value.Length > tooltipValueMaxChars)
+            {
+                value = value[..tooltipValueMaxChars] + "…";
+            }
+
+            sb.Append(item.Key.Trim());
+            sb.Append(": ");
+            sb.Append(value);
+            sb.AppendLine();
+            lines++;
+        }
+
+        HeadersTooltip = sb.ToString().TrimEnd();
     }
 
     public void RefreshInheritedHeaders()
@@ -1175,6 +1257,11 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
                 var key = header.Key.Trim();
                 if (!seenKeys.Add(key))
+                {
+                    continue;
+                }
+
+                if (!InheritedGridPreferences.IsEffectivelyInheritable(header.IsInheritable))
                 {
                     continue;
                 }
@@ -1284,6 +1371,8 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         {
             _syncingUrlAndParams = false;
         }
+
+        RefreshDefinedParamsGlyph();
     }
 
     private bool ParamsMatchQueryPairs(IReadOnlyList<(string Key, string Value)> pairs)
@@ -1563,6 +1652,8 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             EnsureParamSpareRow();
             SyncAddressFromParams();
         }
+
+        RefreshDefinedParamsGlyph();
     }
 
     private void OnHeadersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -1574,6 +1665,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             EnsureHeaderSpareRow();
         }
 
+        RefreshDefinedHeadersGlyph();
         RefreshInheritedHeaders();
     }
 

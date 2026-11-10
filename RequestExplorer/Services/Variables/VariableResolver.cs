@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using RequestExplorer.Models;
 using RequestExplorer.Services.Headers;
+using RequestExplorer.Services.Preferences;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
@@ -507,9 +508,23 @@ public static partial class VariableResolver
             {
                 if (node is ContainerNodeViewModel container)
                 {
+                    var isOrigin = _includeOrigin && ReferenceEquals(node, _origin);
                     foreach (var item in container.Variables)
                     {
                         if (!item.IsEnabled || string.IsNullOrWhiteSpace(item.Key))
+                        {
+                            continue;
+                        }
+
+                        var key = item.Key.Trim();
+                        if (!seen.Add(key))
+                        {
+                            continue;
+                        }
+
+                        // Non-inheritable definitions seal the name for descendants.
+                        if (!isOrigin
+                            && !InheritedGridPreferences.IsEffectivelyInheritable(item.IsInheritable))
                         {
                             continue;
                         }
@@ -519,11 +534,7 @@ public static partial class VariableResolver
                             continue;
                         }
 
-                        var key = item.Key.Trim();
-                        if (seen.Add(key))
-                        {
-                            keys.Add(key);
-                        }
+                        keys.Add(key);
                     }
                 }
 
@@ -590,6 +601,7 @@ public static partial class VariableResolver
             {
                 if (node is ContainerNodeViewModel container)
                 {
+                    var isOrigin = _includeOrigin && ReferenceEquals(node, _origin);
                     foreach (var item in container.Variables)
                     {
                         if (!item.IsEnabled || string.IsNullOrWhiteSpace(item.Key))
@@ -600,6 +612,13 @@ public static partial class VariableResolver
                         if (!string.Equals(item.Key.Trim(), name, StringComparison.OrdinalIgnoreCase))
                         {
                             continue;
+                        }
+
+                        // Inherit off = chain break for descendants (origin still uses its own value).
+                        if (!isOrigin
+                            && !InheritedGridPreferences.IsEffectivelyInheritable(item.IsInheritable))
+                        {
+                            return null;
                         }
 
                         if (!_includeSecretValues && item.IsSecret)

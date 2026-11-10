@@ -86,6 +86,7 @@ public static class HeaderScopeMove
         var key = item.Key.Trim();
         var value = item.Value ?? string.Empty;
         var enabled = item.IsEnabled;
+        var isInheritable = item.IsInheritable;
         var sourceIndex = source.IndexOfHeader(item);
         if (sourceIndex < 0)
         {
@@ -102,9 +103,11 @@ public static class HeaderScopeMove
 
             var oldValue = existing.Value ?? string.Empty;
             var oldEnabled = existing.IsEnabled;
+            var oldInheritable = existing.IsInheritable;
             source.RemoveHeaderRow(item);
             target.ApplyHeaderField(existing, KeyValueField.Value, value);
             target.ApplyHeaderField(existing, KeyValueField.IsEnabled, enabled && existing.HasKey);
+            target.ApplyHeaderField(existing, KeyValueField.IsInheritable, isInheritable || !existing.HasKey);
 
             RecordUndo(
                 undoRecorder,
@@ -112,6 +115,7 @@ public static class HeaderScopeMove
                 [
                     new SetHeaderFieldAction(target, existing, KeyValueField.Value, oldValue, "Restore header value"),
                     new SetHeaderFieldAction(target, existing, KeyValueField.IsEnabled, oldEnabled, "Restore header enabled"),
+                    new SetHeaderFieldAction(target, existing, KeyValueField.IsInheritable, oldInheritable, "Restore header inherit"),
                     new InsertHeaderRowAction(source, item, sourceIndex, "Restore header")
                 ]);
             source.RefreshHeaderPresentation();
@@ -120,7 +124,7 @@ public static class HeaderScopeMove
         }
 
         source.RemoveHeaderRow(item);
-        var inserted = target.InsertHeaderSnapshot(key, value, enabled, out var insertIndex);
+        var inserted = target.InsertHeaderSnapshot(key, value, enabled, out var insertIndex, isInheritable);
         RecordUndo(
             undoRecorder,
             $"Move header '{key}' to '{target.Name}'",

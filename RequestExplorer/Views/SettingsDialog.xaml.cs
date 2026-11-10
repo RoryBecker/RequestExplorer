@@ -18,6 +18,7 @@ public partial class SettingsDialog : Window
         MouseTreeNavCheck.IsChecked = preferences.EnableMouseTreeNavigation;
         BackupOnStartupCheck.IsChecked = preferences.BackupOnStartup;
         DirtySaveCheck.IsChecked = preferences.EnableDirtySave;
+        InheritBreakCheck.IsChecked = preferences.EnableInheritBreakControl;
         RetentionBox.Text = BackupService.ClampRetention(preferences.BackupRetentionCount).ToString();
         BackupsPathBlock.Text = string.IsNullOrWhiteSpace(backupsDirectory)
             ? string.Empty
@@ -40,6 +41,8 @@ public partial class SettingsDialog : Window
     public bool BackupOnStartup => BackupOnStartupCheck.IsChecked == true;
 
     public bool EnableDirtySave => DirtySaveCheck.IsChecked == true;
+
+    public bool EnableInheritBreakControl => InheritBreakCheck.IsChecked == true;
 
     public int BackupRetentionCount { get; private set; } = BackupService.DefaultRetention;
 

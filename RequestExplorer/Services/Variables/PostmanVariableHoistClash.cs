@@ -168,6 +168,12 @@ public static class PostmanVariableHoistClash
                         continue;
                     }
 
+                    if (!Services.Preferences.InheritedGridPreferences.IsEffectivelyInheritable(
+                            item.IsInheritable))
+                    {
+                        continue;
+                    }
+
                     yield return (key, item.Value ?? string.Empty, container, item.IsSecret);
                 }
             }

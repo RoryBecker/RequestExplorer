@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings"
         Width="460"
-        Height="580"
+        Height="620"
         MinWidth="380"
-        MinHeight="480"
+        MinHeight="520"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource App.PanelBrush}">
@@ -144,6 +144,14 @@
                         <TextBlock Foreground="{DynamicResource App.MutedBrush}"
                                    TextWrapping="Wrap"
                                    Text="When enabled, unsaved collections and undo history can be restored on the next launch. A Dirty Save button appears when you close with unsaved changes." />
+
+                        <CheckBox x:Name="InheritBreakCheck"
+                                  Content="Inherit break control"
+                                  Margin="0,16,0,8" />
+
+                        <TextBlock Foreground="{DynamicResource App.MutedBrush}"
+                                   TextWrapping="Wrap"
+                                   Text="When enabled, collection and folder Variables/Headers show an Inherit checkbox. Unticking Inherit stops that name from flowing to descendants (unlike Disable, which falls through to a farther ancestor)." />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

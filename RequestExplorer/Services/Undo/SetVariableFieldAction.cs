@@ -46,7 +46,8 @@ public sealed class SetVariableFieldAction : IUndoAction, ICoalescingUndoAction
         && ReferenceEquals(_item, other._item)
         && _field == other._field
         && _field is not KeyValueField.IsEnabled
-        && _field is not KeyValueField.IsSecret;
+        && _field is not KeyValueField.IsSecret
+        && _field is not KeyValueField.IsInheritable;
 
     public IUndoAction Execute(IUndoContext context)
     {

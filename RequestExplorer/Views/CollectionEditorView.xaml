@@ -1,4 +1,5 @@
 <UserControl x:Class="RequestExplorer.Views.CollectionEditorView"
+             x:Name="Root"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:gridHelpers="clr-namespace:RequestExplorer.Views.GridHelpers"
@@ -116,7 +117,19 @@
         <TabControl Grid.Row="3"
                     Margin="0,0,0,12"
                     SelectedIndex="{Binding DataContext.SelectedCollectionTabIndex, RelativeSource={RelativeSource AncestorType=Window}, Mode=TwoWay}">
-            <TabItem Header="Description">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Description" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE81E;"
+                                   Margin="6,0,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding HasDefinedDescription, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </TabItem.Header>
                 <TextBox Margin="8"
                          AcceptsReturn="True"
                          AcceptsTab="True"
@@ -128,7 +141,20 @@
                          FontSize="13"
                          Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
             </TabItem>
-            <TabItem Header="Variables">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Variables" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE81E;"
+                                   Margin="6,0,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   ToolTip="{Binding VariablesTooltip}"
+                                   Visibility="{Binding HasDefinedVariables, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </TabItem.Header>
                 <DockPanel Margin="8">
                     <TextBlock DockPanel.Dock="Top"
                                Margin="0,0,0,8"
@@ -275,6 +301,20 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Inherit"
+                                                            Width="58"
+                                                            SortMemberPath="IsInheritable"
+                                                            Visibility="{Binding DataContext.ShowInheritBreakControl, ElementName=Root, Converter={StaticResource BoolToVis}}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsInheritable, UpdateSourceTrigger=PropertyChanged}"
+                                                          IsEnabled="{Binding HasKey}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          ToolTip="When unchecked, descendants do not inherit this name (and do not fall through to a farther ancestor)." />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTemplateColumn Header=""
                                                             Width="36"
                                                             CanUserSort="False">
@@ -295,7 +335,20 @@
                     </Grid>
                 </DockPanel>
             </TabItem>
-            <TabItem Header="Headers">
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Headers" VerticalAlignment="Center" />
+                        <TextBlock FontFamily="Segoe MDL2 Assets"
+                                   Text="&#xE81E;"
+                                   Margin="6,0,0,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   VerticalAlignment="Center"
+                                   ToolTip="{Binding HeadersTooltip}"
+                                   Visibility="{Binding HasDefinedHeaders, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                </TabItem.Header>
                 <DockPanel Margin="8">
                     <TextBlock DockPanel.Dock="Top"
                                Margin="0,0,0,8"
@@ -415,6 +468,20 @@
                                                         Width="2*"
                                                         ElementStyle="{StaticResource KeyValueCellText}"
                                                         EditingElementStyle="{StaticResource KeyValueCellEdit}" />
+                                    <DataGridTemplateColumn Header="Inherit"
+                                                            Width="58"
+                                                            SortMemberPath="IsInheritable"
+                                                            Visibility="{Binding DataContext.ShowInheritBreakControl, ElementName=Root, Converter={StaticResource BoolToVis}}">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsInheritable, UpdateSourceTrigger=PropertyChanged}"
+                                                          IsEnabled="{Binding HasKey}"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          ToolTip="When unchecked, descendants do not inherit this name (and do not fall through to a farther ancestor)." />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                     <DataGridTemplateColumn Header=""
                                                             Width="36"
                                                             CanUserSort="False">

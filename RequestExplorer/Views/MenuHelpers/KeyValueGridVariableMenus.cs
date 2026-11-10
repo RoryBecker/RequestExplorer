@@ -126,7 +126,7 @@ public static class KeyValueGridVariableMenus
 
         if (listKind == KeyValueListKind.Headers)
         {
-            var headerRoot = new MenuItem { Header = "Move to header on…", Tag = MoveMenuTag };
+            var headerRoot = new MenuItem { Header = "Move up to…", Tag = MoveMenuTag };
             foreach (var target in targets)
             {
                 var captured = target;

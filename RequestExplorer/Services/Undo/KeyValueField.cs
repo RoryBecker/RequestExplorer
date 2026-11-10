@@ -5,5 +5,6 @@ public enum KeyValueField
     IsEnabled,
     Key,
     Value,
-    IsSecret
+    IsSecret,
+    IsInheritable
 }

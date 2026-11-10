@@ -360,6 +360,48 @@ public static partial class VariableResolver
     }
 
     /// <summary>
+    /// True when <paramref name="text"/> contains a <c>{{name}}</c> token for <paramref name="name"/>
+    /// (trimmed, case-insensitive).
+    /// </summary>
+    public static bool ContainsTokenName(string? text, string name)
+    {
+        if (string.IsNullOrEmpty(text) || string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
+        foreach (Match match in TokenRegex().Matches(text))
+        {
+            if (string.Equals(match.Groups[1].Value.Trim(), name, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Rewrites <c>{{oldName}}</c> tokens to <c>{{newName}}</c> (trimmed match, case-insensitive).
+    /// </summary>
+    public static string ReplaceTokenName(string? text, string oldName, string newName)
+    {
+        if (string.IsNullOrEmpty(text) || string.IsNullOrWhiteSpace(oldName))
+        {
+            return text ?? string.Empty;
+        }
+
+        var replacement = "{{" + newName + "}}";
+        return TokenRegex().Replace(text, match =>
+        {
+            var tokenName = match.Groups[1].Value.Trim();
+            return string.Equals(tokenName, oldName, StringComparison.OrdinalIgnoreCase)
+                ? replacement
+                : match.Value;
+        });
+    }
+
+    /// <summary>
     /// URL-encodes a query key/value while leaving <c>{{token}}</c> segments literal
     /// so placeholders stay readable in the address bar and exports.
     /// </summary>

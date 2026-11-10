@@ -19,11 +19,15 @@ public partial class SettingsDialog : Window
         BackupOnStartupCheck.IsChecked = preferences.BackupOnStartup;
         DirtySaveCheck.IsChecked = preferences.EnableDirtySave;
         InheritBreakCheck.IsChecked = preferences.EnableInheritBreakControl;
+        RenameVariableCheck.IsChecked = preferences.EnableRenameVariable;
+        RenameVariableCollectionCheck.IsChecked = preferences.EnableRenameVariableCollection;
+        RenameVariableGlobalCheck.IsChecked = preferences.EnableRenameVariableGlobal;
         RetentionBox.Text = BackupService.ClampRetention(preferences.BackupRetentionCount).ToString();
         BackupsPathBlock.Text = string.IsNullOrWhiteSpace(backupsDirectory)
             ? string.Empty
             : $"Folder:\n{backupsDirectory}";
         UpdateTimeoutEnabled();
+        UpdateRenameVariableSubFeaturesEnabled();
     }
 
     public UiPreferences Preferences { get; }
@@ -44,12 +48,35 @@ public partial class SettingsDialog : Window
 
     public bool EnableInheritBreakControl => InheritBreakCheck.IsChecked == true;
 
+    public bool EnableRenameVariable => RenameVariableCheck.IsChecked == true;
+
+    public bool EnableRenameVariableCollection =>
+        EnableRenameVariable && RenameVariableCollectionCheck.IsChecked == true;
+
+    public bool EnableRenameVariableGlobal =>
+        EnableRenameVariable && RenameVariableGlobalCheck.IsChecked == true;
+
     public int BackupRetentionCount { get; private set; } = BackupService.DefaultRetention;
 
     private void DevModeCheck_OnChanged(object sender, RoutedEventArgs e) => UpdateTimeoutEnabled();
 
+    private void RenameVariableCheck_OnChanged(object sender, RoutedEventArgs e) =>
+        UpdateRenameVariableSubFeaturesEnabled();
+
     private void UpdateTimeoutEnabled() =>
         TimeoutBox.IsEnabled = DevModeCheck.IsChecked != true;
+
+    private void UpdateRenameVariableSubFeaturesEnabled()
+    {
+        var enabled = RenameVariableCheck.IsChecked == true;
+        RenameVariableCollectionCheck.IsEnabled = enabled;
+        RenameVariableGlobalCheck.IsEnabled = enabled;
+        if (!enabled)
+        {
+            RenameVariableCollectionCheck.IsChecked = false;
+            RenameVariableGlobalCheck.IsChecked = false;
+        }
+    }
 
     private void Ok_OnClick(object sender, RoutedEventArgs e)
     {

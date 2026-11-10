@@ -2570,6 +2570,458 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private bool CanInjectUrlVariables() => SelectedNode is RequestNodeViewModel;
 
+    /// <summary>
+    /// Experimental. Renames a variable definition and rewrites <c>{{old}}</c> → <c>{{new}}</c>
+    /// on descendant requests that resolve to that definition.
+    /// </summary>
+    public void RenameVariable(ContainerNodeViewModel container, KeyValueItemViewModel item)
+    {
+        if (container is null || item is null || !item.HasKey || !UiPreferences.EnableRenameVariable)
+        {
+            return;
+        }
+
+        var currentName = item.Key.Trim();
+        var dialog = new Views.NamePromptDialog(
+            "Rename (Folder)",
+            $"New name for '{currentName}' on '{container.Name}' (this definition and its descendant usages):",
+            currentName)
+        {
+            Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                    ?? Application.Current?.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var newName = dialog.ResultName?.Trim() ?? string.Empty;
+        if (!TryValidateRenameVariableName(container, item, currentName, newName, out var status))
+        {
+            if (!string.IsNullOrEmpty(status))
+            {
+                StatusMessage = status;
+            }
+
+            return;
+        }
+
+        if (string.Equals(currentName, newName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var affected = VariableTokenRename.FindRequestsUsingDefinition(container, item, currentName);
+        var undoSteps = new List<IUndoAction>();
+
+        container.ApplyVariableField(item, KeyValueField.Key, newName);
+        undoSteps.Add(new SetVariableFieldAction(
+            container, item, KeyValueField.Key, currentName, "Rename variable"));
+
+        foreach (var request in affected)
+        {
+            AppendTokenRenameUndoSteps(undoSteps, request, currentName, newName);
+        }
+
+        if (undoSteps.Count == 1)
+        {
+            RecordUndo(undoSteps[0]);
+            StatusMessage = $"Renamed variable to '{newName}'";
+            return;
+        }
+
+        RecordUndo(new CompositeUndoAction(
+            $"Rename variable '{currentName}' → '{newName}'",
+            undoSteps,
+            selectAfter: [container],
+            selectAfterInverse: [container]));
+
+        var usageCount = undoSteps.Count - 1;
+        StatusMessage = usageCount == 0
+            ? $"Renamed variable to '{newName}'"
+            : $"Renamed variable to '{newName}' and updated {affected.Count} request(s)";
+    }
+
+    /// <summary>
+    /// Experimental. Renames every matching definition in the collection and rewrites all
+    /// <c>{{old}}</c> usages in that collection.
+    /// </summary>
+    public void RenameVariableCollection(ContainerNodeViewModel container, KeyValueItemViewModel item)
+    {
+        if (container is null
+            || item is null
+            || !item.HasKey
+            || !UiPreferences.EnableRenameVariable
+            || !UiPreferences.EnableRenameVariableCollection)
+        {
+            return;
+        }
+
+        var collection = CollectionTreeMapper.FindRootCollection(container);
+        if (collection is null)
+        {
+            StatusMessage = "Rename cancelled — could not find the collection root.";
+            return;
+        }
+
+        ApplyWideVariableRename(
+            container,
+            item.Key.Trim(),
+            scopeLabel: "Collection",
+            promptDetail: $"everywhere in collection '{collection.Name}'",
+            undoScope: "collection",
+            roots: [collection]);
+    }
+
+    /// <summary>
+    /// Experimental. Renames every matching definition across all open collections and rewrites
+    /// all <c>{{old}}</c> usages in those collections.
+    /// </summary>
+    public void RenameVariableGlobal(ContainerNodeViewModel container, KeyValueItemViewModel item)
+    {
+        if (container is null
+            || item is null
+            || !item.HasKey
+            || !UiPreferences.EnableRenameVariable
+            || !UiPreferences.EnableRenameVariableGlobal)
+        {
+            return;
+        }
+
+        if (Collections.Count == 0)
+        {
+            StatusMessage = "Rename cancelled — no collections are open.";
+            return;
+        }
+
+        ApplyWideVariableRename(
+            container,
+            item.Key.Trim(),
+            scopeLabel: "Global",
+            promptDetail: $"across all {Collections.Count} open collection(s)",
+            undoScope: "global",
+            roots: Collections.ToList());
+    }
+
+    private void ApplyWideVariableRename(
+        ContainerNodeViewModel focusContainer,
+        string currentName,
+        string scopeLabel,
+        string promptDetail,
+        string undoScope,
+        IReadOnlyList<CollectionNodeViewModel> roots)
+    {
+        var dialog = new Views.NamePromptDialog(
+            $"Rename ({scopeLabel})",
+            $"New name for '{currentName}' {promptDetail}:\n"
+            + "(All matching definitions and {{usages}} in scope will change.)",
+            currentName)
+        {
+            Owner = Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                    ?? Application.Current?.MainWindow
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var newName = dialog.ResultName?.Trim() ?? string.Empty;
+        if (!TryValidateRenameVariableNameWide(roots, currentName, newName, out var status))
+        {
+            if (!string.IsNullOrEmpty(status))
+            {
+                StatusMessage = status;
+            }
+
+            return;
+        }
+
+        if (string.Equals(currentName, newName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var definitions = new List<(ContainerNodeViewModel Container, KeyValueItemViewModel Item)>();
+        var requests = new List<RequestNodeViewModel>();
+        foreach (var root in roots)
+        {
+            definitions.AddRange(VariableTokenRename.FindDefinitionsByName(root, currentName));
+            requests.AddRange(VariableTokenRename.FindRequestsReferencingName(root, currentName));
+        }
+
+        var undoSteps = new List<IUndoAction>();
+
+        foreach (var (owner, definition) in definitions)
+        {
+            var previousKey = definition.Key;
+            owner.ApplyVariableField(definition, KeyValueField.Key, newName);
+            undoSteps.Add(new SetVariableFieldAction(
+                owner, definition, KeyValueField.Key, previousKey, $"Rename variable ({undoScope})"));
+        }
+
+        foreach (var request in requests)
+        {
+            AppendTokenRenameUndoSteps(undoSteps, request, currentName, newName);
+        }
+
+        foreach (var root in roots)
+        {
+            foreach (var owner in VariableTokenRename.EnumerateContainers(root))
+            {
+                AppendContainerTokenRenameUndoSteps(undoSteps, owner, currentName, newName);
+            }
+        }
+
+        if (undoSteps.Count == 0)
+        {
+            return;
+        }
+
+        if (undoSteps.Count == 1)
+        {
+            RecordUndo(undoSteps[0]);
+        }
+        else
+        {
+            RecordUndo(new CompositeUndoAction(
+                $"Rename variable '{currentName}' → '{newName}' ({undoScope})",
+                undoSteps,
+                selectAfter: [focusContainer],
+                selectAfterInverse: [focusContainer]));
+        }
+
+        StatusMessage =
+            $"Renamed '{currentName}' → '{newName}' ({scopeLabel.ToLowerInvariant()}) "
+            + $"({definitions.Count} definition(s), {requests.Count} request(s))";
+    }
+
+    private static bool TryValidateRenameVariableNameWide(
+        IReadOnlyList<CollectionNodeViewModel> roots,
+        string currentName,
+        string newName,
+        out string status)
+    {
+        status = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            status = "Rename cancelled — name cannot be empty.";
+            return false;
+        }
+
+        if (newName.Contains("{{", StringComparison.Ordinal)
+            || newName.Contains("}}", StringComparison.Ordinal))
+        {
+            status = "Rename cancelled — name cannot contain {{ or }}.";
+            return false;
+        }
+
+        if (string.Equals(currentName, newName, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        foreach (var root in roots)
+        {
+            foreach (var owner in VariableTokenRename.EnumerateContainers(root))
+            {
+                var clash = owner.FindVariableByKey(newName);
+                if (clash is null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(clash.Key.Trim(), currentName, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                status =
+                    $"Rename cancelled — '{newName}' already exists on '{owner.Name}' "
+                    + "and is not part of this rename.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void AppendContainerTokenRenameUndoSteps(
+        List<IUndoAction> undoSteps,
+        ContainerNodeViewModel container,
+        string oldName,
+        string newName)
+    {
+        foreach (var variable in container.Variables.ToList())
+        {
+            // Definition keys are renamed separately; only nested tokens in values here.
+            var previous = variable.Value ?? string.Empty;
+            var updated = VariableResolver.ReplaceTokenName(previous, oldName, newName);
+            if (string.Equals(updated, previous, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            container.ApplyVariableField(variable, KeyValueField.Value, updated);
+            undoSteps.Add(new SetVariableFieldAction(
+                container, variable, KeyValueField.Value, previous, "Rename variable in value"));
+        }
+
+        foreach (var header in container.Headers.ToList())
+        {
+            var prevKey = header.Key ?? string.Empty;
+            var nextKey = VariableResolver.ReplaceTokenName(prevKey, oldName, newName);
+            if (!string.Equals(nextKey, prevKey, StringComparison.Ordinal))
+            {
+                container.ApplyHeaderField(header, KeyValueField.Key, nextKey);
+                undoSteps.Add(new SetHeaderFieldAction(
+                    container, header, KeyValueField.Key, prevKey, "Rename variable in header"));
+            }
+
+            var prevValue = header.Value ?? string.Empty;
+            var nextValue = VariableResolver.ReplaceTokenName(prevValue, oldName, newName);
+            if (!string.Equals(nextValue, prevValue, StringComparison.Ordinal))
+            {
+                container.ApplyHeaderField(header, KeyValueField.Value, nextValue);
+                undoSteps.Add(new SetHeaderFieldAction(
+                    container, header, KeyValueField.Value, prevValue, "Rename variable in header"));
+            }
+        }
+    }
+
+    private static bool TryValidateRenameVariableName(
+        ContainerNodeViewModel container,
+        KeyValueItemViewModel item,
+        string currentName,
+        string newName,
+        out string status)
+    {
+        status = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            status = "Rename cancelled — name cannot be empty.";
+            return false;
+        }
+
+        if (newName.Contains("{{", StringComparison.Ordinal)
+            || newName.Contains("}}", StringComparison.Ordinal))
+        {
+            status = "Rename cancelled — name cannot contain {{ or }}.";
+            return false;
+        }
+
+        if (string.Equals(currentName, newName, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var existing = container.FindVariableByKey(newName);
+        if (existing is not null && !ReferenceEquals(existing, item))
+        {
+            status = $"Rename cancelled — '{newName}' already exists on '{container.Name}'.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static void AppendTokenRenameUndoSteps(
+        List<IUndoAction> undoSteps,
+        RequestNodeViewModel request,
+        string oldName,
+        string newName)
+    {
+        void TryAddress()
+        {
+            var previous = request.Address ?? string.Empty;
+            var updated = VariableResolver.ReplaceTokenName(previous, oldName, newName);
+            if (string.Equals(updated, previous, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            request.ApplyAddress(updated);
+            undoSteps.Add(new SetRequestAddressAction(request, previous, "Rename variable in URL"));
+        }
+
+        void TryBody(RequestBodyField field)
+        {
+            var previous = request.GetBodyField(field);
+            var updated = VariableResolver.ReplaceTokenName(previous, oldName, newName);
+            if (string.Equals(updated, previous ?? string.Empty, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            // Preserve null Content-Type when result is empty after replace of a null field.
+            var store = field == RequestBodyField.ContentType && string.IsNullOrWhiteSpace(updated)
+                ? null
+                : updated;
+            request.ApplyBodyField(field, store);
+            undoSteps.Add(new SetRequestBodyFieldAction(request, field, previous, "Rename variable in body"));
+        }
+
+        void TryEditor(RequestEditorField field)
+        {
+            var previous = request.GetEditorField(field) as string ?? string.Empty;
+            var updated = VariableResolver.ReplaceTokenName(previous, oldName, newName);
+            if (string.Equals(updated, previous, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            request.ApplyEditorField(field, updated);
+            undoSteps.Add(new SetRequestEditorFieldAction(
+                request, field, previous, "Rename variable in auth"));
+        }
+
+        void TryKeyValue(KeyValueListKind listKind, KeyValueItemViewModel row, KeyValueField field)
+        {
+            var previous = row.GetField(field) as string ?? string.Empty;
+            var updated = VariableResolver.ReplaceTokenName(previous, oldName, newName);
+            if (string.Equals(updated, previous, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            request.ApplyKeyValueField(listKind, row, field, updated);
+            undoSteps.Add(new SetKeyValueFieldAction(
+                request,
+                listKind,
+                row,
+                field,
+                previous,
+                listKind == KeyValueListKind.Params
+                    ? "Rename variable in param"
+                    : "Rename variable in header"));
+        }
+
+        TryAddress();
+        TryBody(RequestBodyField.Content);
+        TryBody(RequestBodyField.ContentType);
+        TryEditor(RequestEditorField.BearerToken);
+        TryEditor(RequestEditorField.BasicUsername);
+        TryEditor(RequestEditorField.BasicPassword);
+        TryEditor(RequestEditorField.ApiKeyName);
+        TryEditor(RequestEditorField.ApiKeyValue);
+
+        foreach (var header in request.Headers.ToList())
+        {
+            TryKeyValue(KeyValueListKind.Headers, header, KeyValueField.Key);
+            TryKeyValue(KeyValueListKind.Headers, header, KeyValueField.Value);
+        }
+
+        // Params usually follow ApplyAddress → SyncParamsFromAddress; patch any leftover tokens.
+        foreach (var param in request.Params.ToList())
+        {
+            TryKeyValue(KeyValueListKind.Params, param, KeyValueField.Key);
+            TryKeyValue(KeyValueListKind.Params, param, KeyValueField.Value);
+        }
+    }
+
     public void ApplyVariableToUrls(ContainerNodeViewModel context, KeyValueItemViewModel definition)
     {
         if (context is null || definition is null || !definition.IsEnabled || !definition.HasKey)
@@ -3893,6 +4345,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         UiPreferences.BackupOnStartup = dialog.BackupOnStartup;
         UiPreferences.EnableDirtySave = dialog.EnableDirtySave;
         UiPreferences.EnableInheritBreakControl = dialog.EnableInheritBreakControl;
+        UiPreferences.EnableRenameVariable = dialog.EnableRenameVariable;
+        UiPreferences.EnableRenameVariableCollection = dialog.EnableRenameVariableCollection;
+        UiPreferences.EnableRenameVariableGlobal = dialog.EnableRenameVariableGlobal;
         UiPreferences.BackupRetentionCount =
             BackupService.ClampRetention(dialog.BackupRetentionCount);
         UiPreferences.VariableNestingMaxDepth =

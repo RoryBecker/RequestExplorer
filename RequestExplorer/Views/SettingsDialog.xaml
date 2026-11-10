@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Settings"
         Width="460"
-        Height="620"
+        Height="820"
         MinWidth="380"
-        MinHeight="520"
+        MinHeight="640"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource App.PanelBrush}">
@@ -152,6 +152,34 @@
                         <TextBlock Foreground="{DynamicResource App.MutedBrush}"
                                    TextWrapping="Wrap"
                                    Text="When enabled, collection and folder Variables/Headers show an Inherit checkbox. Unticking Inherit stops that name from flowing to descendants (unlike Disable, which falls through to a farther ancestor)." />
+
+                        <CheckBox x:Name="RenameVariableCheck"
+                                  Content="Rename Variable"
+                                  Margin="0,16,0,8"
+                                  Checked="RenameVariableCheck_OnChanged"
+                                  Unchecked="RenameVariableCheck_OnChanged" />
+
+                        <TextBlock Foreground="{DynamicResource App.MutedBrush}"
+                                   TextWrapping="Wrap"
+                                   Text="When enabled, right-click a variable for Rename (Folder)… (this definition and descendant request usages that resolve to it). Escape or an invalid name cancels." />
+
+                        <CheckBox x:Name="RenameVariableCollectionCheck"
+                                  Content="Rename Variable (Collection)"
+                                  Margin="24,12,0,8" />
+
+                        <TextBlock Margin="24,0,0,0"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   TextWrapping="Wrap"
+                                   Text="Adds Rename (Collection)… — every matching definition and &#123;&#123;name&#125;&#125; usage in this collection. Use carefully when the same name means different things on different branches." />
+
+                        <CheckBox x:Name="RenameVariableGlobalCheck"
+                                  Content="Rename Variable (Global)"
+                                  Margin="24,12,0,8" />
+
+                        <TextBlock Margin="24,0,0,0"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   TextWrapping="Wrap"
+                                   Text="Adds Rename (Global)… — same as Collection, but across every open collection in the workspace." />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

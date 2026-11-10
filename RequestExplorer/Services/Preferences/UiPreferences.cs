@@ -119,6 +119,23 @@ public sealed class UiPreferences
     /// </summary>
     public bool EnableInheritBreakControl { get; set; }
 
+    /// <summary>
+    /// Experimental. When true, Variables grids offer Rename (Folder)… on the context menu.
+    /// </summary>
+    public bool EnableRenameVariable { get; set; }
+
+    /// <summary>
+    /// Experimental sub-feature of Rename Variable. When true, also offers Rename (Collection)…
+    /// which renames the name across the whole collection.
+    /// </summary>
+    public bool EnableRenameVariableCollection { get; set; }
+
+    /// <summary>
+    /// Experimental sub-feature of Rename Variable. When true, also offers Rename (Global)…
+    /// which renames the name across every open collection.
+    /// </summary>
+    public bool EnableRenameVariableGlobal { get; set; }
+
     public static bool DefaultQuickExportWrap(string? formatName) =>
         string.Equals(formatName, "CurlWindows", StringComparison.OrdinalIgnoreCase);
 

@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
 using RequestExplorer.Services.KeyValue;
+using RequestExplorer.Services.Preferences;
 using RequestExplorer.Services.Undo;
 using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
@@ -85,6 +86,15 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
         Params.CollectionChanged += OnParamsCollectionChanged;
         Headers.CollectionChanged += OnHeadersCollectionChanged;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(Parent))
+            {
+                RefreshInheritedHeaders();
+            }
+        };
+        InheritedGridPreferences.Changed += () =>
+            OnPropertyChanged(nameof(ShowInheritedHeadersGrid));
         LastResponse.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(ResponseViewModel.CanCopyExpectationsFromLastRun)
@@ -114,6 +124,14 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     public ObservableCollection<KeyValueItemViewModel> Params { get; } = [];
     public ObservableCollection<KeyValueItemViewModel> Headers { get; } = [];
+
+    public ObservableCollection<InheritedHeaderRow> InheritedHeaders { get; } = [];
+
+    [ObservableProperty]
+    private bool _hasInheritedHeaders;
+
+    public bool ShowInheritedHeadersGrid =>
+        HasInheritedHeaders || InheritedGridPreferences.ShowEmptyInheritedGrids;
 
     /// <summary>
     /// Most recent send/diagnosis result for this request in the current session only.
@@ -916,6 +934,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         MarkDirty();
         EnsureHeaderSpareRow();
         RecordRowRemoveUndo(KeyValueListKind.Headers, item, index, $"Remove header '{item.Key}'");
+        RefreshInheritedHeaders();
     }
 
     public void ApplyKeyValueField(
@@ -1126,6 +1145,56 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         MarkDirty();
         EnsureHeaderSpareRow();
         RecordFieldUndo(KeyValueListKind.Headers, item, field, oldValue, newValue);
+        RefreshInheritedHeaders();
+    }
+
+    public void RefreshInheritedHeaders()
+    {
+        InheritedHeaders.Clear();
+
+        var localKeys = new HashSet<string>(
+            Headers.Where(h => h.IsEnabled && h.HasKey).Select(h => h.Key.Trim()),
+            StringComparer.OrdinalIgnoreCase);
+
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var rows = new List<InheritedHeaderRow>();
+
+        for (var node = Parent; node is not null; node = node.Parent)
+        {
+            if (node is not ContainerNodeViewModel ancestor)
+            {
+                continue;
+            }
+
+            foreach (var header in ancestor.Headers)
+            {
+                if (!header.IsEnabled || !header.HasKey)
+                {
+                    continue;
+                }
+
+                var key = header.Key.Trim();
+                if (!seenKeys.Add(key))
+                {
+                    continue;
+                }
+
+                rows.Add(new InheritedHeaderRow(
+                    key,
+                    ancestor.Name,
+                    localKeys.Contains(key),
+                    ancestor,
+                    header));
+            }
+        }
+
+        foreach (var row in rows)
+        {
+            InheritedHeaders.Add(row);
+        }
+
+        HasInheritedHeaders = InheritedHeaders.Count > 0;
+        OnPropertyChanged(nameof(ShowInheritedHeadersGrid));
     }
 
     private void RecordFieldUndo(
@@ -1504,6 +1573,8 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             MarkDirty();
             EnsureHeaderSpareRow();
         }
+
+        RefreshInheritedHeaders();
     }
 
     private static void SyncList(List<KeyValueItem> modelList, ObservableCollection<KeyValueItemViewModel> viewModels)

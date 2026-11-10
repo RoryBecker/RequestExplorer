@@ -67,6 +67,14 @@
                                    TextWrapping="Wrap"
                                    Text="When a variable's value contains {{name}}, lookup restarts at the request and walks up the tree. Default is 10 (1–50). Deeper chains abort and show in Diagnose." />
 
+                        <CheckBox x:Name="ShowEmptyInheritedGridsCheck"
+                                  Content="Show empty Inherited Variables and Headers grids"
+                                  Margin="0,16,0,4" />
+
+                        <TextBlock Foreground="{DynamicResource App.MutedBrush}"
+                                   TextWrapping="Wrap"
+                                   Text="When off (default), Inherited panels hide until a parent defines at least one row." />
+
                         <Separator Margin="0,16,0,12" />
 
                         <TextBlock Text="Navigation"

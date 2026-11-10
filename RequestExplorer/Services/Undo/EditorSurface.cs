@@ -8,5 +8,7 @@ public enum EditorSurface
     Body,
     Headers,
     Auth,
-    Variables
+    Variables,
+    /// <summary>Headers tab on a collection or folder editor.</summary>
+    ContainerHeaders
 }

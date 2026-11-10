@@ -87,6 +87,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _treeFilterIncludeAncestors = UiPreferences.TreeFilterIncludeAncestors;
         _treeFilterIncludeName = UiPreferences.TreeFilterIncludeName;
         _treeFilterIncludeUrl = UiPreferences.TreeFilterIncludeUrl;
+        _showEmptyInheritedGrids = UiPreferences.ShowEmptyInheritedGrids;
+        InheritedGridPreferences.ShowEmptyInheritedGrids = _showEmptyInheritedGrids;
         EnsureValidTreeSearchScope();
         SyncTreeSearchScope();
         ApplyHttpTimeoutSettings();
@@ -441,11 +443,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
     [ObservableProperty]
     private int _selectedRequestTabIndex;
 
-    /// <summary>0=Description, 1=Variables on the collection editor.</summary>
+    /// <summary>0=Description, 1=Variables, 2=Headers on the collection editor.</summary>
     [ObservableProperty]
     private int _selectedCollectionTabIndex;
 
-    /// <summary>0=Description, 1=Variables on the folder editor.</summary>
+    /// <summary>0=Description, 1=Variables, 2=Headers on the folder editor.</summary>
     [ObservableProperty]
     private int _selectedFolderTabIndex;
 
@@ -454,6 +456,10 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     [ObservableProperty]
     private bool _isQuickExportVisible;
+
+    /// <summary>When true, Inherited Variables/Headers panels stay visible with no rows.</summary>
+    [ObservableProperty]
+    private bool _showEmptyInheritedGrids;
 
     [ObservableProperty]
     private bool _isDarkMode;
@@ -619,6 +625,11 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         if (newValue is ContainerNodeViewModel container)
         {
             container.RefreshInheritedVariables();
+            container.RefreshInheritedHeaders();
+        }
+        else if (newValue is RequestNodeViewModel selectedRequest)
+        {
+            selectedRequest.RefreshInheritedHeaders();
         }
 
         CopyNodeCommand.NotifyCanExecuteChanged();
@@ -1457,7 +1468,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         }
 
         if (target.Node is ContainerNodeViewModel container
-            && target.Surface is EditorSurface.Description or EditorSurface.Variables)
+            && target.Surface is EditorSurface.Description
+                or EditorSurface.Variables
+                or EditorSurface.ContainerHeaders)
         {
             return GetContainerTabIndex(container) == ToContainerTabIndex(target.Surface);
         }
@@ -1474,7 +1487,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             SelectedRequestTabIndex = ToTabIndex(target.Surface);
         }
         else if (target.Node is ContainerNodeViewModel container
-                 && target.Surface is EditorSurface.Description or EditorSurface.Variables)
+                 && target.Surface is EditorSurface.Description
+                     or EditorSurface.Variables
+                     or EditorSurface.ContainerHeaders)
         {
             SetContainerTabIndex(container, ToContainerTabIndex(target.Surface));
         }
@@ -1495,6 +1510,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         surface switch
         {
             EditorSurface.Variables => 1,
+            EditorSurface.ContainerHeaders => 2,
             _ => 0
         };
 
@@ -1515,7 +1531,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
     private static int ClampRequestTabIndex(int index) => Math.Clamp(index, 0, 5);
 
-    private static int ClampContainerTabIndex(int index) => Math.Clamp(index, 0, 1);
+    private static int ClampContainerTabIndex(int index) => Math.Clamp(index, 0, 2);
 
     private static string DescribeSurface(EditorSurface surface) =>
         surface switch
@@ -1526,6 +1542,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             EditorSurface.Headers => "Headers",
             EditorSurface.Auth => "Auth",
             EditorSurface.Variables => "Variables",
+            EditorSurface.ContainerHeaders => "Headers",
             _ => "editor"
         };
 
@@ -1641,6 +1658,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         foreach (var collection in Collections)
         {
             WireUndoRecorders(collection);
+            RefreshInheritedPresentation(collection);
         }
     }
 
@@ -1658,6 +1676,25 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         foreach (var child in node.Children)
         {
             WireUndoRecorders(child);
+        }
+    }
+
+    private static void RefreshInheritedPresentation(TreeNodeViewModel node)
+    {
+        switch (node)
+        {
+            case ContainerNodeViewModel container:
+                container.RefreshInheritedVariables();
+                container.RefreshInheritedHeaders();
+                break;
+            case RequestNodeViewModel request:
+                request.RefreshInheritedHeaders();
+                break;
+        }
+
+        foreach (var child in node.Children)
+        {
+            RefreshInheritedPresentation(child);
         }
     }
 
@@ -1957,7 +1994,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
                 CreateKeyValue = (request, listKind, item) =>
                     request.CreateBoundKeyValueItem(listKind, item),
                 CreateVariable = (container, item) =>
-                    container.CreateBoundVariableItem(item)
+                    container.CreateBoundVariableItem(item),
+                CreateHeader = (container, item) =>
+                    container.CreateBoundHeaderItem(item)
             };
 
             if (!DirtyUndoMapper.TryDeserialize(snapshot, context, out var undo, out var redo))
@@ -3855,6 +3894,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             BackupService.ClampRetention(dialog.BackupRetentionCount);
         UiPreferences.VariableNestingMaxDepth =
             VariableResolver.ClampMaxNestingDepth(dialog.VariableNestingMaxDepth);
+        UiPreferences.ShowEmptyInheritedGrids = dialog.ShowEmptyInheritedGrids;
+        ShowEmptyInheritedGrids = dialog.ShowEmptyInheritedGrids;
+        InheritedGridPreferences.ShowEmptyInheritedGrids = dialog.ShowEmptyInheritedGrids;
         ApplyHttpTimeoutSettings();
         ApplyVariableNestingSettings();
         ApplyDirtySaveSetting();

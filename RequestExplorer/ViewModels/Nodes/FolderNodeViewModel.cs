@@ -8,7 +8,7 @@ namespace RequestExplorer.ViewModels.Nodes;
 public sealed partial class FolderNodeViewModel : ContainerNodeViewModel
 {
     public FolderNodeViewModel(FolderDefinition model)
-        : base(model.Name, model.Variables, model.Description)
+        : base(model.Name, model.Variables, model.Headers, model.Description)
     {
         Model = model;
         _optOutOfAutoRun = model.OptOutOfAutoRun;

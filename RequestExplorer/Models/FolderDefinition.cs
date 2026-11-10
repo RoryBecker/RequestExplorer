@@ -15,6 +15,10 @@ public sealed class FolderDefinition
     public bool OptOutOfAutoRun { get; set; }
 
     public List<KeyValueItem> Variables { get; set; } = [];
+
+    /// <summary>Headers inherited by descendant folders and requests (nearest wins).</summary>
+    public List<KeyValueItem> Headers { get; set; } = [];
+
     public List<FolderDefinition> Folders { get; set; } = [];
     public List<RequestDefinition> Requests { get; set; } = [];
 

@@ -1,0 +1,58 @@
+using RequestExplorer.ViewModels;
+using RequestExplorer.ViewModels.Nodes;
+
+namespace RequestExplorer.Services.Undo;
+
+public sealed class SetHeaderFieldAction : IUndoAction, ICoalescingUndoAction
+{
+    private readonly ContainerNodeViewModel _container;
+    private readonly KeyValueItemViewModel _item;
+    private readonly KeyValueField _field;
+    private readonly object? _value;
+
+    public SetHeaderFieldAction(
+        ContainerNodeViewModel container,
+        KeyValueItemViewModel item,
+        KeyValueField field,
+        object? value,
+        string description)
+    {
+        _container = container;
+        _item = item;
+        _field = field;
+        _value = value;
+        Description = description;
+    }
+
+    public ContainerNodeViewModel Container => _container;
+
+    public KeyValueItemViewModel Item => _item;
+
+    public KeyValueField Field => _field;
+
+    public object? Value => _value;
+
+    public string Description { get; }
+
+    public long HistoryId { get; set; }
+
+    public IEnumerable<TreeNodeViewModel> GetAffectedNodes() => [_container];
+
+    public UndoRevealTarget? RevealTarget => new(_container, EditorSurface.ContainerHeaders);
+
+    public bool CanCoalesceWith(IUndoAction incoming) =>
+        incoming is SetHeaderFieldAction other
+        && ReferenceEquals(_container, other._container)
+        && ReferenceEquals(_item, other._item)
+        && _field == other._field
+        && _field is not KeyValueField.IsEnabled
+        && _field is not KeyValueField.IsSecret;
+
+    public IUndoAction Execute(IUndoContext context)
+    {
+        var previous = _item.GetField(_field);
+        _container.ApplyHeaderField(_item, _field, _value);
+        context.Select(_container);
+        return new SetHeaderFieldAction(_container, _item, _field, previous, Description);
+    }
+}

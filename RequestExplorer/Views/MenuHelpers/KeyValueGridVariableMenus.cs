@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using RequestExplorer.Services.Headers;
 using RequestExplorer.Services.Undo;
 using RequestExplorer.Services.Variables;
 using RequestExplorer.ViewModels;
@@ -79,10 +80,17 @@ public static class KeyValueGridVariableMenus
                 return;
             }
 
-            if (grid.DataContext is ContainerNodeViewModel container
-                && ReferenceEquals(UnwrapItemsSource(grid.ItemsSource), container.Variables))
+            if (grid.DataContext is ContainerNodeViewModel container)
             {
-                AddVariableMoveMenus(grid.ContextMenu, container, item);
+                var source = UnwrapItemsSource(grid.ItemsSource);
+                if (ReferenceEquals(source, container.Variables))
+                {
+                    AddVariableMoveMenus(grid.ContextMenu, container, item);
+                }
+                else if (ReferenceEquals(source, container.Headers))
+                {
+                    AddHeaderMoveMenus(grid.ContextMenu, container, item);
+                }
             }
         }
         catch
@@ -115,6 +123,30 @@ public static class KeyValueGridVariableMenus
         }
 
         EnsureSeparator(menu);
+
+        if (listKind == KeyValueListKind.Headers)
+        {
+            var headerRoot = new MenuItem { Header = "Move to header on…", Tag = MoveMenuTag };
+            foreach (var target in targets)
+            {
+                var captured = target;
+                var kindLabel = target is CollectionNodeViewModel ? "collection" : "folder";
+                var entry = new MenuItem { Header = $"{kindLabel} '{target.Name}'" };
+                entry.Click += (_, _) =>
+                {
+                    HeaderScopeMove.TryMoveRequestHeaderToContainer(
+                        request,
+                        item,
+                        captured,
+                        GetUndoRecorder(request),
+                        ConfirmHeaderOverwrite);
+                };
+                headerRoot.Items.Add(entry);
+            }
+
+            menu.Items.Add(headerRoot);
+        }
+
         var root = new MenuItem { Header = "Move to variable on…", Tag = MoveMenuTag };
         foreach (var target in targets)
         {
@@ -135,6 +167,66 @@ public static class KeyValueGridVariableMenus
         }
 
         menu.Items.Add(root);
+    }
+
+    private static void AddHeaderMoveMenus(
+        ContextMenu menu,
+        ContainerNodeViewModel source,
+        KeyValueItemViewModel item)
+    {
+        var up = VariableScopeMove.EnumerateAncestorContainers(source).ToList();
+        var down = VariableScopeMove.EnumerateDirectChildFolders(source).ToList();
+        if (up.Count == 0 && down.Count == 0)
+        {
+            return;
+        }
+
+        EnsureSeparator(menu);
+
+        if (up.Count > 0)
+        {
+            var upRoot = new MenuItem { Header = "Move up to…", Tag = MoveMenuTag };
+            foreach (var target in up)
+            {
+                var captured = target;
+                var kindLabel = target is CollectionNodeViewModel ? "collection" : "folder";
+                var entry = new MenuItem { Header = $"{kindLabel} '{target.Name}'" };
+                entry.Click += (_, _) =>
+                {
+                    HeaderScopeMove.TryMoveHeaderToContainer(
+                        source,
+                        item,
+                        captured,
+                        source.UndoRecorder,
+                        ConfirmHeaderOverwrite);
+                };
+                upRoot.Items.Add(entry);
+            }
+
+            menu.Items.Add(upRoot);
+        }
+
+        if (down.Count > 0)
+        {
+            var downRoot = new MenuItem { Header = "Move down to…", Tag = MoveMenuTag };
+            foreach (var target in down)
+            {
+                var captured = target;
+                var entry = new MenuItem { Header = $"folder '{target.Name}'" };
+                entry.Click += (_, _) =>
+                {
+                    HeaderScopeMove.TryMoveHeaderToContainer(
+                        source,
+                        item,
+                        captured,
+                        source.UndoRecorder,
+                        ConfirmHeaderOverwrite);
+                };
+                downRoot.Items.Add(entry);
+            }
+
+            menu.Items.Add(downRoot);
+        }
     }
 
     private static void AddVariableMoveMenus(
@@ -208,6 +300,22 @@ public static class KeyValueGridVariableMenus
         return ConfirmDialog.Confirm(
             Application.Current?.MainWindow,
             "Variable already exists",
+            message,
+            yesText: "Overwrite",
+            noText: "Cancel");
+    }
+
+    private static bool ConfirmHeaderOverwrite(string key, string targetName, string existingValue, string incomingValue)
+    {
+        var message =
+            $"A header named '{key}' already exists on '{targetName}'.\n\n"
+            + $"Current value:\n{FormatValue(existingValue)}\n\n"
+            + $"New value:\n{FormatValue(incomingValue)}\n\n"
+            + "Overwrite the existing header?";
+
+        return ConfirmDialog.Confirm(
+            Application.Current?.MainWindow,
+            "Header already exists",
             message,
             yesText: "Overwrite",
             noText: "Cancel");

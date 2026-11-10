@@ -176,7 +176,7 @@ public static class KeyValueGridClipboard
 
             var canCopyRows = GetCopyableRows(grid).Count > 0;
             var canPaste = CanPasteInto(grid);
-            var canDuplicate = canCopyRows && TryGetPasteTarget(grid, out _, out _, out _);
+            var canDuplicate = canCopyRows && TryGetPasteTarget(grid, out _, out _, out _, out _);
             var canCopyField = TryGetPrimaryNameValue(grid, out _, out _);
             var isInherited = IsInheritedVariablesGrid(grid);
 
@@ -684,7 +684,7 @@ public static class KeyValueGridClipboard
         grid.CommitEdit(DataGridEditingUnit.Cell, true);
         grid.CommitEdit(DataGridEditingUnit.Row, true);
 
-        if (!TryGetPasteTarget(grid, out var request, out var listKind, out var container))
+        if (!TryGetPasteTarget(grid, out var request, out var listKind, out var container, out var containerIsHeaders))
         {
             return false;
         }
@@ -696,7 +696,9 @@ public static class KeyValueGridClipboard
 
         if (container is not null)
         {
-            return container.PasteVariableRows(payload.Rows) > 0;
+            return containerIsHeaders
+                ? container.PasteHeaderRows(payload.Rows) > 0
+                : container.PasteVariableRows(payload.Rows) > 0;
         }
 
         return false;
@@ -713,7 +715,7 @@ public static class KeyValueGridClipboard
         grid.CommitEdit(DataGridEditingUnit.Cell, true);
         grid.CommitEdit(DataGridEditingUnit.Row, true);
 
-        if (!TryGetPasteTarget(grid, out var request, out var listKind, out var container))
+        if (!TryGetPasteTarget(grid, out var request, out var listKind, out var container, out var containerIsHeaders))
         {
             return false;
         }
@@ -722,7 +724,14 @@ public static class KeyValueGridClipboard
         {
             foreach (var row in rows)
             {
-                container.RemoveVariableCommand.Execute(row);
+                if (containerIsHeaders)
+                {
+                    container.RemoveHeaderCommand.Execute(row);
+                }
+                else
+                {
+                    container.RemoveVariableCommand.Execute(row);
+                }
             }
 
             return true;
@@ -759,7 +768,7 @@ public static class KeyValueGridClipboard
         grid.CommitEdit(DataGridEditingUnit.Cell, true);
         grid.CommitEdit(DataGridEditingUnit.Row, true);
 
-        if (!TryGetPasteTarget(grid, out var request, out var listKind, out var container))
+        if (!TryGetPasteTarget(grid, out var request, out var listKind, out var container, out var containerIsHeaders))
         {
             return false;
         }
@@ -781,7 +790,9 @@ public static class KeyValueGridClipboard
 
         if (container is not null)
         {
-            return container.PasteVariableRows(rows, operation: "Duplicate") > 0;
+            return containerIsHeaders
+                ? container.PasteHeaderRows(rows, operation: "Duplicate") > 0
+                : container.PasteVariableRows(rows, operation: "Duplicate") > 0;
         }
 
         return false;
@@ -789,17 +800,19 @@ public static class KeyValueGridClipboard
 
     private static bool CanPasteInto(DataGrid grid) =>
         KeyValueClipboardPayload.TryReadFromClipboard(out _)
-        && TryGetPasteTarget(grid, out _, out _, out _);
+        && TryGetPasteTarget(grid, out _, out _, out _, out _);
 
     private static bool TryGetPasteTarget(
         DataGrid grid,
         out RequestNodeViewModel? request,
         out KeyValueListKind listKind,
-        out ContainerNodeViewModel? container)
+        out ContainerNodeViewModel? container,
+        out bool containerIsHeaders)
     {
         request = null;
         container = null;
         listKind = default;
+        containerIsHeaders = false;
 
         var source = UnwrapItemsSource(grid.ItemsSource);
 
@@ -820,11 +833,20 @@ public static class KeyValueGridClipboard
             }
         }
 
-        if (grid.DataContext is ContainerNodeViewModel cont
-            && ReferenceEquals(source, cont.Variables))
+        if (grid.DataContext is ContainerNodeViewModel cont)
         {
-            container = cont;
-            return true;
+            if (ReferenceEquals(source, cont.Variables))
+            {
+                container = cont;
+                return true;
+            }
+
+            if (ReferenceEquals(source, cont.Headers))
+            {
+                container = cont;
+                containerIsHeaders = true;
+                return true;
+            }
         }
 
         return false;

@@ -19,14 +19,18 @@ public static class DirtyUndoMapper
     public const string SetOptOutOfAutoRun = "SetOptOutOfAutoRun";
     public const string SetKeyValueField = "SetKeyValueField";
     public const string SetVariableField = "SetVariableField";
+    public const string SetHeaderField = "SetHeaderField";
     public const string InsertNode = "InsertNode";
     public const string RemoveNode = "RemoveNode";
     public const string InsertKeyValueRow = "InsertKeyValueRow";
     public const string RemoveKeyValueRow = "RemoveKeyValueRow";
     public const string InsertVariableRow = "InsertVariableRow";
     public const string RemoveVariableRow = "RemoveVariableRow";
+    public const string InsertHeaderRow = "InsertHeaderRow";
+    public const string RemoveHeaderRow = "RemoveHeaderRow";
     public const string ReorderKeyValueList = "ReorderKeyValueList";
     public const string ReorderVariableList = "ReorderVariableList";
+    public const string ReorderHeaderList = "ReorderHeaderList";
     public const string Composite = "Composite";
 
     public static readonly JsonSerializerOptions JsonOptions = new()
@@ -232,6 +236,20 @@ public static class DirtyUndoMapper
                     StringValue = variable.Value as string
                 };
 
+            case SetHeaderFieldAction headerField:
+                return new DirtyUndoActionDto
+                {
+                    Type = SetHeaderField,
+                    Description = headerField.Description,
+                    ContainerId = TryGetId(headerField.Container),
+                    Field = headerField.Field.ToString(),
+                    ItemId = GetItemId(headerField.Item, items),
+                    ItemIndex = headerField.Container.IndexOfHeader(headerField.Item),
+                    Item = SnapshotItem(headerField.Item),
+                    BoolValue = headerField.Value is bool headerBool ? headerBool : null,
+                    StringValue = headerField.Value as string
+                };
+
             case InsertNodeAction insert:
                 return SerializeNodeAction(InsertNode, insert.Description, insert.Parent, insert.Node, insert.Index);
 
@@ -286,6 +304,29 @@ public static class DirtyUndoMapper
                     Item = SnapshotItem(removeVar.Item)
                 };
 
+            case InsertHeaderRowAction insertHeader:
+                return new DirtyUndoActionDto
+                {
+                    Type = InsertHeaderRow,
+                    Description = insertHeader.Description,
+                    ContainerId = TryGetId(insertHeader.Container),
+                    Index = insertHeader.Index,
+                    ItemId = GetItemId(insertHeader.Item, items),
+                    Item = SnapshotItem(insertHeader.Item)
+                };
+
+            case RemoveHeaderRowAction removeHeader:
+                return new DirtyUndoActionDto
+                {
+                    Type = RemoveHeaderRow,
+                    Description = removeHeader.Description,
+                    ContainerId = TryGetId(removeHeader.Container),
+                    Index = removeHeader.Index,
+                    ItemId = GetItemId(removeHeader.Item, items),
+                    ItemIndex = removeHeader.Container.IndexOfHeader(removeHeader.Item),
+                    Item = SnapshotItem(removeHeader.Item)
+                };
+
             case ReorderKeyValueListAction reorderKv:
                 return SerializeReorder(
                     ReorderKeyValueList,
@@ -304,6 +345,15 @@ public static class DirtyUndoMapper
                     items,
                     reorderVar.Container.IndexOfVariable,
                     containerId: TryGetId(reorderVar.Container));
+
+            case ReorderHeaderListAction reorderHeader:
+                return SerializeReorder(
+                    ReorderHeaderList,
+                    reorderHeader.Description,
+                    reorderHeader.Order,
+                    items,
+                    reorderHeader.Container.IndexOfHeader,
+                    containerId: TryGetId(reorderHeader.Container));
 
             default:
                 return null;
@@ -550,6 +600,23 @@ public static class DirtyUndoMapper
                     action.HistoryId = dto.HistoryId;
                     return true;
 
+                case SetHeaderField:
+                    if (context.ResolveNode(dto.ContainerId) is not ContainerNodeViewModel headerContainer
+                        || !Enum.TryParse<KeyValueField>(dto.Field, ignoreCase: true, out var headerField)
+                        || context.ResolveHeaderItem(headerContainer, dto) is not { } headerItem)
+                    {
+                        return false;
+                    }
+
+                    action = new SetHeaderFieldAction(
+                        headerContainer,
+                        headerItem,
+                        headerField,
+                        FieldValue(dto),
+                        dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
                 case InsertNode:
                     if (!TryResolveNodePair(dto, context, out var insertParent, out var insertNode))
                     {
@@ -674,6 +741,53 @@ public static class DirtyUndoMapper
                     action = new ReorderVariableListAction(
                         reorderVarContainer,
                         reorderVarItems,
+                        dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
+                case InsertHeaderRow:
+                    if (context.ResolveNode(dto.ContainerId) is not ContainerNodeViewModel insertHeaderContainer
+                        || context.ResolveOrCreateHeaderItem(insertHeaderContainer, dto) is not { } insertHeaderItem)
+                    {
+                        return false;
+                    }
+
+                    action = new InsertHeaderRowAction(
+                        insertHeaderContainer,
+                        insertHeaderItem,
+                        dto.Index ?? 0,
+                        dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
+                case RemoveHeaderRow:
+                    if (context.ResolveNode(dto.ContainerId) is not ContainerNodeViewModel removeHeaderContainer
+                        || context.ResolveHeaderItem(removeHeaderContainer, dto) is not { } removeHeaderItem)
+                    {
+                        return false;
+                    }
+
+                    action = new RemoveHeaderRowAction(
+                        removeHeaderContainer,
+                        removeHeaderItem,
+                        dto.Index ?? 0,
+                        dto.Description);
+                    action.HistoryId = dto.HistoryId;
+                    return true;
+
+                case ReorderHeaderList:
+                    if (context.ResolveNode(dto.ContainerId) is not ContainerNodeViewModel reorderHeaderContainer
+                        || !TryResolveOrderedItems(
+                            dto,
+                            itemDto => context.ResolveHeaderItem(reorderHeaderContainer, itemDto),
+                            out var reorderHeaderItems))
+                    {
+                        return false;
+                    }
+
+                    action = new ReorderHeaderListAction(
+                        reorderHeaderContainer,
+                        reorderHeaderItems,
                         dto.Description);
                     action.HistoryId = dto.HistoryId;
                     return true;

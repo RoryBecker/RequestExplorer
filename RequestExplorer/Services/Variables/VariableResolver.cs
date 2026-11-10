@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using RequestExplorer.Models;
+using RequestExplorer.Services.Headers;
 using RequestExplorer.ViewModels;
 using RequestExplorer.ViewModels.Nodes;
 
@@ -406,6 +407,11 @@ public static partial class VariableResolver
 
         var variables = BuildResolvedScope(requestNode, includeOrigin: false, includeSecretValues);
         var clone = Clone(source);
+        if (requestNode is RequestNodeViewModel requestVm)
+        {
+            HeaderInheritance.ApplyEffectiveHeaders(clone, requestVm);
+        }
+
         if (variables.Count == 0)
         {
             return clone;

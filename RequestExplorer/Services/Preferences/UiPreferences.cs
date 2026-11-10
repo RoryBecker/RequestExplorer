@@ -43,6 +43,11 @@ public sealed class UiPreferences
     /// </summary>
     public int VariableNestingMaxDepth { get; set; } = 10;
 
+    /// <summary>
+    /// When true, Inherited Variables / Headers grids stay visible even with no rows.
+    /// </summary>
+    public bool ShowEmptyInheritedGrids { get; set; }
+
     /// <summary>When true, HTTP sends use an infinite timeout (cancel still works).</summary>
     public bool DevModeIgnoreTimeout { get; set; }
 

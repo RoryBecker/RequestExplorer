@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RequestExplorer.Models;
 using RequestExplorer.Services.KeyValue;
+using RequestExplorer.Services.Preferences;
 using RequestExplorer.Services.Undo;
 using RequestExplorer.ViewModels;
 
@@ -18,36 +19,74 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     private const int TooltipValueMaxChars = 64;
 
     private bool _ensuringSpare;
+    private bool _ensuringHeaderSpare;
     private IUndoRecorder? _undoRecorder;
 
     protected bool SuppressFieldUndo;
 
-    protected ContainerNodeViewModel(string name, List<KeyValueItem> modelVariables, string? description = null)
+    protected ContainerNodeViewModel(
+        string name,
+        List<KeyValueItem> modelVariables,
+        List<KeyValueItem> modelHeaders,
+        string? description = null)
         : base(name)
     {
         _description = description ?? string.Empty;
         ModelVariables = modelVariables;
+        ModelHeaders = modelHeaders;
         foreach (var item in modelVariables)
         {
             Variables.Add(CreateVariableVm(item));
         }
 
+        foreach (var item in modelHeaders)
+        {
+            Headers.Add(CreateHeaderVm(item));
+        }
+
         EnsureVariableSpareRow();
+        EnsureHeaderSpareRow();
         Variables.CollectionChanged += Variables_OnCollectionChanged;
+        Headers.CollectionChanged += Headers_OnCollectionChanged;
         foreach (var item in Variables)
         {
             item.PropertyChanged += VariableItem_OnPropertyChanged;
         }
 
+        foreach (var item in Headers)
+        {
+            item.PropertyChanged += HeaderItem_OnPropertyChanged;
+        }
+
         PropertyChanged += Self_OnPropertyChanged;
+        InheritedGridPreferences.Changed += OnInheritedGridPreferencesChanged;
         RefreshVariablePresentation();
+        RefreshHeaderPresentation();
+    }
+
+    public bool ShowInheritedVariablesGrid =>
+        HasInheritedVariables || InheritedGridPreferences.ShowEmptyInheritedGrids;
+
+    public bool ShowInheritedHeadersGrid =>
+        HasInheritedHeaders || InheritedGridPreferences.ShowEmptyInheritedGrids;
+
+    private void OnInheritedGridPreferencesChanged()
+    {
+        OnPropertyChanged(nameof(ShowInheritedVariablesGrid));
+        OnPropertyChanged(nameof(ShowInheritedHeadersGrid));
     }
 
     protected List<KeyValueItem> ModelVariables { get; }
 
+    protected List<KeyValueItem> ModelHeaders { get; }
+
     public ObservableCollection<KeyValueItemViewModel> Variables { get; } = [];
 
     public ObservableCollection<InheritedVariableRow> InheritedVariables { get; } = [];
+
+    public ObservableCollection<KeyValueItemViewModel> Headers { get; } = [];
+
+    public ObservableCollection<InheritedHeaderRow> InheritedHeaders { get; } = [];
 
     [ObservableProperty]
     private bool _hasDefinedVariables;
@@ -56,11 +95,24 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
     private bool _hasInheritedVariables;
 
     [ObservableProperty]
+    private bool _hasDefinedHeaders;
+
+    [ObservableProperty]
+    private bool _hasInheritedHeaders;
+
+    [ObservableProperty]
     private string _variablesTooltip = string.Empty;
+
+    [ObservableProperty]
+    private string _headersTooltip = string.Empty;
 
     /// <summary>Selected row in the Local Variables grid (also used by Go to Definition).</summary>
     [ObservableProperty]
     private KeyValueItemViewModel? _selectedVariable;
+
+    /// <summary>Selected row in the Local Headers grid.</summary>
+    [ObservableProperty]
+    private KeyValueItemViewModel? _selectedHeader;
 
     [ObservableProperty]
     private string _description = string.Empty;
@@ -351,6 +403,23 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         }
     }
 
+    private void RefreshDescendantInheritedHeaders()
+    {
+        foreach (var child in Children)
+        {
+            switch (child)
+            {
+                case ContainerNodeViewModel container:
+                    container.RefreshInheritedHeaders();
+                    container.RefreshDescendantInheritedHeaders();
+                    break;
+                case RequestNodeViewModel request:
+                    request.RefreshInheritedHeaders();
+                    break;
+            }
+        }
+    }
+
     public void RefreshInheritedVariables()
     {
         InheritedVariables.Clear();
@@ -401,6 +470,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         }
 
         HasInheritedVariables = InheritedVariables.Count > 0;
+        OnPropertyChanged(nameof(ShowInheritedVariablesGrid));
     }
 
     private void RefreshDefinedVariablesGlyph()
@@ -511,38 +581,71 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
 
     public void OnKeyValueListReordered(ObservableCollection<KeyValueItemViewModel> list)
     {
-        if (!ReferenceEquals(list, Variables))
+        if (ReferenceEquals(list, Variables))
+        {
+            ModelVariables.Clear();
+            foreach (var vm in Variables)
+            {
+                ModelVariables.Add(vm.Model);
+            }
+
+            IsDirty = true;
+            EnsureVariableSpareRow();
+            RefreshVariablePresentation();
+            return;
+        }
+
+        if (!ReferenceEquals(list, Headers))
         {
             return;
         }
 
-        ModelVariables.Clear();
-        foreach (var vm in Variables)
+        ModelHeaders.Clear();
+        foreach (var vm in Headers)
         {
-            ModelVariables.Add(vm.Model);
+            ModelHeaders.Add(vm.Model);
         }
 
         IsDirty = true;
-        EnsureVariableSpareRow();
-        RefreshVariablePresentation();
+        EnsureHeaderSpareRow();
+        RefreshHeaderPresentation();
     }
 
     public bool TryApplyKeyValueOrder(
         ObservableCollection<KeyValueItemViewModel> list,
         IReadOnlyList<KeyValueItemViewModel> newOrder)
     {
-        if (!ReferenceEquals(list, Variables) || KeyValueListReorder.SameOrder(list, newOrder))
+        if (KeyValueListReorder.SameOrder(list, newOrder))
         {
             return false;
         }
 
-        var previous = list.ToArray();
+        if (ReferenceEquals(list, Variables))
+        {
+            var previousVariables = list.ToArray();
+            KeyValueListReorder.ApplyOrder(list, newOrder);
+            OnKeyValueListReordered(list);
+
+            if (!SuppressFieldUndo && _undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
+            {
+                _undoRecorder.Record(new ReorderVariableListAction(this, previousVariables, "Reorder variables"));
+            }
+
+            return true;
+        }
+
+        if (!ReferenceEquals(list, Headers))
+        {
+            return false;
+        }
+
+        var previousHeaders = list.ToArray();
         KeyValueListReorder.ApplyOrder(list, newOrder);
         OnKeyValueListReordered(list);
 
         if (!SuppressFieldUndo && _undoRecorder is not null && !_undoRecorder.IsApplyingHistory)
         {
-            _undoRecorder.Record(new ReorderVariableListAction(this, previous, "Reorder variables"));
+            _undoRecorder.Record(new ReorderHeaderListAction(this, previousHeaders, "Reorder headers"));
         }
 
         return true;
@@ -603,6 +706,7 @@ public abstract partial class ContainerNodeViewModel : TreeNodeViewModel, IKeyVa
         if (e.PropertyName is nameof(Parent) or nameof(Name))
         {
             RefreshInheritedVariables();
+            RefreshInheritedHeaders();
         }
     }
 }

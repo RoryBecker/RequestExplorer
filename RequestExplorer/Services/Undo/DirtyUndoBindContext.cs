@@ -20,6 +20,8 @@ public sealed class DirtyUndoBindContext
 
     public required Func<ContainerNodeViewModel, KeyValueItem, KeyValueItemViewModel> CreateVariable { get; init; }
 
+    public required Func<ContainerNodeViewModel, KeyValueItem, KeyValueItemViewModel> CreateHeader { get; init; }
+
     public TreeNodeViewModel? ResolveNode(
         Guid? id,
         string? nodeKind = null,
@@ -137,6 +139,45 @@ public sealed class DirtyUndoBindContext
         }
 
         var item = CreateVariable(container, ToModel(dto.Item));
+        CacheItem(dto.ItemId, item);
+        return item;
+    }
+
+    public KeyValueItemViewModel? ResolveHeaderItem(
+        ContainerNodeViewModel container,
+        DirtyUndoActionDto dto)
+    {
+        if (dto.ItemId is Guid itemId && _items.TryGetValue(itemId, out var cached))
+        {
+            return cached;
+        }
+
+        var index = dto.ItemIndex ?? -1;
+        if (index >= 0 && index < container.Headers.Count)
+        {
+            var item = container.Headers[index];
+            CacheItem(dto.ItemId, item);
+            return item;
+        }
+
+        return ResolveOrCreateHeaderItem(container, dto);
+    }
+
+    public KeyValueItemViewModel? ResolveOrCreateHeaderItem(
+        ContainerNodeViewModel container,
+        DirtyUndoActionDto dto)
+    {
+        if (dto.ItemId is Guid itemId && _items.TryGetValue(itemId, out var cached))
+        {
+            return cached;
+        }
+
+        if (dto.Item is null)
+        {
+            return null;
+        }
+
+        var item = CreateHeader(container, ToModel(dto.Item));
         CacheItem(dto.ItemId, item);
         return item;
     }

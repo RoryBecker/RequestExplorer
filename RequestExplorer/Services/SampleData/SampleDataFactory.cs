@@ -30,10 +30,12 @@ public static class SampleDataFactory
         collection.Variables.Add(Var("host", "https://httpbin.org"));
         collection.Variables.Add(Var("client", "RequestExplorer"));
         collection.Variables.Add(Var("region", "global"));
+        collection.Headers.Add(Var("X-Client", "RequestExplorer"));
 
         Add(collection, BuildSendFolder());
         Add(collection, BuildDiagnosisFolder());
         Add(collection, BuildVariablesFolder());
+        Add(collection, BuildHeadersFolder());
         Add(collection, BuildApplyVariablesFolder());
         Add(collection, BuildMovementFolder());
         Add(collection, BuildExportingFolder());
@@ -249,6 +251,54 @@ public static class SampleDataFactory
             HttpVerb.GET,
             "{{host}}/get?today={{today}}&now={{now}}&weekAgo={{weekAgo}}&label={{label}}"));
         Add(folder, calculated);
+
+        return folder;
+    }
+
+    private static FolderDefinition BuildHeadersFolder()
+    {
+        var folder = new FolderDefinition
+        {
+            Name = "Headers",
+            Description = """
+                Feature Tour sets X-Client=RequestExplorer. Folders and requests inherit headers the same way as variables — nearest enabled name wins.
+
+                Open Inherited (no local headers), then Override (X-Client=folder), then Local wins (request sets X-Client).
+                """
+        };
+
+        var inherited = new FolderDefinition
+        {
+            Name = "Inherited",
+            Description = """
+                This folder defines no headers. Send the request and check the request headers — X-Client comes from Feature Tour.
+                """
+        };
+        Add(inherited, TourReq("Echo — inherits X-Client", HttpVerb.GET, "{{host}}/headers"));
+        Add(folder, inherited);
+
+        var overrideClient = new FolderDefinition
+        {
+            Name = "Override",
+            Description = """
+                This folder sets X-Client=folder-override. Send the request: X-Client is folder-override, not RequestExplorer.
+                """
+        };
+        overrideClient.Headers.Add(Var("X-Client", "folder-override"));
+        Add(overrideClient, TourReq("Echo — folder overrides X-Client", HttpVerb.GET, "{{host}}/headers"));
+        Add(folder, overrideClient);
+
+        var localWins = new FolderDefinition
+        {
+            Name = "Local wins",
+            Description = """
+                This folder still inherits X-Client from Feature Tour. The request below defines X-Client locally, which wins on Send.
+                """
+        };
+        var localRequest = TourReq("Echo — request overrides X-Client", HttpVerb.GET, "{{host}}/headers");
+        localRequest.Headers.Add(Var("X-Client", "request-local"));
+        Add(localWins, localRequest);
+        Add(folder, localWins);
 
         return folder;
     }

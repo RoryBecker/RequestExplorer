@@ -67,6 +67,15 @@ public static class TreeNodeCloneService
                     Value = v.Value,
                     IsSecret = v.IsSecret
                 })
+                .ToList(),
+            Headers = collection.Headers
+                .Select(h => new KeyValueItem
+                {
+                    IsEnabled = h.IsEnabled,
+                    Key = h.Key,
+                    Value = h.Value,
+                    IsSecret = h.IsSecret
+                })
                 .ToList()
         };
 
@@ -91,6 +100,7 @@ public static class TreeNodeCloneService
             Description = clone.Description,
             OptOutOfAutoRun = clone.OptOutOfAutoRun,
             Variables = clone.Variables,
+            Headers = clone.Headers,
             Folders = clone.Folders,
             Requests = clone.Requests,
             ChildOrder = clone.ChildOrder

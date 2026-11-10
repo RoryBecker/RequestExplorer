@@ -8,7 +8,7 @@ namespace RequestExplorer.ViewModels.Nodes;
 public sealed partial class CollectionNodeViewModel : ContainerNodeViewModel
 {
     public CollectionNodeViewModel(CollectionDefinition model)
-        : base(model.Name, model.Variables, model.Description)
+        : base(model.Name, model.Variables, model.Headers, model.Description)
     {
         Model = model;
         _optOutOfAutoRun = model.OptOutOfAutoRun;

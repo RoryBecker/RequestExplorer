@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -33,10 +34,16 @@ public static class CollapsibleGridRow
 
         element.IsVisibleChanged -= OnIsVisibleChanged;
         element.Loaded -= OnLoaded;
+        DependencyPropertyDescriptor
+            .FromProperty(UIElement.VisibilityProperty, typeof(UIElement))
+            ?.RemoveValueChanged(element, OnVisibilityChanged);
         if (e.NewValue is true)
         {
             element.IsVisibleChanged += OnIsVisibleChanged;
             element.Loaded += OnLoaded;
+            DependencyPropertyDescriptor
+                .FromProperty(UIElement.VisibilityProperty, typeof(UIElement))
+                ?.AddValueChanged(element, OnVisibilityChanged);
             SyncRow(element);
         }
     }
@@ -57,6 +64,16 @@ public static class CollapsibleGridRow
         }
     }
 
+    private static void OnVisibilityChanged(object? sender, EventArgs e)
+    {
+        if (sender is FrameworkElement element)
+        {
+            // Visibility can become Visible while a parent tab still hides us;
+            // sync again when IsVisible catches up, and also when collapsing.
+            SyncRow(element);
+        }
+    }
+
     private static void SyncRow(FrameworkElement element)
     {
         var grid = FindAncestor<Grid>(element);
@@ -72,7 +89,9 @@ public static class CollapsibleGridRow
         }
 
         var definition = grid.RowDefinitions[row];
-        if (element.IsVisible)
+        // Use Visibility (not IsVisible): inside an unselected TabItem, IsVisible is false
+        // even when the inherited panel should take space once that tab is shown.
+        if (element.Visibility == Visibility.Visible)
         {
             if (element is GridSplitter)
             {

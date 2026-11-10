@@ -14,6 +14,7 @@ public partial class SettingsDialog : Window
         DevModeCheck.IsChecked = preferences.DevModeIgnoreTimeout;
         TimeoutBox.Text = Math.Clamp(preferences.RequestTimeoutSeconds, 1, 3600).ToString();
         NestingDepthBox.Text = VariableResolver.ClampMaxNestingDepth(preferences.VariableNestingMaxDepth).ToString();
+        ShowEmptyInheritedGridsCheck.IsChecked = preferences.ShowEmptyInheritedGrids;
         MouseTreeNavCheck.IsChecked = preferences.EnableMouseTreeNavigation;
         BackupOnStartupCheck.IsChecked = preferences.BackupOnStartup;
         DirtySaveCheck.IsChecked = preferences.EnableDirtySave;
@@ -31,6 +32,8 @@ public partial class SettingsDialog : Window
     public int RequestTimeoutSeconds { get; private set; } = 30;
 
     public int VariableNestingMaxDepth { get; private set; } = VariableResolver.DefaultMaxNestingDepth;
+
+    public bool ShowEmptyInheritedGrids => ShowEmptyInheritedGridsCheck.IsChecked == true;
 
     public bool EnableMouseTreeNavigation => MouseTreeNavCheck.IsChecked == true;
 

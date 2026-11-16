@@ -341,9 +341,18 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     {
         value ??= string.Empty;
         var previous = Model.Address ?? string.Empty;
+        // New requests start with Name == Address; keep the title locked to the URL
+        // until the user renames independently.
+        var syncNameWithAddress = string.Equals(Name ?? string.Empty, previous, StringComparison.Ordinal);
         Model.Address = value;
         OnPropertyChanged(nameof(SearchText));
         NotifyResolvedAddressChanged();
+
+        if (syncNameWithAddress && !string.Equals(Name, value, StringComparison.Ordinal))
+        {
+            Name = value;
+        }
+
         if (_syncingUrlAndParams)
         {
             return;

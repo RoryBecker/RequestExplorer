@@ -23,7 +23,7 @@ public sealed class PythonRequestsExportFormatProvider : IExportFormatProvider
         }
 
         sb.Append("}\n");
-        if (RequestExportSupport.HasBody(request))
+        if (RequestExportSupport.HasRawBody(request))
         {
             sb.Append("data = ").Append(RequestExportSupport.PyString(request.Body.Content)).Append('\n');
             sb.Append("response = requests.").Append(method)

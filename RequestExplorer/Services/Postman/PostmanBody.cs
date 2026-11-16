@@ -8,7 +8,12 @@ public sealed class PostmanBody
     public string Mode { get; set; } = "raw";
 
     [JsonPropertyName("raw")]
-    public string Raw { get; set; } = string.Empty;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Raw { get; set; }
+
+    [JsonPropertyName("formdata")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<PostmanFormdataItem>? Formdata { get; set; }
 
     [JsonPropertyName("options")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

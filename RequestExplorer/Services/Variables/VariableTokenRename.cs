@@ -79,6 +79,19 @@ public static class VariableTokenRename
             }
         }
 
+        foreach (var field in request.FormFields)
+        {
+            if (VariableResolver.ContainsTokenName(field.Key, name))
+            {
+                return true;
+            }
+
+            if (field.IsTextType && VariableResolver.ContainsTokenName(field.Value, name))
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 

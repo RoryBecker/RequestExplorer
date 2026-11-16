@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Text;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
 using RequestExplorer.Models;
 using RequestExplorer.Services.KeyValue;
 using RequestExplorer.Services.Preferences;
@@ -37,6 +40,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         _apiKeyLocation = model.Authentication.ApiKeyLocation;
         _bodyContent = model.Body.Content;
         _bodyContentType = model.Body.ContentType ?? string.Empty;
+        _bodyMode = model.Body.Mode;
         _expectedStatusCode = model.ExpectedStatusCode is >= 100 and <= 599
             ? model.ExpectedStatusCode
             : 200;
@@ -69,9 +73,17 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
             Headers.Add(CreateHeaderVm(item));
         }
 
+        model.Body.FormFields ??= [];
+        foreach (var item in model.Body.FormFields)
+        {
+            FormFields.Add(CreateFormFieldVm(item));
+        }
+
         EnsureParamSpareRow();
         EnsureHeaderSpareRow();
+        EnsureFormFieldSpareRow();
         RefreshDefinedHeadersGlyph();
+        RefreshDefinedBodyGlyph();
 
         // Prefer explicit params → URL; otherwise hydrate params from a query in the address.
         if (Params.Any(p => !string.IsNullOrWhiteSpace(p.Key)))
@@ -88,6 +100,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
         Params.CollectionChanged += OnParamsCollectionChanged;
         Headers.CollectionChanged += OnHeadersCollectionChanged;
+        FormFields.CollectionChanged += OnFormFieldsCollectionChanged;
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(Parent))
@@ -129,6 +142,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     public ObservableCollection<KeyValueItemViewModel> Params { get; } = [];
     public ObservableCollection<KeyValueItemViewModel> Headers { get; } = [];
+    public ObservableCollection<FormFieldItemViewModel> FormFields { get; } = [];
 
     public ObservableCollection<InheritedHeaderRow> InheritedHeaders { get; } = [];
 
@@ -150,14 +164,40 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
     public bool HasDefinedDescription => !string.IsNullOrWhiteSpace(Description);
 
     /// <summary>
-    /// True when body differs from the default empty body with Content-Type application/json.
+    /// True when body differs from the default empty raw body, or form-data has named fields.
     /// </summary>
     public bool HasDefinedBody =>
-        !string.IsNullOrWhiteSpace(BodyContent)
-        || !string.Equals(
-            BodyContentType?.Trim(),
-            "application/json",
-            StringComparison.OrdinalIgnoreCase);
+        BodyMode == RequestBodyMode.FormData
+            ? FormFields.Any(f => f.HasKey)
+            : !string.IsNullOrWhiteSpace(BodyContent)
+              || !string.Equals(
+                  BodyContentType?.Trim(),
+                  "application/json",
+                  StringComparison.OrdinalIgnoreCase);
+
+    public bool IsBodyModeRaw
+    {
+        get => BodyMode == RequestBodyMode.Raw;
+        set
+        {
+            if (value)
+            {
+                BodyMode = RequestBodyMode.Raw;
+            }
+        }
+    }
+
+    public bool IsBodyModeFormData
+    {
+        get => BodyMode == RequestBodyMode.FormData;
+        set
+        {
+            if (value)
+            {
+                BodyMode = RequestBodyMode.FormData;
+            }
+        }
+    }
 
     public bool HasDefinedAuth => AuthType != AuthType.None;
 
@@ -198,6 +238,12 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     [ObservableProperty]
     private ApiKeyLocation _apiKeyLocation;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDefinedBody))]
+    [NotifyPropertyChangedFor(nameof(IsBodyModeRaw))]
+    [NotifyPropertyChangedFor(nameof(IsBodyModeFormData))]
+    private RequestBodyMode _bodyMode = RequestBodyMode.Raw;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDefinedBody))]
@@ -677,6 +723,20 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
 
     private bool CanCopyExpectationsFromLastRun() => LastResponse.CanCopyExpectationsFromLastRun;
 
+    partial void OnBodyModeChanged(RequestBodyMode value)
+    {
+        var previous = Model.Body.Mode;
+        if (previous == value)
+        {
+            return;
+        }
+
+        Model.Body.Mode = value;
+        MarkDirty();
+        RecordBodyUndo(RequestBodyField.Mode, previous.ToString(), "Change body mode");
+        RefreshDefinedBodyGlyph();
+    }
+
     partial void OnBodyContentChanged(string value)
     {
         var previous = Model.Body.Content;
@@ -688,6 +748,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         Model.Body.Content = value;
         MarkDirty();
         RecordBodyUndo(RequestBodyField.Content, previous, "Edit request body");
+        RefreshDefinedBodyGlyph();
     }
 
     partial void OnBodyContentTypeChanged(string value)
@@ -702,6 +763,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         Model.Body.ContentType = normalized;
         MarkDirty();
         RecordBodyUndo(RequestBodyField.ContentType, previous, "Edit body content type");
+        RefreshDefinedBodyGlyph();
     }
 
     public string? GetBodyField(RequestBodyField field) =>
@@ -709,6 +771,7 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         {
             RequestBodyField.Content => BodyContent,
             RequestBodyField.ContentType => string.IsNullOrWhiteSpace(BodyContentType) ? null : BodyContentType,
+            RequestBodyField.Mode => BodyMode.ToString(),
             _ => null
         };
 
@@ -725,9 +788,15 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
                 case RequestBodyField.ContentType:
                     BodyContentType = value ?? string.Empty;
                     break;
+                case RequestBodyField.Mode:
+                    BodyMode = Enum.TryParse<RequestBodyMode>(value, ignoreCase: true, out var mode)
+                        ? mode
+                        : RequestBodyMode.Raw;
+                    break;
             }
 
             MarkDirty();
+            RefreshDefinedBodyGlyph();
         }
         finally
         {
@@ -930,6 +999,317 @@ public sealed partial class RequestNodeViewModel : TreeNodeViewModel, IKeyValueL
         }
 
         _undoRecorder.Record(new SetRequestBodyFieldAction(this, field, oldValue, description));
+    }
+
+    private void RefreshDefinedBodyGlyph() => OnPropertyChanged(nameof(HasDefinedBody));
+
+    private void OnFormFieldsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
+        RefreshDefinedBodyGlyph();
+
+    private FormFieldItemViewModel CreateFormFieldVm(FormFieldItem item) =>
+        new(item, OnFormFieldChanged);
+
+    private void OnFormFieldChanged(
+        FormFieldItemViewModel item,
+        FormFieldField field,
+        object? oldValue,
+        object? newValue)
+    {
+        MarkDirty();
+        EnsureFormFieldSpareRow();
+        RefreshDefinedBodyGlyph();
+        if (_suppressFieldUndo || _undoRecorder is null || _undoRecorder.IsApplyingHistory)
+        {
+            return;
+        }
+
+        // File attach records SetFormFieldFileAction separately.
+        if (field is FormFieldField.FileName or FormFieldField.Base64Content)
+        {
+            return;
+        }
+
+        var label = field switch
+        {
+            FormFieldField.Key => "Edit form field key",
+            FormFieldField.Value => "Edit form field value",
+            FormFieldField.Type => "Change form field type",
+            FormFieldField.IsEnabled => "Toggle form field",
+            _ => "Edit form field"
+        };
+        _undoRecorder.Record(new SetFormFieldFieldAction(this, item, field, oldValue, label));
+    }
+
+    public void ApplyFormField(FormFieldItemViewModel item, FormFieldField field, object? value)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            item.SetFieldSilent(field, value);
+            MarkDirty();
+            EnsureFormFieldSpareRow();
+            RefreshDefinedBodyGlyph();
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    public void ApplyFormFieldFile(FormFieldItemViewModel item, string fileName, string base64Content)
+    {
+        _suppressFieldUndo = true;
+        try
+        {
+            item.ApplyFile(fileName, base64Content);
+            MarkDirty();
+            EnsureFormFieldSpareRow();
+            RefreshDefinedBodyGlyph();
+        }
+        finally
+        {
+            _suppressFieldUndo = false;
+        }
+    }
+
+    public int IndexOfFormField(FormFieldItemViewModel item) => FormFields.IndexOf(item);
+
+    public void RemoveFormFieldRow(FormFieldItemViewModel item)
+    {
+        var index = FormFields.IndexOf(item);
+        if (index < 0)
+        {
+            return;
+        }
+
+        Model.Body.FormFields.Remove(item.Model);
+        FormFields.Remove(item);
+        EnsureFormFieldSpareRow();
+        MarkDirty();
+        RefreshDefinedBodyGlyph();
+    }
+
+    public void InsertFormFieldRow(FormFieldItemViewModel item, int index)
+    {
+        if (FormFields.Contains(item))
+        {
+            return;
+        }
+
+        index = Math.Clamp(index, 0, FormFields.Count);
+        if (!Model.Body.FormFields.Contains(item.Model))
+        {
+            var modelIndex = Math.Clamp(index, 0, Model.Body.FormFields.Count);
+            Model.Body.FormFields.Insert(modelIndex, item.Model);
+        }
+
+        FormFields.Insert(index, item);
+        EnsureFormFieldSpareRow();
+        MarkDirty();
+        RefreshDefinedBodyGlyph();
+    }
+
+    private void EnsureFormFieldSpareRow()
+    {
+        if (_ensuringSpare)
+        {
+            return;
+        }
+
+        _ensuringSpare = true;
+        try
+        {
+            if (FormFields.Count == 0
+                || !string.IsNullOrWhiteSpace(FormFields[^1].Key)
+                || FormFields[^1].HasBase64
+                || !string.IsNullOrWhiteSpace(FormFields[^1].Value))
+            {
+                var spare = new FormFieldItem();
+                Model.Body.FormFields.Add(spare);
+                FormFields.Add(CreateFormFieldVm(spare));
+            }
+        }
+        finally
+        {
+            _ensuringSpare = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ChooseFormFieldFile(FormFieldItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Choose form-data file",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        var path = dialog.FileName;
+        long length;
+        try
+        {
+            length = new FileInfo(path).Length;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Could not read file:\n{ex.Message}",
+                "Form data",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var maxBytes = FormDataPreferences.MaxFileBytes;
+        if (length > maxBytes)
+        {
+            MessageBox.Show(
+                $"File is {FormatBytes(length)}; the limit is {FormDataPreferences.MaxFileMegabytes} MB.\n\nChange the limit under Settings → General.",
+                "Form data",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        byte[] bytes;
+        try
+        {
+            bytes = File.ReadAllBytes(path);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Could not read file:\n{ex.Message}",
+                "Form data",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var fileName = Path.GetFileName(path);
+        var base64 = Convert.ToBase64String(bytes);
+        var previousName = item.FileName ?? string.Empty;
+        var previousBytes = item.Base64Content ?? string.Empty;
+        ApplyFormFieldFile(item, fileName, base64);
+        if (!_suppressFieldUndo && _undoRecorder is { IsApplyingHistory: false })
+        {
+            _undoRecorder.Record(
+                new SetFormFieldFileAction(this, item, previousName, previousBytes, "Attach form file"));
+        }
+    }
+
+    [RelayCommand]
+    private void ViewFormFieldFile(FormFieldItemViewModel? item)
+    {
+        if (item is null || !item.HasBase64)
+        {
+            return;
+        }
+
+        byte[] bytes;
+        try
+        {
+            bytes = Convert.FromBase64String(item.Base64Content);
+        }
+        catch (FormatException)
+        {
+            MessageBox.Show(
+                "The stored file data is not valid base64.",
+                "Form data",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var safeName = SanitizeTempFileName(
+            string.IsNullOrWhiteSpace(item.FileName) ? "form-file" : item.FileName);
+        var path = Path.Combine(Path.GetTempPath(), $"RequestExplorer-form-{Guid.NewGuid():N}-{safeName}");
+        try
+        {
+            File.WriteAllBytes(path, bytes);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = path,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                $"Could not open file:\n{ex.Message}",
+                "Form data",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private static string SanitizeTempFileName(string fileName)
+    {
+        var name = Path.GetFileName(fileName.Trim());
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "form-file";
+        }
+
+        foreach (var c in Path.GetInvalidFileNameChars())
+        {
+            name = name.Replace(c, '_');
+        }
+
+        return name;
+    }
+
+    [RelayCommand]
+    private void RemoveFormField(FormFieldItemViewModel? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        if (!item.HasKey && string.IsNullOrWhiteSpace(item.Value) && !item.HasBase64
+            && FormFields.Count == 1)
+        {
+            return;
+        }
+
+        var index = FormFields.IndexOf(item);
+        if (index < 0)
+        {
+            return;
+        }
+
+        RemoveFormFieldRow(item);
+        if (_undoRecorder is { IsApplyingHistory: false })
+        {
+            _undoRecorder.Record(
+                new InsertFormFieldRowAction(this, item, index, $"Remove form field '{item.Key}'"));
+        }
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        if (bytes < 1024)
+        {
+            return $"{bytes} B";
+        }
+
+        if (bytes < 1024 * 1024)
+        {
+            return $"{bytes / 1024.0:0.#} KB";
+        }
+
+        return $"{bytes / (1024.0 * 1024.0):0.##} MB";
     }
 
     [RelayCommand]

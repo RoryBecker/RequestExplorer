@@ -25,7 +25,7 @@ public sealed class PowerShellExportFormatProvider : IExportFormatProvider
         sb.Append(" -Method ").Append(method);
         sb.Append(" -Uri ").Append(RequestExportSupport.PsSingleQuote(url));
         sb.Append(" -Headers $headers");
-        if (RequestExportSupport.HasBody(request))
+        if (RequestExportSupport.HasRawBody(request))
         {
             sb.Append(" -Body ").Append(RequestExportSupport.PsSingleQuote(request.Body.Content));
         }

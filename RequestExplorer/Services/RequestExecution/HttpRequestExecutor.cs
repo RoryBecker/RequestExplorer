@@ -64,7 +64,7 @@ public sealed class HttpRequestExecutor : IDisposable
         try
         {
             message = BuildRequestMessage(request);
-            rawRequest = FormatRawRequest(message, request.Body.Content);
+            rawRequest = FormatRawRequest(message, FormatBodyForRawView(request));
 
             var sendToken = cancellationToken;
             if (timeout != Timeout.InfiniteTimeSpan)
@@ -213,20 +213,120 @@ public sealed class HttpRequestExecutor : IDisposable
 
         ApplyHeaderAuthentication(message, request.Authentication);
 
-        var mayHaveBody = request.Verb is HttpVerb.POST or HttpVerb.PUT or HttpVerb.PATCH
-                          || !string.IsNullOrEmpty(request.Body.Content);
-
-        if (mayHaveBody && !string.IsNullOrEmpty(request.Body.Content))
+        if (request.Body.Mode == RequestBodyMode.FormData)
         {
-            var contentType = ResolveContentType(request);
-            message.Content = new StringContent(request.Body.Content, Encoding.UTF8);
-            if (!string.IsNullOrWhiteSpace(contentType))
+            var multipart = BuildMultipartContent(request);
+            if (multipart is not null)
             {
-                message.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+                message.Content = multipart;
+            }
+        }
+        else
+        {
+            var mayHaveBody = request.Verb is HttpVerb.POST or HttpVerb.PUT or HttpVerb.PATCH
+                              || !string.IsNullOrEmpty(request.Body.Content);
+
+            if (mayHaveBody && !string.IsNullOrEmpty(request.Body.Content))
+            {
+                var contentType = ResolveContentType(request);
+                message.Content = new StringContent(request.Body.Content, Encoding.UTF8);
+                if (!string.IsNullOrWhiteSpace(contentType))
+                {
+                    message.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
+                }
             }
         }
 
         return message;
+    }
+
+    private static MultipartFormDataContent? BuildMultipartContent(RequestDefinition request)
+    {
+        var fields = request.Body.FormFields
+            ?? Enumerable.Empty<FormFieldItem>();
+        var enabled = fields
+            .Where(f => f.IsEnabled && !string.IsNullOrWhiteSpace(f.Key))
+            .ToList();
+        if (enabled.Count == 0)
+        {
+            return null;
+        }
+
+        var multipart = new MultipartFormDataContent();
+        foreach (var field in enabled)
+        {
+            if (field.Type == FormFieldType.File)
+            {
+                if (string.IsNullOrWhiteSpace(field.Base64Content))
+                {
+                    continue;
+                }
+
+                byte[] bytes;
+                try
+                {
+                    bytes = Convert.FromBase64String(field.Base64Content);
+                }
+                catch (FormatException)
+                {
+                    continue;
+                }
+
+                var fileContent = new ByteArrayContent(bytes);
+                var fileName = string.IsNullOrWhiteSpace(field.FileName) ? "file" : field.FileName;
+                multipart.Add(fileContent, field.Key, fileName);
+            }
+            else
+            {
+                multipart.Add(new StringContent(field.Value ?? string.Empty), field.Key);
+            }
+        }
+
+        return multipart;
+    }
+
+    private static string FormatBodyForRawView(RequestDefinition request)
+    {
+        if (request.Body.Mode != RequestBodyMode.FormData)
+        {
+            return request.Body.Content ?? string.Empty;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine("(multipart/form-data)");
+        foreach (var field in request.Body.FormFields
+                     ?? Enumerable.Empty<FormFieldItem>())
+        {
+            if (!field.IsEnabled || string.IsNullOrWhiteSpace(field.Key))
+            {
+                continue;
+            }
+
+            if (field.Type == FormFieldType.File)
+            {
+                var name = string.IsNullOrWhiteSpace(field.FileName) ? "file" : field.FileName;
+                var size = 0;
+                if (!string.IsNullOrWhiteSpace(field.Base64Content))
+                {
+                    try
+                    {
+                        size = Convert.FromBase64String(field.Base64Content).Length;
+                    }
+                    catch (FormatException)
+                    {
+                        // ignore
+                    }
+                }
+
+                sb.Append(field.Key).Append(": [file ").Append(name).Append(" / ").Append(size).AppendLine(" bytes]");
+            }
+            else
+            {
+                sb.Append(field.Key).Append(": ").AppendLine(field.Value);
+            }
+        }
+
+        return sb.ToString().TrimEnd();
     }
 
     private static string FormatRawRequest(HttpRequestMessage message, string? body)

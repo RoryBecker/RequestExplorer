@@ -44,6 +44,11 @@ public sealed class UiPreferences
     public int VariableNestingMaxDepth { get; set; } = 10;
 
     /// <summary>
+    /// Max size in megabytes for a single form-data file part (clamped 1–500; default 10).
+    /// </summary>
+    public int FormDataFileMaxMegabytes { get; set; } = FormDataPreferences.DefaultMaxFileMegabytes;
+
+    /// <summary>
     /// When true, Inherited Variables / Headers grids stay visible even with no rows.
     /// </summary>
     public bool ShowEmptyInheritedGrids { get; set; }

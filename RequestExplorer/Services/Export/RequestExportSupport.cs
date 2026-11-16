@@ -6,10 +6,21 @@ namespace RequestExplorer.Services.Export;
 
 internal static class RequestExportSupport
 {
-    public static bool HasBody(RequestDefinition request) =>
-        !string.IsNullOrEmpty(request.Body.Content)
+    public static bool HasRawBody(RequestDefinition request) =>
+        request.Body.Mode != RequestBodyMode.FormData
+        && !string.IsNullOrEmpty(request.Body.Content)
         && (request.Verb is HttpVerb.POST or HttpVerb.PUT or HttpVerb.PATCH
             || !string.IsNullOrEmpty(request.Body.Content));
+
+    public static bool HasFormDataBody(RequestDefinition request) =>
+        request.Body.Mode == RequestBodyMode.FormData
+        && (request.Body.FormFields ?? []).Any(f =>
+            f.IsEnabled
+            && !string.IsNullOrWhiteSpace(f.Key)
+            && (f.Type != FormFieldType.File || !string.IsNullOrWhiteSpace(f.Base64Content)));
+
+    public static bool HasBody(RequestDefinition request) =>
+        HasFormDataBody(request) || HasRawBody(request);
 
     public static IEnumerable<(string Name, string Value)> GetEffectiveHeaders(RequestDefinition request)
     {
@@ -54,7 +65,8 @@ internal static class RequestExportSupport
                 break;
         }
 
-        if (HasBody(request))
+        // Multipart Content-Type (with boundary) is supplied by the HTTP stack / curl --form.
+        if (HasRawBody(request))
         {
             var contentType = string.IsNullOrWhiteSpace(request.Body.ContentType)
                 ? "application/json"

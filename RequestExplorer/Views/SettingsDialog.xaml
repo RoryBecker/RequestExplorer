@@ -67,6 +67,28 @@
                                    TextWrapping="Wrap"
                                    Text="When a variable's value contains {{name}}, lookup restarts at the request and walks up the tree. Default is 10 (1–50). Deeper chains abort and show in Diagnose." />
 
+                        <Separator Margin="0,16,0,12" />
+
+                        <TextBlock Text="Form data"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,8" />
+
+                        <DockPanel Margin="0,0,0,4">
+                            <TextBlock DockPanel.Dock="Left"
+                                       VerticalAlignment="Center"
+                                       Width="140"
+                                       Text="Max file size (MB)" />
+                            <TextBox x:Name="FormDataFileMaxBox"
+                                     Width="80"
+                                     HorizontalAlignment="Left"
+                                     VerticalContentAlignment="Center" />
+                        </DockPanel>
+
+                        <TextBlock Margin="0,8,0,0"
+                                   Foreground="{DynamicResource App.MutedBrush}"
+                                   TextWrapping="Wrap"
+                                   Text="Limit for a single form-data file part when browsing from disk. Default is 10 MB (1–500)." />
+
                         <CheckBox x:Name="ShowEmptyInheritedGridsCheck"
                                   Content="Show empty Inherited Variables and Headers grids"
                                   Margin="0,16,0,4" />

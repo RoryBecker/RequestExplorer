@@ -320,6 +320,15 @@ public static partial class VariableResolver
         CollectFromText(request.Body.Content, names);
         CollectFromText(request.Body.ContentType, names);
 
+        foreach (var field in request.Body.FormFields ?? [])
+        {
+            CollectFromText(field.Key, names);
+            if (field.Type == FormFieldType.Text)
+            {
+                CollectFromText(field.Value, names);
+            }
+        }
+
         foreach (var item in request.Params)
         {
             CollectFromText(item.Key, names);
@@ -478,6 +487,15 @@ public static partial class VariableResolver
         if (request.Body.ContentType is not null)
         {
             request.Body.ContentType = Substitute(request.Body.ContentType, variables);
+        }
+
+        foreach (var field in request.Body.FormFields ?? [])
+        {
+            field.Key = Substitute(field.Key, variables);
+            if (field.Type == FormFieldType.Text)
+            {
+                field.Value = Substitute(field.Value, variables);
+            }
         }
 
         foreach (var item in request.Params)

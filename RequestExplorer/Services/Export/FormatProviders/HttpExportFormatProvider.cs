@@ -30,7 +30,7 @@ public sealed class HttpExportFormatProvider : IExportFormatProvider
             sb.Append(name).Append(": ").Append(value).Append('\n');
         }
 
-        if (RequestExportSupport.HasBody(request))
+        if (RequestExportSupport.HasRawBody(request))
         {
             sb.Append('\n').Append(request.Body.Content);
         }

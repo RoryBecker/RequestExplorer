@@ -34,7 +34,7 @@ public sealed class FetchExportFormatProvider : IExportFormatProvider
             }
 
             sb.Append("  }");
-            if (RequestExportSupport.HasBody(request))
+            if (RequestExportSupport.HasRawBody(request))
             {
                 sb.Append(',');
             }
@@ -42,7 +42,7 @@ public sealed class FetchExportFormatProvider : IExportFormatProvider
             sb.Append('\n');
         }
 
-        if (RequestExportSupport.HasBody(request))
+        if (RequestExportSupport.HasRawBody(request))
         {
             sb.Append("  body: ").Append(RequestExportSupport.JsString(request.Body.Content)).Append('\n');
         }

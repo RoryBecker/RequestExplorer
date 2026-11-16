@@ -21,7 +21,7 @@ public sealed class HttpieExportFormatProvider : IExportFormatProvider
             sb.Append(" \\\n  ").Append(name).Append(':').Append(RequestExportSupport.ShellSingleQuote(value));
         }
 
-        if (RequestExportSupport.HasBody(request))
+        if (RequestExportSupport.HasRawBody(request))
         {
             // Prefer raw body via stdin-style flag for arbitrary content.
             sb.Append(" \\\n  --raw ").Append(RequestExportSupport.ShellSingleQuote(request.Body.Content));

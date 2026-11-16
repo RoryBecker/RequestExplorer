@@ -14,6 +14,8 @@ public partial class SettingsDialog : Window
         DevModeCheck.IsChecked = preferences.DevModeIgnoreTimeout;
         TimeoutBox.Text = Math.Clamp(preferences.RequestTimeoutSeconds, 1, 3600).ToString();
         NestingDepthBox.Text = VariableResolver.ClampMaxNestingDepth(preferences.VariableNestingMaxDepth).ToString();
+        FormDataFileMaxBox.Text = FormDataPreferences.ClampMaxFileMegabytes(
+            preferences.FormDataFileMaxMegabytes).ToString();
         ShowEmptyInheritedGridsCheck.IsChecked = preferences.ShowEmptyInheritedGrids;
         MouseTreeNavCheck.IsChecked = preferences.EnableMouseTreeNavigation;
         BackupOnStartupCheck.IsChecked = preferences.BackupOnStartup;
@@ -37,6 +39,9 @@ public partial class SettingsDialog : Window
     public int RequestTimeoutSeconds { get; private set; } = 30;
 
     public int VariableNestingMaxDepth { get; private set; } = VariableResolver.DefaultMaxNestingDepth;
+
+    public int FormDataFileMaxMegabytes { get; private set; } =
+        FormDataPreferences.DefaultMaxFileMegabytes;
 
     public bool ShowEmptyInheritedGrids => ShowEmptyInheritedGridsCheck.IsChecked == true;
 
@@ -113,6 +118,23 @@ public partial class SettingsDialog : Window
             MessageBox.Show(
                 this,
                 $"Enter a variable nesting depth between {VariableResolver.MinMaxNestingDepth} and {VariableResolver.MaxMaxNestingDepth}.",
+                "Settings",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        if (int.TryParse(FormDataFileMaxBox.Text.Trim(), out var formMax)
+            && formMax is >= FormDataPreferences.MinMaxFileMegabytes
+                and <= FormDataPreferences.MaxMaxFileMegabytes)
+        {
+            FormDataFileMaxMegabytes = formMax;
+        }
+        else
+        {
+            MessageBox.Show(
+                this,
+                $"Enter a form-data file size limit between {FormDataPreferences.MinMaxFileMegabytes} and {FormDataPreferences.MaxMaxFileMegabytes} MB.",
                 "Settings",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);

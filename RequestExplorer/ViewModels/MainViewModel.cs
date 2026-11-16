@@ -74,6 +74,8 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             BackupService.ClampRetention(UiPreferences.BackupRetentionCount);
         UiPreferences.VariableNestingMaxDepth =
             VariableResolver.ClampMaxNestingDepth(UiPreferences.VariableNestingMaxDepth);
+        UiPreferences.FormDataFileMaxMegabytes =
+            FormDataPreferences.ClampMaxFileMegabytes(UiPreferences.FormDataFileMaxMegabytes);
         UiPreferences.RunAllMaxThreads = Math.Clamp(UiPreferences.RunAllMaxThreads, 1, 10);
 
         _isQuickExportVisible = UiPreferences.IsQuickExportVisible;
@@ -90,6 +92,7 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         _showEmptyInheritedGrids = UiPreferences.ShowEmptyInheritedGrids;
         InheritedGridPreferences.ShowEmptyInheritedGrids = _showEmptyInheritedGrids;
         InheritedGridPreferences.EnableInheritBreakControl = UiPreferences.EnableInheritBreakControl;
+        FormDataPreferences.MaxFileMegabytes = UiPreferences.FormDataFileMaxMegabytes;
         EnsureValidTreeSearchScope();
         SyncTreeSearchScope();
         ApplyHttpTimeoutSettings();
@@ -3008,6 +3011,32 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         TryEditor(RequestEditorField.ApiKeyName);
         TryEditor(RequestEditorField.ApiKeyValue);
 
+        foreach (var formField in request.FormFields.ToList())
+        {
+            var prevKey = formField.Key ?? string.Empty;
+            var nextKey = VariableResolver.ReplaceTokenName(prevKey, oldName, newName);
+            if (!string.Equals(nextKey, prevKey, StringComparison.Ordinal))
+            {
+                request.ApplyFormField(formField, FormFieldField.Key, nextKey);
+                undoSteps.Add(new SetFormFieldFieldAction(
+                    request, formField, FormFieldField.Key, prevKey, "Rename variable in form field"));
+            }
+
+            if (!formField.IsTextType)
+            {
+                continue;
+            }
+
+            var prevValue = formField.Value ?? string.Empty;
+            var nextValue = VariableResolver.ReplaceTokenName(prevValue, oldName, newName);
+            if (!string.Equals(nextValue, prevValue, StringComparison.Ordinal))
+            {
+                request.ApplyFormField(formField, FormFieldField.Value, nextValue);
+                undoSteps.Add(new SetFormFieldFieldAction(
+                    request, formField, FormFieldField.Value, prevValue, "Rename variable in form field"));
+            }
+        }
+
         foreach (var header in request.Headers.ToList())
         {
             TryKeyValue(KeyValueListKind.Headers, header, KeyValueField.Key);
@@ -4352,6 +4381,9 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
             BackupService.ClampRetention(dialog.BackupRetentionCount);
         UiPreferences.VariableNestingMaxDepth =
             VariableResolver.ClampMaxNestingDepth(dialog.VariableNestingMaxDepth);
+        UiPreferences.FormDataFileMaxMegabytes =
+            FormDataPreferences.ClampMaxFileMegabytes(dialog.FormDataFileMaxMegabytes);
+        FormDataPreferences.MaxFileMegabytes = UiPreferences.FormDataFileMaxMegabytes;
         UiPreferences.ShowEmptyInheritedGrids = dialog.ShowEmptyInheritedGrids;
         ShowEmptyInheritedGrids = dialog.ShowEmptyInheritedGrids;
         InheritedGridPreferences.ShowEmptyInheritedGrids = dialog.ShowEmptyInheritedGrids;

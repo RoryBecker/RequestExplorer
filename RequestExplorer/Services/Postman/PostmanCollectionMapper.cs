@@ -609,11 +609,29 @@ public static class PostmanCollectionMapper
         }
 
         var body = bodyEl.Deserialize<PostmanBody>(JsonOptions);
-        if (body is not { Mode: "raw" })
+        if (body is null)
         {
             return;
         }
 
+        if (string.Equals(body.Mode, "formdata", StringComparison.OrdinalIgnoreCase))
+        {
+            request.Body.Mode = RequestBodyMode.FormData;
+            request.Body.FormFields = (body.Formdata ?? [])
+                .Select(ToFormField)
+                .Where(f => !string.IsNullOrWhiteSpace(f.Key)
+                            || f.Type == FormFieldType.File
+                            || !string.IsNullOrWhiteSpace(f.Value))
+                .ToList();
+            return;
+        }
+
+        if (!string.Equals(body.Mode, "raw", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        request.Body.Mode = RequestBodyMode.Raw;
         request.Body.Content = body.Raw ?? string.Empty;
         var language = body.Options?.Raw?.Language;
         request.Body.ContentType = MapLanguageToContentType(language);
@@ -624,6 +642,57 @@ public static class PostmanCollectionMapper
         if (contentTypeHeader is not null && !string.IsNullOrWhiteSpace(contentTypeHeader.Value))
         {
             request.Body.ContentType = contentTypeHeader.Value;
+        }
+    }
+
+    private static FormFieldItem ToFormField(PostmanFormdataItem item)
+    {
+        var isFile = string.Equals(item.Type, "file", StringComparison.OrdinalIgnoreCase);
+        var field = new FormFieldItem
+        {
+            Key = item.Key ?? string.Empty,
+            IsEnabled = item.Disabled != true,
+            Type = isFile ? FormFieldType.File : FormFieldType.Text
+        };
+
+        if (isFile)
+        {
+            field.FileName = ReadFormdataFileName(item.Src);
+            // Our export stores base64 in value for round-trip; Postman paths can't be read here.
+            field.Base64Content = item.Value ?? string.Empty;
+        }
+        else
+        {
+            field.Value = item.Value ?? string.Empty;
+        }
+
+        return field;
+    }
+
+    private static string ReadFormdataFileName(JsonElement? src)
+    {
+        if (src is not { } element)
+        {
+            return string.Empty;
+        }
+
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.String:
+                return Path.GetFileName(element.GetString() ?? string.Empty);
+            case JsonValueKind.Array:
+                foreach (var entry in element.EnumerateArray())
+                {
+                    if (entry.ValueKind == JsonValueKind.String
+                        && !string.IsNullOrWhiteSpace(entry.GetString()))
+                    {
+                        return Path.GetFileName(entry.GetString()!);
+                    }
+                }
+
+                return string.Empty;
+            default:
+                return string.Empty;
         }
     }
 
@@ -803,6 +872,27 @@ public static class PostmanCollectionMapper
 
     private static PostmanBody? BuildBody(RequestDefinition request)
     {
+        if (request.Body.Mode == RequestBodyMode.FormData)
+        {
+            var fields = (request.Body.FormFields ?? [])
+                .Where(f => !string.IsNullOrWhiteSpace(f.Key)
+                            || f.Type == FormFieldType.File
+                            || !string.IsNullOrWhiteSpace(f.Value))
+                .Select(ToPostmanFormdata)
+                .ToList();
+            if (fields.Count == 0
+                && request.Verb is HttpVerb.GET or HttpVerb.HEAD or HttpVerb.OPTIONS or HttpVerb.DELETE)
+            {
+                return null;
+            }
+
+            return new PostmanBody
+            {
+                Mode = "formdata",
+                Formdata = fields
+            };
+        }
+
         if (string.IsNullOrEmpty(request.Body.Content)
             && request.Verb is HttpVerb.GET or HttpVerb.HEAD or HttpVerb.OPTIONS or HttpVerb.DELETE)
         {
@@ -825,6 +915,31 @@ public static class PostmanCollectionMapper
                     Language = MapContentTypeToLanguage(request.Body.ContentType)
                 }
             }
+        };
+    }
+
+    private static PostmanFormdataItem ToPostmanFormdata(FormFieldItem field)
+    {
+        if (field.Type == FormFieldType.File)
+        {
+            var fileName = string.IsNullOrWhiteSpace(field.FileName) ? "file" : field.FileName;
+            return new PostmanFormdataItem
+            {
+                Key = field.Key,
+                Type = "file",
+                Src = JsonSerializer.SerializeToElement(fileName),
+                // Round-trip base64 through value (Postman ignores for file; we restore on import).
+                Value = field.Base64Content,
+                Disabled = field.IsEnabled ? null : true
+            };
+        }
+
+        return new PostmanFormdataItem
+        {
+            Key = field.Key,
+            Type = "text",
+            Value = field.Value,
+            Disabled = field.IsEnabled ? null : true
         };
     }
 

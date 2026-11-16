@@ -50,13 +50,14 @@ public static class SampleDataFactory
             Description = """
                 Select a request and click Send (or press Alt+X).
 
-                GET and DELETE have no body. POST, PUT, and PATCH send JSON — open the Body tab to edit it, then Send and inspect the response.
+                GET and DELETE have no body. POST JSON / PUT / PATCH use a raw JSON body. POST form-data uses multipart fields (text and an optional file) — open the Body tab, switch Type to Form data, then Send and inspect form/files in the response.
                 """
         };
         Add(folder, TourReq("GET", HttpVerb.GET, "{{host}}/get"));
         Add(folder, TourReq("POST JSON", HttpVerb.POST, "{{host}}/post",
             body: """{"message":"hello from Feature Tour"}""",
             contentType: "application/json"));
+        Add(folder, TourFormDataPost());
         Add(folder, TourReq("PUT", HttpVerb.PUT, "{{host}}/put",
             body: """{"update":true}""",
             contentType: "application/json"));
@@ -66,6 +67,39 @@ public static class SampleDataFactory
         Add(folder, TourReq("DELETE", HttpVerb.DELETE, "{{host}}/delete"));
         Add(folder, TourReq("Anything", HttpVerb.GET, "{{host}}/anything?from=feature-tour"));
         return folder;
+    }
+
+    private static RequestDefinition TourFormDataPost()
+    {
+        var request = TourReq("POST form-data", HttpVerb.POST, "{{host}}/post");
+        request.Body.Mode = RequestBodyMode.FormData;
+        request.Body.FormFields =
+        [
+            new FormFieldItem
+            {
+                IsEnabled = true,
+                Key = "message",
+                Type = FormFieldType.Text,
+                Value = "hello from Feature Tour"
+            },
+            new FormFieldItem
+            {
+                IsEnabled = true,
+                Key = "client",
+                Type = FormFieldType.Text,
+                Value = "{{client}}"
+            },
+            new FormFieldItem
+            {
+                IsEnabled = true,
+                Key = "attachment",
+                Type = FormFieldType.File,
+                FileName = "feature-tour.txt",
+                // UTF-8: "hello from Feature Tour"
+                Base64Content = "aGVsbG8gZnJvbSBGZWF0dXJlIFRvdXI="
+            }
+        ];
+        return request;
     }
 
     private static FolderDefinition BuildDiagnosisFolder()

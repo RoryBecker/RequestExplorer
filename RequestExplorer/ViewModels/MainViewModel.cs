@@ -797,6 +797,19 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
         RevealVariableDefinition(target, item, row.Key);
     }
 
+    /// <summary>Selects the container that defines an inherited header and scrolls it into view.</summary>
+    public void GoToHeaderDefinition(InheritedHeaderRow row)
+    {
+        var target = row.SourceContainer;
+        var item = row.SourceItem;
+        if (item is null || target.IndexOfHeader(item) < 0)
+        {
+            item = target.FindHeaderByKey(row.Key);
+        }
+
+        RevealHeaderDefinition(target, item, row.Key);
+    }
+
     /// <summary>
     /// Selects the nearest ancestor that defines <paramref name="name"/>, starting from
     /// <paramref name="from"/> (or its parent, when that is a request).
@@ -877,6 +890,30 @@ public partial class MainViewModel : ObservableObject, IUndoContext, IUndoRecord
 
         TreeRevealRequested?.Invoke([target]);
         StatusMessage = $"Showing definition of '{key}' on '{target.Name}'";
+    }
+
+    private void RevealHeaderDefinition(
+        ContainerNodeViewModel target,
+        KeyValueItemViewModel? item,
+        string key)
+    {
+        ExpandAncestors(target);
+        target.IsExpanded = true;
+        SelectOnly(target);
+        SetContainerTabIndex(target, 2);
+
+        if (item is null || target.IndexOfHeader(item) < 0)
+        {
+            item = target.FindHeaderByKey(key);
+        }
+
+        // Defer until the Headers grid has loaded for the newly selected container.
+        Application.Current?.Dispatcher.BeginInvoke(
+            () => target.SelectedHeader = item,
+            DispatcherPriority.Loaded);
+
+        TreeRevealRequested?.Invoke([target]);
+        StatusMessage = $"Showing header '{key}' on '{target.Name}'";
     }
 
     public void ToggleSelection(TreeNodeViewModel node)

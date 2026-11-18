@@ -155,6 +155,18 @@ public static class KeyValueGridClipboard
                     }
 
                     break;
+                case InheritedHeaderRow inheritedHeader:
+                    try
+                    {
+                        grid.SelectedItem = inheritedHeader;
+                        grid.CurrentItem = inheritedHeader;
+                    }
+                    catch
+                    {
+                        // ignore selection failures
+                    }
+
+                    break;
             }
         }
         catch
@@ -178,7 +190,7 @@ public static class KeyValueGridClipboard
             var canPaste = CanPasteInto(grid);
             var canDuplicate = canCopyRows && TryGetPasteTarget(grid, out _, out _, out _, out _);
             var canCopyField = TryGetPrimaryNameValue(grid, out _, out _);
-            var isInherited = IsInheritedVariablesGrid(grid);
+            var isInherited = IsInheritedReadOnlyGrid(grid);
 
             // Inherited grids only need Name/Value + Go to Definition; hide row copy/paste there.
             var showRowClipboard = !isInherited;
@@ -235,6 +247,22 @@ public static class KeyValueGridClipboard
     private static bool IsInheritedVariablesGrid(DataGrid grid) =>
         grid.DataContext is ContainerNodeViewModel container
         && ReferenceEquals(UnwrapItemsSource(grid.ItemsSource), container.InheritedVariables);
+
+    private static bool IsInheritedHeadersGrid(DataGrid grid)
+    {
+        var source = UnwrapItemsSource(grid.ItemsSource);
+        return grid.DataContext switch
+        {
+            ContainerNodeViewModel container =>
+                ReferenceEquals(source, container.InheritedHeaders),
+            RequestNodeViewModel request =>
+                ReferenceEquals(source, request.InheritedHeaders),
+            _ => false
+        };
+    }
+
+    private static bool IsInheritedReadOnlyGrid(DataGrid grid) =>
+        IsInheritedVariablesGrid(grid) || IsInheritedHeadersGrid(grid);
 
     private static void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -474,28 +502,57 @@ public static class KeyValueGridClipboard
 
     private static void OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not DataGrid grid || !IsInheritedVariablesGrid(grid))
+        if (sender is not DataGrid grid
+            || Application.Current?.MainWindow?.DataContext is not MainViewModel vm)
         {
             return;
         }
 
-        // Prefer the row under the cursor; fall back to current selection.
-        InheritedVariableRow? row = null;
-        if (FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject) is { Item: InheritedVariableRow underCursor })
+        var rowVisual = FindAncestor<DataGridRow>(e.OriginalSource as DependencyObject);
+
+        if (IsInheritedVariablesGrid(grid))
         {
-            row = underCursor;
-        }
-        else if (TryGetInheritedSelection(grid, out var selected))
-        {
-            row = selected;
+            InheritedVariableRow? row = null;
+            if (rowVisual is { Item: InheritedVariableRow underCursor })
+            {
+                row = underCursor;
+            }
+            else if (TryGetInheritedVariableSelection(grid, out var selected))
+            {
+                row = selected;
+            }
+
+            if (row is null)
+            {
+                return;
+            }
+
+            vm.GoToVariableDefinition(row);
+            e.Handled = true;
+            return;
         }
 
-        if (row is null || Application.Current?.MainWindow?.DataContext is not MainViewModel vm)
+        if (!IsInheritedHeadersGrid(grid))
         {
             return;
         }
 
-        vm.GoToVariableDefinition(row);
+        InheritedHeaderRow? headerRow = null;
+        if (rowVisual is { Item: InheritedHeaderRow underHeader })
+        {
+            headerRow = underHeader;
+        }
+        else if (TryGetInheritedHeaderSelection(grid, out var selectedHeader))
+        {
+            headerRow = selectedHeader;
+        }
+
+        if (headerRow is null)
+        {
+            return;
+        }
+
+        vm.GoToHeaderDefinition(headerRow);
         e.Handled = true;
     }
 
@@ -565,6 +622,19 @@ public static class KeyValueGridClipboard
                     }
                 }));
         }
+        else if (rowItem is InheritedHeaderRow inheritedHeader)
+        {
+            var captured = inheritedHeader;
+            gotoTargets.Add(new VariableGoToDefinitionMenu.GoToDefinitionTarget(
+                captured.Key,
+                () =>
+                {
+                    if (Application.Current?.MainWindow?.DataContext is MainViewModel vm)
+                    {
+                        vm.GoToHeaderDefinition(captured);
+                    }
+                }));
+        }
 
         var editBox = originalSource as TextBox ?? FindAncestor<TextBox>(originalSource);
         if (editBox is not null)
@@ -586,6 +656,10 @@ public static class KeyValueGridClipboard
             case InheritedVariableRow inheritedRow:
                 keyText = inheritedRow.Key;
                 valueText = inheritedRow.VariableValue;
+                break;
+            case InheritedHeaderRow inheritedHeaderRow:
+                keyText = inheritedHeaderRow.Key;
+                valueText = inheritedHeaderRow.HeaderValue;
                 break;
             default:
                 tokenNames = names;
@@ -612,7 +686,7 @@ public static class KeyValueGridClipboard
         extraGoto = gotoTargets;
     }
 
-    private static bool TryGetInheritedSelection(DataGrid grid, out InheritedVariableRow row)
+    private static bool TryGetInheritedVariableSelection(DataGrid grid, out InheritedVariableRow row)
     {
         row = null!;
         if (grid.SelectedItem is InheritedVariableRow selected)
@@ -622,6 +696,24 @@ public static class KeyValueGridClipboard
         }
 
         if (grid.CurrentItem is InheritedVariableRow current)
+        {
+            row = current;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetInheritedHeaderSelection(DataGrid grid, out InheritedHeaderRow row)
+    {
+        row = null!;
+        if (grid.SelectedItem is InheritedHeaderRow selected)
+        {
+            row = selected;
+            return true;
+        }
+
+        if (grid.CurrentItem is InheritedHeaderRow current)
         {
             row = current;
             return true;
@@ -651,6 +743,10 @@ public static class KeyValueGridClipboard
             case InheritedVariableRow inherited:
                 name = inherited.Key ?? string.Empty;
                 value = inherited.VariableValue ?? string.Empty;
+                return true;
+            case InheritedHeaderRow inheritedHeader:
+                name = inheritedHeader.Key ?? string.Empty;
+                value = inheritedHeader.HeaderValue ?? string.Empty;
                 return true;
             default:
                 return false;

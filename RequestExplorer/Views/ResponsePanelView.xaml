@@ -77,8 +77,15 @@
             <TextBlock DockPanel.Dock="Left"
                        VerticalAlignment="Center"
                        Margin="0,0,16,0">
-                <Run Text="Time " Foreground="{DynamicResource App.MutedBrush}" />
+                <Run Text="Duration " Foreground="{DynamicResource App.MutedBrush}" />
                 <Run Text="{Binding ElapsedDisplay, Mode=OneWay}" FontWeight="SemiBold" />
+            </TextBlock>
+            <TextBlock DockPanel.Dock="Left"
+                       VerticalAlignment="Center"
+                       Margin="0,0,16,0"
+                       ToolTip="{Binding ExecutedAtUtcToolTip, Mode=OneWay}">
+                <Run Text="Executed " Foreground="{DynamicResource App.MutedBrush}" />
+                <Run Text="{Binding ExecutedAtDisplay, Mode=OneWay}" FontWeight="SemiBold" />
             </TextBlock>
             <TextBlock DockPanel.Dock="Left"
                        VerticalAlignment="Center"

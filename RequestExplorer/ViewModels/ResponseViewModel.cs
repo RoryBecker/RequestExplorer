@@ -34,6 +34,14 @@ public partial class ResponseViewModel : ObservableObject
     [ObservableProperty]
     private string _elapsedDisplay = "—";
 
+    /// <summary>Local wall-clock time when the last send finished (or "—" while idle/sending).</summary>
+    [ObservableProperty]
+    private string _executedAtDisplay = "—";
+
+    /// <summary>UTC counterpart of <see cref="ExecutedAtDisplay"/> for the tooltip.</summary>
+    [ObservableProperty]
+    private string _executedAtUtcToolTip = string.Empty;
+
     /// <summary>Raw total duration from the last result; null when unknown.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanCopyExpectationsFromLastRun))]
@@ -119,6 +127,8 @@ public partial class ResponseViewModel : ObservableObject
         SizeWarning = string.Empty;
         StatusDisplay = "Sending…";
         ElapsedDisplay = "—";
+        ExecutedAtDisplay = "—";
+        ExecutedAtUtcToolTip = string.Empty;
         TotalMilliseconds = null;
         BodyText = string.Empty;
         RawRequest = string.Empty;
@@ -182,6 +192,9 @@ public partial class ResponseViewModel : ObservableObject
 
         TotalMilliseconds = result.Timing.TotalMilliseconds;
         ElapsedDisplay = FormatMs(result.Timing.TotalMilliseconds);
+        var executedAt = DateTimeOffset.Now;
+        ExecutedAtDisplay = executedAt.ToLocalTime().ToString("G");
+        ExecutedAtUtcToolTip = $"UTC {executedAt.UtcDateTime.ToString("G")}";
         TotalTimingDisplay = FormatMs(result.Timing.TotalMilliseconds);
         TimeToHeadersDisplay = result.Succeeded
             ? FormatMs(result.Timing.TimeToHeadersMilliseconds)

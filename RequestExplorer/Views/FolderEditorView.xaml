@@ -400,7 +400,7 @@
                                                         Binding="{Binding HeaderValue}"
                                                         Width="2*"
                                                         MinWidth="80"
-                                                        ElementStyle="{StaticResource KeyValueCellTextPlain}" />
+                                                        ElementStyle="{StaticResource KeyValueCellText}" />
                                     <DataGridTextColumn Header="From"
                                                         Binding="{Binding SourceName}"
                                                         Width="120"
